@@ -127,5 +127,7 @@ webview2-com = "0.39"
 codegen-units = 1
 lto = true
 opt-level = 3
-panic = "abort"
+# Unwinds, so that a panic in a window message is caught and the dock goes on
+# (M4, `windows::panics`); abort took the whole app down.
+panic = "unwind"
 strip = true

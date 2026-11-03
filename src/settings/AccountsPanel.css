@@ -50,7 +50,7 @@
 .account-hint {
   margin: 0;
   color: var(--ink-2);
-  font-size: 12px;
+  font-size: var(--fs-caption);
   line-height: 1.4;
 }
 
@@ -79,7 +79,7 @@
   margin: 0;
   padding: 0 0 4px;
   list-style: none;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
 }
 
 .account-calendars li {
@@ -104,7 +104,7 @@
   margin: 0;
   padding: 0 14px 10px;
   color: var(--danger-ink);
-  font-size: 12px;
+  font-size: var(--fs-caption);
 }
 
 @media (forced-colors: active) {

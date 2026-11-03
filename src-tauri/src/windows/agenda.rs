@@ -356,32 +356,37 @@ fn paint(hwnd: HWND) {
 }
 
 extern "system" fn procedure(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-    match message {
-        WM_PAINT => {
-            paint(hwnd);
-            LRESULT(0)
+    crate::windows::panics::window_message(|| {
+        match message {
+            WM_PAINT => {
+                paint(hwnd);
+                LRESULT(0)
+            }
+            WM_ERASEBKGND => LRESULT(1),
+            // A click never takes the focus from the window in front.
+            WM_MOUSEACTIVATE => LRESULT(MA_NOACTIVATE as isize),
+            WM_MOUSEMOVE => {
+                hover(hwnd, f64::from(((lparam.0 >> 16) & 0xFFFF) as u16 as i16));
+                LRESULT(0)
+            }
+            WM_MOUSEWHEEL => {
+                wheel(hwnd, ((wparam.0 >> 16) & 0xFFFF) as u16 as i16);
+                LRESULT(0)
+            }
+            WM_LBUTTONUP => {
+                click(f64::from(((lparam.0 >> 16) & 0xFFFF) as u16 as i16));
+                LRESULT(0)
+            }
+            WM_TIMER if wparam.0 == WATCH_TIMER => {
+                watch();
+                LRESULT(0)
+            }
+            _ => unsafe { DefWindowProcW(hwnd, message, wparam, lparam) },
         }
-        WM_ERASEBKGND => LRESULT(1),
-        // A click never takes the focus from the window in front.
-        WM_MOUSEACTIVATE => LRESULT(MA_NOACTIVATE as isize),
-        WM_MOUSEMOVE => {
-            hover(hwnd, f64::from(((lparam.0 >> 16) & 0xFFFF) as u16 as i16));
-            LRESULT(0)
-        }
-        WM_MOUSEWHEEL => {
-            wheel(hwnd, ((wparam.0 >> 16) & 0xFFFF) as u16 as i16);
-            LRESULT(0)
-        }
-        WM_LBUTTONUP => {
-            click(f64::from(((lparam.0 >> 16) & 0xFFFF) as u16 as i16));
-            LRESULT(0)
-        }
-        WM_TIMER if wparam.0 == WATCH_TIMER => {
-            watch();
-            LRESULT(0)
-        }
-        _ => unsafe { DefWindowProcW(hwnd, message, wparam, lparam) },
-    }
+    })
+    .unwrap_or_else(|| unsafe {
+        ::windows::Win32::UI::WindowsAndMessaging::DefWindowProcW(hwnd, message, wparam, lparam)
+    })
 }
 
 /// The card's colors: the previews' (spec 0015), light or dark.

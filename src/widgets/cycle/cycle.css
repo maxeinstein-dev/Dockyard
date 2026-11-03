@@ -10,7 +10,7 @@
   grid-template-columns: auto 1fr;
   gap: 6px 12px;
   margin: 0 0 10px;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
 }
 
 .cycle-facts dt {
@@ -25,19 +25,19 @@
 .cycle-note {
   margin: 0;
   color: var(--ink-2);
-  font-size: 12px;
+  font-size: var(--fs-caption);
 }
 
 .cycle-today {
   margin: 0 0 12px;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: var(--r-panel);
   background: var(--track);
 }
 
 .cycle-today h3 {
   margin: 0 0 4px;
-  font-size: 12px;
+  font-size: var(--fs-caption);
   font-weight: 600;
   color: var(--ink-2);
 }
@@ -45,7 +45,7 @@
 .cycle-today ul {
   margin: 0;
   padding: 0 0 0 16px;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
 }
 
 .cycle-group {
@@ -61,7 +61,7 @@
 .cycle-group legend {
   margin-bottom: 4px;
   padding: 0;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   font-weight: 600;
 }
 
@@ -91,7 +91,7 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   column-gap: 8px;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
 }
 
 .cycle-reminder-text {
@@ -103,7 +103,7 @@
   grid-column: 1;
   grid-row: 2;
   color: var(--ink-2);
-  font-size: 12px;
+  font-size: var(--fs-caption);
 }
 
 .cycle-reminders .icon-button {

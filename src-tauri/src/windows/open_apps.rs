@@ -618,19 +618,21 @@ fn now_ms() -> u64 {
 /// Starts listening. Called once, at startup.
 pub fn start(app: &AppHandle) {
     let handle = app.clone();
-    let spawned = std::thread::Builder::new()
-        .name("open-windows".into())
-        .spawn(move || imp::run(&handle));
+    let spawned = super::panics::lasting("open-windows", move || imp::run(&handle));
     if let Err(error) = spawned {
         log::warn!("windows: the open programs can not be followed: {error}");
         return;
     }
     // The pinned programs changed: who is open may be another set.
     let woken = app.clone();
-    app.listen(APPS_CHANGED_EVENT, move |_| wake(&woken));
+    app.listen(APPS_CHANGED_EVENT, move |_| {
+        let _ = crate::windows::panics::window_message(|| wake(&woken));
+    });
     // "Show open programs" turned on or off.
     let woken = app.clone();
-    app.listen(SETTINGS_CHANGED_EVENT, move |_| wake(&woken));
+    app.listen(SETTINGS_CHANGED_EVENT, move |_| {
+        let _ = crate::windows::panics::window_message(|| wake(&woken));
+    });
 }
 
 mod imp {
@@ -660,21 +662,25 @@ mod imp {
         _thread: u32,
         _time: u32,
     ) {
-        if object != OBJID_WINDOW.0 || child != 0 || hwnd.is_invalid() {
-            return;
-        }
-        // Windows of the program and its parts come by the thousand; only
-        // the top-level ones matter.
-        let top_level = unsafe { GetAncestor(hwnd, GA_PARENT) } == unsafe { GetDesktopWindow() };
-        if !top_level {
-            return;
-        }
-        GEOMETRY_DIRTY.store(true, Ordering::SeqCst);
-        // A move or a resize changes no program's windows.
-        if event != EVENT_OBJECT_LOCATIONCHANGE {
-            DIRTY.store(true, Ordering::SeqCst);
-        }
-        LAST_EVENT.store(now_ms(), Ordering::SeqCst);
+        // After a panic the event is dropped: nothing answers it.
+        let _ = crate::windows::panics::window_message(|| {
+            if object != OBJID_WINDOW.0 || child != 0 || hwnd.is_invalid() {
+                return;
+            }
+            // Windows of the program and its parts come by the thousand; only
+            // the top-level ones matter.
+            let top_level =
+                unsafe { GetAncestor(hwnd, GA_PARENT) } == unsafe { GetDesktopWindow() };
+            if !top_level {
+                return;
+            }
+            GEOMETRY_DIRTY.store(true, Ordering::SeqCst);
+            // A move or a resize changes no program's windows.
+            if event != EVENT_OBJECT_LOCATIONCHANGE {
+                DIRTY.store(true, Ordering::SeqCst);
+            }
+            LAST_EVENT.store(now_ms(), Ordering::SeqCst);
+        });
     }
 
     fn hook(min: u32, max: u32) -> HWINEVENTHOOK {

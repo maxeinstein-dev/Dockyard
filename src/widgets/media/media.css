@@ -39,7 +39,7 @@
   overflow-wrap: anywhere;
   text-align: center;
   color: var(--ink-2);
-  font-size: 12.5px;
+  font-size: var(--fs-label);
 }
 
 .media-actions {
@@ -107,5 +107,5 @@
 .media-note {
   margin: 0;
   color: var(--ink-2);
-  font-size: 12px;
+  font-size: var(--fs-caption);
 }

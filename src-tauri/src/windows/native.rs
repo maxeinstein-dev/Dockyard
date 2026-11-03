@@ -64,19 +64,24 @@ unsafe extern "system" fn subclass_proc(
     _id: usize,
     _data: usize,
 ) -> LRESULT {
-    match msg {
-        // tao rewrites the extended style whenever the window is shown or
-        // hidden, which would bring back WS_EX_APPWINDOW.
-        WM_STYLECHANGING if wparam.0 as i32 == GWL_EXSTYLE.0 => {
-            let style = unsafe { &mut *(lparam.0 as *mut STYLESTRUCT) };
-            style.styleNew = ex_style(style.styleNew);
+    crate::windows::panics::window_message(|| {
+        match msg {
+            // tao rewrites the extended style whenever the window is shown or
+            // hidden, which would bring back WS_EX_APPWINDOW.
+            WM_STYLECHANGING if wparam.0 as i32 == GWL_EXSTYLE.0 => {
+                let style = unsafe { &mut *(lparam.0 as *mut STYLESTRUCT) };
+                style.styleNew = ex_style(style.styleNew);
+            }
+            WM_NCDESTROY => unsafe {
+                let _ = RemoveWindowSubclass(hwnd, Some(subclass_proc), SUBCLASS_ID);
+            },
+            _ => {}
         }
-        WM_NCDESTROY => unsafe {
-            let _ = RemoveWindowSubclass(hwnd, Some(subclass_proc), SUBCLASS_ID);
-        },
-        _ => {}
-    }
-    unsafe { DefSubclassProc(hwnd, msg, wparam, lparam) }
+        unsafe { DefSubclassProc(hwnd, msg, wparam, lparam) }
+    })
+    .unwrap_or_else(|| unsafe {
+        ::windows::Win32::UI::Shell::DefSubclassProc(hwnd, msg, wparam, lparam)
+    })
 }
 
 #[cfg(test)]

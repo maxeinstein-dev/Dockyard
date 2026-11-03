@@ -146,3 +146,43 @@ describe("DockItems (provisional)", () => {
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 });
+
+/* M8: an open panel renders each time its `now` moves. Only a view that
+ * shows the time may ask for it to move: each panel that takes `now` has a
+ * tick, and the panels that do not read it have none. */
+const PANEL_SOURCES = import.meta.glob("./*/*Panel.tsx", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
+
+/** The kinds whose panel takes `now` from its props. */
+function kindsReadingNow(): Set<string> {
+  const kinds = new Set<string>();
+  for (const source of Object.values(PANEL_SOURCES)) {
+    for (const props of source.matchAll(
+      /\(\{([^)]*?)\}:\s*WidgetPanelProps<"([\w-]+)">\)/g,
+    )) {
+      const [, destructured = "", kind = ""] = props;
+      if (/\bnow\b/.test(destructured)) kinds.add(kind);
+    }
+  }
+  return kinds;
+}
+
+describe("the panel's timer (M8)", () => {
+  it("finds the panels", () => {
+    expect(Object.keys(PANEL_SOURCES).length).toBeGreaterThanOrEqual(
+      CREATABLE_KINDS.length,
+    );
+    expect(kindsReadingNow()).toContain("clock");
+  });
+
+  it("moves `now` only for the panels that show the time", () => {
+    const reading = kindsReadingNow();
+    for (const kind of CREATABLE_KINDS) {
+      const tick = WIDGET_REGISTRY[kind].panelTick;
+      expect(tick !== null, kind).toBe(reading.has(kind));
+    }
+  });
+});

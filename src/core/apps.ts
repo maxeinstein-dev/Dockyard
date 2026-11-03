@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { errorKind, log } from "./log";
 import type { MoveDirection, StorageStatus, WidgetId } from "./widgets";
+import { useTauriSnapshot, type SnapshotSource } from "./snapshot";
 
 /* The programs pinned to the dock (spec 0006). Rust owns the list: the dock
  * only reads it (and the icons) and opens a program; every change goes
@@ -228,6 +228,13 @@ export function revealApp(id: WidgetId): Promise<void> {
  * the shell's time, and the panel's catalog asks for a few hundred. */
 const ICON_CONCURRENCY = 4;
 
+/** The most icons kept (M8): a few hundred for the catalog, and room for
+ * another pack's. Each is a data URL of a few kilobytes; trying packs used
+ * to add a copy of every icon for each. The ones read longest ago go
+ * first, and are read again when asked. */
+export const MAX_ICONS = 600;
+
+/** The icons read, the most recently asked last (a `Map` keeps the order). */
 const icons = new Map<string, Promise<string | null>>();
 const waiting: (() => void)[] = [];
 let reading = 0;
@@ -253,7 +260,11 @@ export function appIcon(
 ): Promise<string | null> {
   const key = `${size} ${variant} ${appId}`;
   let icon = icons.get(key);
-  if (icon === undefined) {
+  if (icon !== undefined) {
+    // Asked again: the last to go.
+    icons.delete(key);
+    icons.set(key, icon);
+  } else {
     icon = new Promise<string | null>((resolve) => {
       waiting.push(() => {
         invoke<string | null>(APP_COMMANDS.icon, { appId, size })
@@ -272,6 +283,10 @@ export function appIcon(
       pump();
     });
     icons.set(key, icon);
+    if (icons.size > MAX_ICONS) {
+      const oldest = icons.keys().next().value;
+      if (oldest !== undefined) icons.delete(oldest);
+    }
   }
   return icon;
 }
@@ -289,42 +304,22 @@ export function forgetIcons(): void {
   reading = 0;
 }
 
+const APPS_SOURCE: SnapshotSource<AppsSnapshot> = {
+  event: APPS_CHANGED_EVENT,
+  read: listApps,
+  accept: (value) =>
+    Array.isArray((value as AppsSnapshot | null)?.apps)
+      ? (value as AppsSnapshot)
+      : null,
+  readFailed: () => log.warn("apps: read failed"),
+  listenFailed: (error) => log.warn(`apps: listen failed: ${errorKind(error)}`),
+};
+
 /** The pinned programs and the storage state, kept current by
  * `apps-changed`; null while loading, and for good if they can't be read (the
  * dock then has no apps). */
 export function useApps(): AppsSnapshot | null {
-  const [snapshot, setSnapshot] = useState<AppsSnapshot | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    // A change may arrive before the first read answers; that read is older
-    // then, so it is dropped.
-    let changed = false;
-
-    const unlisten = listen<AppsSnapshot>(APPS_CHANGED_EVENT, (event) => {
-      if (!active) return;
-      changed = true;
-      setSnapshot(event.payload);
-    });
-
-    listApps().then(
-      (current) => {
-        if (active && !changed && Array.isArray(current?.apps)) {
-          setSnapshot(current);
-        }
-      },
-      () => {
-        if (active) log.warn("apps: read failed");
-      },
-    );
-
-    return () => {
-      active = false;
-      void unlisten.then((stop) => stop());
-    };
-  }, []);
-
-  return snapshot;
+  return useTauriSnapshot(APPS_SOURCE);
 }
 
 /** The icon of a program, as it arrives: null until it is read, and when

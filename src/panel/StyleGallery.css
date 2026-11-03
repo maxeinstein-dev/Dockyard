@@ -19,7 +19,7 @@
       rgb(140 160 205 / 0.55),
       transparent 60%
     ),
-    linear-gradient(165deg, #56688f 0%, #2e3a57 55%, #191f2e 100%);
+    var(--thumb-wall);
 }
 
 /* The bar: 28 px tall, 18 px items; the corners come from the style. */
@@ -136,4 +136,12 @@ span.mini-app {
 
 .mini-bar[data-skin]::before {
   display: none;
+}
+
+/* Windows' contrast mode (M6): the miniatures are pictures of each style,
+   kept as they are; the card around them follows the contrast colors. */
+@media (forced-colors: active) {
+  .mini-wall {
+    forced-color-adjust: none;
+  }
 }

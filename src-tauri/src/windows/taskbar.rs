@@ -183,17 +183,20 @@ fn hwnd_of(value: isize) -> HWND {
 /// when there is one.
 pub fn taskbar_windows() -> Vec<HWND> {
     unsafe extern "system" fn collect(hwnd: HWND, found: LPARAM) -> BOOL {
-        let mut name = [0u16; 64];
-        let length = unsafe { GetClassNameW(hwnd, &mut name) };
-        let name = String::from_utf16_lossy(&name[..usize::try_from(length).unwrap_or(0)]);
-        // Not the dock's own tray proxy, which has the taskbar's class.
-        let mut process = 0;
-        unsafe { GetWindowThreadProcessId(hwnd, Some(&mut process)) };
-        if CLASSES.contains(&name.as_str()) && process != std::process::id() {
-            let found = unsafe { &mut *(found.0 as *mut Vec<HWND>) };
-            found.push(hwnd);
-        }
-        BOOL(1)
+        crate::windows::panics::window_message(|| {
+            let mut name = [0u16; 64];
+            let length = unsafe { GetClassNameW(hwnd, &mut name) };
+            let name = String::from_utf16_lossy(&name[..usize::try_from(length).unwrap_or(0)]);
+            // Not the dock's own tray proxy, which has the taskbar's class.
+            let mut process = 0;
+            unsafe { GetWindowThreadProcessId(hwnd, Some(&mut process)) };
+            if CLASSES.contains(&name.as_str()) && process != std::process::id() {
+                let found = unsafe { &mut *(found.0 as *mut Vec<HWND>) };
+                found.push(hwnd);
+            }
+            BOOL(1)
+        })
+        .unwrap_or_else(|| false.into())
     }
     let mut found: Vec<HWND> = Vec::new();
     // A failed enumeration leaves what it found; there is nothing to do

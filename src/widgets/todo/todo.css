@@ -53,7 +53,7 @@
 .todo-note {
   margin: 0 0 10px;
   color: var(--ink-2);
-  font-size: 12px;
+  font-size: var(--fs-caption);
 }
 
 .todo-clear {

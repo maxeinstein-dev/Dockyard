@@ -124,48 +124,58 @@ struct Field {
 
 impl IRawElementProviderSimple_Impl for Field_Impl {
     fn ProviderOptions(&self) -> Result<ProviderOptions> {
-        Ok(ProviderOptions_ServerSideProvider)
+        crate::windows::panics::com_call(|| Ok(ProviderOptions_ServerSideProvider))
     }
 
     fn GetPatternProvider(&self, pattern: UIA_PATTERN_ID) -> Result<IUnknown> {
-        if pattern == UIA_ValuePatternId {
-            self.to_interface::<IValueProvider>().cast()
-        } else {
-            none()
-        }
+        crate::windows::panics::com_call(|| {
+            if pattern == UIA_ValuePatternId {
+                self.to_interface::<IValueProvider>().cast()
+            } else {
+                none()
+            }
+        })
     }
 
     fn GetPropertyValue(&self, property: UIA_PROPERTY_ID) -> Result<VARIANT> {
-        Ok(match property {
-            UIA_ControlTypePropertyId => VARIANT::from(UIA_EditControlTypeId.0),
-            UIA_NamePropertyId => {
-                VARIANT::from(BSTR::from(crate::i18n::messages().launcher.placeholder))
-            }
-            UIA_AutomationIdPropertyId => VARIANT::from(BSTR::from("search")),
-            UIA_IsKeyboardFocusablePropertyId => VARIANT::from(true),
-            UIA_IsPasswordPropertyId => VARIANT::from(false),
-            _ => VARIANT::default(),
+        crate::windows::panics::com_call(|| {
+            Ok(match property {
+                UIA_ControlTypePropertyId => VARIANT::from(UIA_EditControlTypeId.0),
+                UIA_NamePropertyId => {
+                    VARIANT::from(BSTR::from(crate::i18n::messages().launcher.placeholder))
+                }
+                UIA_AutomationIdPropertyId => VARIANT::from(BSTR::from("search")),
+                UIA_IsKeyboardFocusablePropertyId => VARIANT::from(true),
+                UIA_IsPasswordPropertyId => VARIANT::from(false),
+                _ => VARIANT::default(),
+            })
         })
     }
 
     fn HostRawElementProvider(&self) -> Result<IRawElementProviderSimple> {
-        unsafe { UiaHostProviderFromHwnd(HWND(self.hwnd as _)) }
+        crate::windows::panics::com_call(|| unsafe {
+            UiaHostProviderFromHwnd(HWND(self.hwnd as _))
+        })
     }
 }
 
 impl IValueProvider_Impl for Field_Impl {
     fn SetValue(&self, value: &windows::core::PCWSTR) -> Result<()> {
-        let text = unsafe { value.to_string() }.unwrap_or_default();
-        super::post(move |launcher| launcher.set_query(&text));
-        Ok(())
+        crate::windows::panics::com_call(|| {
+            let text = unsafe { value.to_string() }.unwrap_or_default();
+            super::post(move |launcher| launcher.set_query(&text));
+            Ok(())
+        })
     }
 
     fn Value(&self) -> Result<BSTR> {
-        Ok(BSTR::from(super::read_text(HWND(self.hwnd as _)).as_str()))
+        crate::windows::panics::com_call(|| {
+            Ok(BSTR::from(super::read_text(HWND(self.hwnd as _)).as_str()))
+        })
     }
 
     fn IsReadOnly(&self) -> Result<windows::core::BOOL> {
-        Ok(false.into())
+        crate::windows::panics::com_call(|| Ok(false.into()))
     }
 }
 
@@ -208,114 +218,130 @@ struct Root {
 
 impl IRawElementProviderSimple_Impl for Root_Impl {
     fn ProviderOptions(&self) -> Result<ProviderOptions> {
-        Ok(ProviderOptions_ServerSideProvider)
+        crate::windows::panics::com_call(|| Ok(ProviderOptions_ServerSideProvider))
     }
 
     fn GetPatternProvider(&self, pattern: UIA_PATTERN_ID) -> Result<IUnknown> {
-        if pattern == UIA_SelectionPatternId {
-            self.to_interface::<ISelectionProvider>().cast()
-        } else {
-            none()
-        }
+        crate::windows::panics::com_call(|| {
+            if pattern == UIA_SelectionPatternId {
+                self.to_interface::<ISelectionProvider>().cast()
+            } else {
+                none()
+            }
+        })
     }
 
     fn GetPropertyValue(&self, property: UIA_PROPERTY_ID) -> Result<VARIANT> {
-        Ok(match property {
-            UIA_ControlTypePropertyId => VARIANT::from(UIA_ListControlTypeId.0),
-            UIA_NamePropertyId => VARIANT::from(BSTR::from(LABEL)),
-            UIA_AutomationIdPropertyId => VARIANT::from(BSTR::from("results")),
-            UIA_IsKeyboardFocusablePropertyId => VARIANT::from(false),
-            _ => VARIANT::default(),
+        crate::windows::panics::com_call(|| {
+            Ok(match property {
+                UIA_ControlTypePropertyId => VARIANT::from(UIA_ListControlTypeId.0),
+                UIA_NamePropertyId => VARIANT::from(BSTR::from(LABEL)),
+                UIA_AutomationIdPropertyId => VARIANT::from(BSTR::from("results")),
+                UIA_IsKeyboardFocusablePropertyId => VARIANT::from(false),
+                _ => VARIANT::default(),
+            })
         })
     }
 
     fn HostRawElementProvider(&self) -> Result<IRawElementProviderSimple> {
-        unsafe { UiaHostProviderFromHwnd(HWND(self.hwnd as _)) }
+        crate::windows::panics::com_call(|| unsafe {
+            UiaHostProviderFromHwnd(HWND(self.hwnd as _))
+        })
     }
 }
 
 impl IRawElementProviderFragment_Impl for Root_Impl {
     fn Navigate(&self, direction: NavigateDirection) -> Result<IRawElementProviderFragment> {
-        let entries = entries();
-        let found = match direction {
-            NavigateDirection_FirstChild => entries.first(),
-            NavigateDirection_LastChild => entries.last(),
-            _ => None,
-        };
-        match found {
-            Some(entry) => Ok(item(self.hwnd, entry.key.clone())),
-            None => none(),
-        }
+        crate::windows::panics::com_call(|| {
+            let entries = entries();
+            let found = match direction {
+                NavigateDirection_FirstChild => entries.first(),
+                NavigateDirection_LastChild => entries.last(),
+                _ => None,
+            };
+            match found {
+                Some(entry) => Ok(item(self.hwnd, entry.key.clone())),
+                None => none(),
+            }
+        })
     }
 
     fn GetRuntimeId(&self) -> Result<*mut SAFEARRAY> {
-        // The window's own: UI Automation takes it from the host.
-        Ok(std::ptr::null_mut())
+        crate::windows::panics::com_call(|| {
+            // The window's own: UI Automation takes it from the host.
+            Ok(std::ptr::null_mut())
+        })
     }
 
     fn BoundingRectangle(&self) -> Result<UiaRect> {
-        // The window's own, from the host.
-        Ok(UiaRect::default())
+        crate::windows::panics::com_call(|| {
+            // The window's own, from the host.
+            Ok(UiaRect::default())
+        })
     }
 
     fn GetEmbeddedFragmentRoots(&self) -> Result<*mut SAFEARRAY> {
-        Ok(std::ptr::null_mut())
+        crate::windows::panics::com_call(|| Ok(std::ptr::null_mut()))
     }
 
     fn SetFocus(&self) -> Result<()> {
-        Ok(())
+        crate::windows::panics::com_call(|| Ok(()))
     }
 
     fn FragmentRoot(&self) -> Result<IRawElementProviderFragmentRoot> {
-        Ok(self.to_interface())
+        crate::windows::panics::com_call(|| Ok(self.to_interface()))
     }
 }
 
 impl IRawElementProviderFragmentRoot_Impl for Root_Impl {
     fn ElementProviderFromPoint(&self, x: f64, y: f64) -> Result<IRawElementProviderFragment> {
-        let found = entries().into_iter().find(|entry| {
-            let (left, top, width, height) = entry.rect;
-            x >= left && y >= top && x < left + width && y < top + height
-        });
-        match found {
-            Some(entry) => Ok(item(self.hwnd, entry.key)),
-            None => none(),
-        }
+        crate::windows::panics::com_call(|| {
+            let found = entries().into_iter().find(|entry| {
+                let (left, top, width, height) = entry.rect;
+                x >= left && y >= top && x < left + width && y < top + height
+            });
+            match found {
+                Some(entry) => Ok(item(self.hwnd, entry.key)),
+                None => none(),
+            }
+        })
     }
 
     fn GetFocus(&self) -> Result<IRawElementProviderFragment> {
-        none()
+        crate::windows::panics::com_call(none)
     }
 }
 
 impl ISelectionProvider_Impl for Root_Impl {
     fn GetSelection(&self) -> Result<*mut SAFEARRAY> {
-        let chosen = entries().into_iter().find(|entry| entry.selected);
-        unsafe {
-            let count = u32::from(chosen.is_some());
-            let array = SafeArrayCreateVector(VT_UNKNOWN, 0, count);
-            if array.is_null() {
-                return none();
-            }
-            if let Some(entry) = chosen {
-                let element: IRawElementProviderSimple = Item {
-                    hwnd: self.hwnd,
-                    key: entry.key,
+        crate::windows::panics::com_call(|| {
+            let chosen = entries().into_iter().find(|entry| entry.selected);
+            unsafe {
+                let count = u32::from(chosen.is_some());
+                let array = SafeArrayCreateVector(VT_UNKNOWN, 0, count);
+                if array.is_null() {
+                    return none();
                 }
-                .into();
-                let at = 0i32;
-                SafeArrayPutElement(array, &at, element.as_raw())?;
+                if let Some(entry) = chosen {
+                    let element: IRawElementProviderSimple = Item {
+                        hwnd: self.hwnd,
+                        key: entry.key,
+                    }
+                    .into();
+                    let at = 0i32;
+                    SafeArrayPutElement(array, &at, element.as_raw())?;
+                }
+                Ok(array)
             }
-            Ok(array)
-        }
+        })
     }
 
     fn CanSelectMultiple(&self) -> Result<windows::core::BOOL> {
-        Ok(false.into())
+        crate::windows::panics::com_call(|| Ok(false.into()))
     }
 
     fn IsSelectionRequired(&self) -> Result<windows::core::BOOL> {
-        Ok(false.into())
+        crate::windows::panics::com_call(|| Ok(false.into()))
     }
 }
 
@@ -379,52 +405,58 @@ fn item_property(entry: &Entry, index: usize, count: usize, property: UIA_PROPER
 
 impl IRawElementProviderSimple_Impl for Item_Impl {
     fn ProviderOptions(&self) -> Result<ProviderOptions> {
-        Ok(ProviderOptions_ServerSideProvider)
+        crate::windows::panics::com_call(|| Ok(ProviderOptions_ServerSideProvider))
     }
 
     fn GetPatternProvider(&self, pattern: UIA_PATTERN_ID) -> Result<IUnknown> {
-        match pattern {
+        crate::windows::panics::com_call(|| match pattern {
             UIA_InvokePatternId => self.to_interface::<IInvokeProvider>().cast(),
             UIA_SelectionItemPatternId => self.to_interface::<ISelectionItemProvider>().cast(),
             _ => none(),
-        }
+        })
     }
 
     fn GetPropertyValue(&self, property: UIA_PROPERTY_ID) -> Result<VARIANT> {
-        let Some((index, count, entry)) = self.entry() else {
-            return Ok(VARIANT::default());
-        };
-        Ok(item_property(&entry, index, count, property))
+        crate::windows::panics::com_call(|| {
+            let Some((index, count, entry)) = self.entry() else {
+                return Ok(VARIANT::default());
+            };
+            Ok(item_property(&entry, index, count, property))
+        })
     }
 
     fn HostRawElementProvider(&self) -> Result<IRawElementProviderSimple> {
-        none()
+        crate::windows::panics::com_call(none)
     }
 }
 
 impl IRawElementProviderFragment_Impl for Item_Impl {
     fn Navigate(&self, direction: NavigateDirection) -> Result<IRawElementProviderFragment> {
-        if direction == NavigateDirection_Parent {
-            let root: IRawElementProviderFragment = Root { hwnd: self.hwnd }.into();
-            return Ok(root);
-        }
-        let entries = entries();
-        let Some(index) = entries.iter().position(|entry| entry.key == self.key) else {
-            return none();
-        };
-        let found = match direction {
-            NavigateDirection_NextSibling => entries.get(index + 1),
-            NavigateDirection_PreviousSibling => index.checked_sub(1).and_then(|i| entries.get(i)),
-            _ => None,
-        };
-        match found {
-            Some(entry) => Ok(item(self.hwnd, entry.key.clone())),
-            None => none(),
-        }
+        crate::windows::panics::com_call(|| {
+            if direction == NavigateDirection_Parent {
+                let root: IRawElementProviderFragment = Root { hwnd: self.hwnd }.into();
+                return Ok(root);
+            }
+            let entries = entries();
+            let Some(index) = entries.iter().position(|entry| entry.key == self.key) else {
+                return none();
+            };
+            let found = match direction {
+                NavigateDirection_NextSibling => entries.get(index + 1),
+                NavigateDirection_PreviousSibling => {
+                    index.checked_sub(1).and_then(|i| entries.get(i))
+                }
+                _ => None,
+            };
+            match found {
+                Some(entry) => Ok(item(self.hwnd, entry.key.clone())),
+                None => none(),
+            }
+        })
     }
 
     fn GetRuntimeId(&self) -> Result<*mut SAFEARRAY> {
-        unsafe {
+        crate::windows::panics::com_call(|| unsafe {
             let ids = SafeArrayCreateVector(VT_I4, 0, 2);
             if ids.is_null() {
                 return none();
@@ -437,69 +469,77 @@ impl IRawElementProviderFragment_Impl for Item_Impl {
                 SafeArrayPutElement(ids, &at, std::ptr::from_ref(&value).cast())?;
             }
             Ok(ids)
-        }
+        })
     }
 
     fn BoundingRectangle(&self) -> Result<UiaRect> {
-        Ok(match self.entry() {
-            Some((_, _, entry)) => {
-                let (left, top, width, height) = entry.rect;
-                UiaRect {
-                    left,
-                    top,
-                    width,
-                    height,
+        crate::windows::panics::com_call(|| {
+            Ok(match self.entry() {
+                Some((_, _, entry)) => {
+                    let (left, top, width, height) = entry.rect;
+                    UiaRect {
+                        left,
+                        top,
+                        width,
+                        height,
+                    }
                 }
-            }
-            None => UiaRect::default(),
+                None => UiaRect::default(),
+            })
         })
     }
 
     fn GetEmbeddedFragmentRoots(&self) -> Result<*mut SAFEARRAY> {
-        Ok(std::ptr::null_mut())
+        crate::windows::panics::com_call(|| Ok(std::ptr::null_mut()))
     }
 
     fn SetFocus(&self) -> Result<()> {
-        Ok(())
+        crate::windows::panics::com_call(|| Ok(()))
     }
 
     fn FragmentRoot(&self) -> Result<IRawElementProviderFragmentRoot> {
-        Ok(Root { hwnd: self.hwnd }.into())
+        crate::windows::panics::com_call(|| Ok(Root { hwnd: self.hwnd }.into()))
     }
 }
 
 impl IInvokeProvider_Impl for Item_Impl {
     fn Invoke(&self) -> Result<()> {
-        let key = self.key.clone();
-        super::post(move |launcher| launcher.open_key(&key));
-        Ok(())
+        crate::windows::panics::com_call(|| {
+            let key = self.key.clone();
+            super::post(move |launcher| launcher.open_key(&key));
+            Ok(())
+        })
     }
 }
 
 impl ISelectionItemProvider_Impl for Item_Impl {
     fn Select(&self) -> Result<()> {
-        let key = self.key.clone();
-        super::post(move |launcher| launcher.select_key(&key));
-        Ok(())
+        crate::windows::panics::com_call(|| {
+            let key = self.key.clone();
+            super::post(move |launcher| launcher.select_key(&key));
+            Ok(())
+        })
     }
 
     fn AddToSelection(&self) -> Result<()> {
-        self.Select()
+        crate::windows::panics::com_call(|| self.Select())
     }
 
     fn RemoveFromSelection(&self) -> Result<()> {
-        Ok(())
+        crate::windows::panics::com_call(|| Ok(()))
     }
 
     fn IsSelected(&self) -> Result<windows::core::BOOL> {
-        Ok(self
-            .entry()
-            .is_some_and(|(_, _, entry)| entry.selected)
-            .into())
+        crate::windows::panics::com_call(|| {
+            Ok(self
+                .entry()
+                .is_some_and(|(_, _, entry)| entry.selected)
+                .into())
+        })
     }
 
     fn SelectionContainer(&self) -> Result<IRawElementProviderSimple> {
-        Ok(Root { hwnd: self.hwnd }.into())
+        crate::windows::panics::com_call(|| Ok(Root { hwnd: self.hwnd }.into()))
     }
 }
 

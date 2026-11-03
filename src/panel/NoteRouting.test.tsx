@@ -35,6 +35,7 @@ const SETTINGS: Settings = {
   launcher: true,
   launcherKeywords: [],
   launcherHotkey: "Alt+Space",
+  dockHotkey: "Alt+Win+Z",
   language: "system",
   tourShown: true,
   dock: {

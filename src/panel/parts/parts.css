@@ -42,7 +42,7 @@
   border: 0;
   border-radius: var(--r-segment);
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   color: var(--ink);
   background: transparent;
   cursor: pointer;
@@ -145,7 +145,7 @@
   border: 0;
   border-radius: var(--r-track);
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   text-align: left;
   color: var(--ink);
   background: var(--track);
@@ -189,7 +189,7 @@
 }
 
 .field-label {
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   color: var(--ink-2);
 }
 
@@ -202,7 +202,7 @@
   border-bottom-color: var(--field-line);
   border-radius: var(--r-segment);
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   color: var(--ink);
   background: var(--field);
   caret-color: var(--accent);
@@ -256,7 +256,7 @@
   gap: 4px 8px;
   padding: 10px 12px;
   border-radius: var(--r-track);
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   background: var(--track);
 }
 
@@ -287,7 +287,7 @@
   gap: 10px;
   padding: 12px;
   border-radius: var(--r-track);
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   background: var(--danger-soft);
 }
 
@@ -338,7 +338,7 @@
 }
 
 .toggle-hint {
-  font-size: 12px;
+  font-size: var(--fs-caption);
   color: var(--ink-2);
 }
 
@@ -397,13 +397,13 @@
 }
 
 .range-value {
-  font-size: 12px;
+  font-size: var(--fs-caption);
   font-variant-numeric: tabular-nums;
   color: var(--ink-2);
 }
 
 .range-hint {
-  font-size: 12px;
+  font-size: var(--fs-caption);
   color: var(--ink-2);
 }
 
@@ -469,7 +469,7 @@
 
 .field-error {
   margin: 4px 0 0;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   color: var(--danger);
 }
 
@@ -512,7 +512,7 @@
 .settings-group-title {
   margin: 0;
   padding-left: 2px;
-  font-size: 12px;
+  font-size: var(--fs-caption);
   font-weight: 600;
   color: var(--ink-2);
 }
@@ -530,4 +530,36 @@
 
 .settings-group-card > * + * {
   border-top: 1px solid var(--hair);
+}
+
+/* Windows' contrast mode (M6): the focus line and the shadows are gone
+   there, so the field in focus, a switch turned on and a hotkey being
+   recorded say so with the system's colors. */
+@media (forced-colors: active) {
+  .panel .field-input:focus,
+  .panel .field-input:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 1px;
+  }
+
+  .switch {
+    border: 1px solid ButtonText;
+  }
+
+  .switch::after {
+    background: ButtonText;
+  }
+
+  .switch[aria-checked="true"] {
+    background: Highlight;
+  }
+
+  .switch[aria-checked="true"]::after {
+    background: HighlightText;
+  }
+
+  .hotkey-button[aria-pressed="true"] {
+    border-color: Highlight;
+    outline: 2px solid Highlight;
+  }
 }

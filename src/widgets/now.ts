@@ -39,13 +39,16 @@ function unitOf(unitMs: number, ms: number): number {
  * The current instant, updated when the minute (`MINUTE_MS`) or the second
  * (`SECOND_MS`) of the system clock changes: at each turn, after a change of
  * the system clock (within `RESYNC_MS`) and as soon as the page becomes
- * visible again (after sleep, for one). A single timer per call.
+ * visible again (after sleep, for one). A single timer per call; none for
+ * `null`, which keeps the instant of the first render (a view that does not
+ * show the time).
  */
-export function useNow(unitMs: number): Date {
+export function useNow(unitMs: number | null): Date {
   const [now, setNow] = useState(() => new Date());
   const shown = useRef(now);
 
   useEffect(() => {
+    if (unitMs === null) return;
     let handle: ReturnType<typeof setTimeout> | undefined;
     const wake = () => {
       clearTimeout(handle);

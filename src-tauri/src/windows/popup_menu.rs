@@ -174,13 +174,16 @@ unsafe extern "system" fn on_event(
     _thread: u32,
     _time: u32,
 ) {
-    match event {
-        EVENT_SYSTEM_MENUPOPUPSTART => hold().menu_started(),
-        // The guard is the work: it counts the menu out, and is true for the
-        // last one.
-        EVENT_SYSTEM_MENUPOPUPEND if hold().menu_ended() => finished(),
-        _ => {}
-    }
+    // After a panic the event is dropped: nothing answers it.
+    let _ = super::panics::window_message(|| {
+        match event {
+            EVENT_SYSTEM_MENUPOPUPSTART => hold().menu_started(),
+            // The guard is the work: it counts the menu out, and is true for the
+            // last one.
+            EVENT_SYSTEM_MENUPOPUPEND if hold().menu_ended() => finished(),
+            _ => {}
+        }
+    });
 }
 
 /// Starts listening to the menus of other programs. Must be called from a

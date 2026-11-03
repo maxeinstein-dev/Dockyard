@@ -196,6 +196,9 @@ pub struct DockMessages {
     /// The Ciclo's Windows notice (F2b-2): neutral, the same for all.
     pub cycle_notice_title: &'static str,
     pub cycle_notice_line: &'static str,
+    /// The notice when the dock kept failing and the app closed (M4).
+    pub crash_notice_title: &'static str,
+    pub crash_notice_line: &'static str,
     /// The notice of a new version (spec 0019 G3), once per version;
     /// `{version}` is replaced.
     pub update_notice_title: &'static str,
@@ -342,6 +345,8 @@ const PT_BR: Messages = Messages {
         calendar_nothing: "Nada marcado",
         cycle_notice_title: "Lembrete do Ciclo",
         cycle_notice_line: "Abra o Ciclo no Dockyard para ver.",
+        crash_notice_title: "O Dockyard fechou",
+        crash_notice_line: "O dock falhou várias vezes seguidas. A barra do Windows voltou; abra o Dockyard de novo quando quiser.",
         update_notice_title: "Dockyard {version} disponível",
         update_notice_line: "Para atualizar, abra Sobre no dock.",
         calendar_busy: "Ocupado",
@@ -548,6 +553,8 @@ const EN: Messages = Messages {
         calendar_nothing: "Nothing scheduled",
         cycle_notice_title: "Cycle reminder",
         cycle_notice_line: "Open Cycle in Dockyard to see it.",
+        crash_notice_title: "Dockyard closed",
+        crash_notice_line: "The dock failed several times in a row. The Windows taskbar is back; open Dockyard again whenever you like.",
         update_notice_title: "Dockyard {version} available",
         update_notice_line: "To update, open About in the dock.",
         calendar_busy: "Busy",

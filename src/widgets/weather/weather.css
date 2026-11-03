@@ -33,7 +33,7 @@
 .weather-note {
   margin: 0;
   color: var(--ink-2);
-  font-size: 12.5px;
+  font-size: var(--fs-label);
 }
 
 .weather-details {
@@ -52,7 +52,7 @@
   align-items: center;
   gap: 8px;
   padding: 5px 0;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   font-variant-numeric: tabular-nums;
 }
 
@@ -81,7 +81,7 @@
 
 .weather-city {
   margin: 4px 0 0;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
 }
 
 .weather-search {
@@ -106,7 +106,7 @@
   width: 100%;
   padding: 6px 8px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--r-inset);
   background: transparent;
   color: inherit;
   font: inherit;

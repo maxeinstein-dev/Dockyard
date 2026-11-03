@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import { MINUTE_MS, SECOND_MS } from "./now";
 import {
   CREATABLE_KINDS,
   type CreatableKind,
@@ -90,6 +91,11 @@ export interface WidgetDefinition<K extends CreatableKind> {
   Tile: ComponentType<WidgetTileProps<K>>;
   /** The main view of the panel. */
   Panel: ComponentType<WidgetPanelProps<K>>;
+  /** How often the panel's `now` moves (M8): `SECOND_MS` for a view that
+   * shows the time to the second, `MINUTE_MS` for one that shows the day,
+   * `null` for one that does not show the time, which then renders only
+   * when something it shows changes. */
+  panelTick: typeof SECOND_MS | typeof MINUTE_MS | null;
   /** The "Ajustes" view of the panel. */
   Settings: ComponentType<WidgetSettingsProps<K>>;
 }
@@ -103,6 +109,7 @@ export const WIDGET_REGISTRY: {
     glaze: "t-clock",
     Tile: ClockTile,
     Panel: ClockPanel,
+    panelTick: SECOND_MS,
     Settings: ClockSettings,
   },
   "time-progress": {
@@ -111,6 +118,7 @@ export const WIDGET_REGISTRY: {
     glaze: "t-progress",
     Tile: ProgressTile,
     Panel: ProgressPanel,
+    panelTick: SECOND_MS,
     Settings: ProgressSettings,
   },
   note: {
@@ -119,6 +127,7 @@ export const WIDGET_REGISTRY: {
     glaze: "t-notes",
     Tile: NoteTile,
     Panel: NotePanel,
+    panelTick: null,
     Settings: NoteSettings,
   },
   activity: {
@@ -127,6 +136,7 @@ export const WIDGET_REGISTRY: {
     glaze: "t-activity",
     Tile: ActivityTile,
     Panel: ActivityPanel,
+    panelTick: null,
     Settings: ActivitySettings,
   },
   network: {
@@ -135,6 +145,7 @@ export const WIDGET_REGISTRY: {
     glaze: "t-network",
     Tile: NetworkTile,
     Panel: NetworkPanel,
+    panelTick: null,
     Settings: NetworkSettings,
   },
   calendar: {
@@ -143,6 +154,7 @@ export const WIDGET_REGISTRY: {
     glaze: "t-calendar",
     Tile: CalendarTile,
     Panel: CalendarPanel,
+    panelTick: MINUTE_MS,
     Settings: CalendarSettings,
   },
   cycle: {
@@ -151,6 +163,7 @@ export const WIDGET_REGISTRY: {
     glaze: "t-cycle",
     Tile: CycleTile,
     Panel: CyclePanel,
+    panelTick: null,
     Settings: CycleSettings,
   },
   countdown: {
@@ -159,6 +172,7 @@ export const WIDGET_REGISTRY: {
     glaze: "t-countdown",
     Tile: CountdownTile,
     Panel: CountdownPanel,
+    panelTick: MINUTE_MS,
     Settings: CountdownSettings,
   },
   pomodoro: {
@@ -167,6 +181,7 @@ export const WIDGET_REGISTRY: {
     glaze: "t-pomodoro",
     Tile: PomodoroTile,
     Panel: PomodoroPanel,
+    panelTick: null,
     Settings: PomodoroSettings,
   },
   todo: {
@@ -175,6 +190,7 @@ export const WIDGET_REGISTRY: {
     glaze: "t-todo",
     Tile: TodoTile,
     Panel: TodoPanel,
+    panelTick: null,
     Settings: TodoSettings,
   },
   water: {
@@ -183,6 +199,7 @@ export const WIDGET_REGISTRY: {
     glaze: "t-water",
     Tile: WaterTile,
     Panel: WaterPanel,
+    panelTick: MINUTE_MS,
     Settings: WaterSettings,
   },
   media: {
@@ -191,6 +208,7 @@ export const WIDGET_REGISTRY: {
     glaze: "t-music",
     Tile: MediaTile,
     Panel: MediaPanel,
+    panelTick: null,
     Settings: MediaSettings,
   },
   claude: {
@@ -199,6 +217,7 @@ export const WIDGET_REGISTRY: {
     glaze: "t-claude",
     Tile: ClaudeTile,
     Panel: ClaudePanel,
+    panelTick: SECOND_MS,
     Settings: ClaudeSettings,
   },
   weather: {
@@ -207,6 +226,7 @@ export const WIDGET_REGISTRY: {
     glaze: "t-weather",
     Tile: WeatherTile,
     Panel: WeatherPanel,
+    panelTick: null,
     Settings: WeatherSettings,
   },
   launcher: {
@@ -215,6 +235,7 @@ export const WIDGET_REGISTRY: {
     glaze: "t-launcher",
     Tile: LauncherTile,
     Panel: LauncherPanel,
+    panelTick: null,
     Settings: LauncherSettings,
   },
 };

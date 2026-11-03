@@ -153,33 +153,36 @@ mod imp {
     }
 
     unsafe extern "system" fn collect(hwnd: HWND, state: LPARAM) -> BOOL {
-        let found = unsafe { &mut *(state.0 as *mut Vec<OpenWindow>) };
-        if !has_button(hwnd) {
-            return true.into();
-        }
-        let title = title_of(hwnd);
-        if title.is_empty() {
-            return true.into();
-        }
-        let mut pid = 0u32;
-        unsafe { GetWindowThreadProcessId(hwnd, Some(&mut pid)) };
-        if pid == unsafe { GetCurrentProcessId() } {
-            return true.into();
-        }
-        let exe = exe_of(pid);
-        let windows_dir = std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into());
-        found.push(OpenWindow {
-            hwnd: hwnd.0 as isize,
-            pid,
-            title,
-            aumid: crate::domain::open_apps::shell_aumid(
-                aumid_of(hwnd, pid),
-                exe.as_deref().and_then(|path| path.to_str()),
-                &windows_dir,
-            ),
-            exe,
-        });
-        true.into()
+        crate::windows::panics::window_message(|| {
+            let found = unsafe { &mut *(state.0 as *mut Vec<OpenWindow>) };
+            if !has_button(hwnd) {
+                return true.into();
+            }
+            let title = title_of(hwnd);
+            if title.is_empty() {
+                return true.into();
+            }
+            let mut pid = 0u32;
+            unsafe { GetWindowThreadProcessId(hwnd, Some(&mut pid)) };
+            if pid == unsafe { GetCurrentProcessId() } {
+                return true.into();
+            }
+            let exe = exe_of(pid);
+            let windows_dir = std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into());
+            found.push(OpenWindow {
+                hwnd: hwnd.0 as isize,
+                pid,
+                title,
+                aumid: crate::domain::open_apps::shell_aumid(
+                    aumid_of(hwnd, pid),
+                    exe.as_deref().and_then(|path| path.to_str()),
+                    &windows_dir,
+                ),
+                exe,
+            });
+            true.into()
+        })
+        .unwrap_or_else(|| false.into())
     }
 
     /// The shell's own windows, which cover a monitor without being a
@@ -198,35 +201,39 @@ mod imp {
     }
 
     unsafe extern "system" fn collect_candidate(hwnd: HWND, state: LPARAM) -> BOOL {
-        let found = unsafe { &mut *(state.0 as *mut Vec<Candidate>) };
-        if !has_button(hwnd) || unsafe { IsIconic(hwnd) }.as_bool() {
-            return true.into();
-        }
-        let mut pid = 0u32;
-        unsafe { GetWindowThreadProcessId(hwnd, Some(&mut pid)) };
-        if pid == unsafe { GetCurrentProcessId() } {
-            return true.into();
-        }
-        if SHELL_CLASSES.contains(&class_of(hwnd).as_str()) {
-            return true.into();
-        }
-        let mut rect = RECT::default();
-        if unsafe { GetWindowRect(hwnd, &mut rect) }.is_err() {
-            return true.into();
-        }
-        let monitor = unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) };
-        let style = unsafe { GetWindowLongPtrW(hwnd, GWL_STYLE) } as u32;
-        found.push(Candidate {
-            monitor: monitor.0 as isize,
-            bounds: Bounds {
-                left: rect.left,
-                top: rect.top,
-                right: rect.right,
-                bottom: rect.bottom,
-            },
-            maximized: unsafe { IsZoomed(hwnd) }.as_bool() && style & WS_CAPTION.0 == WS_CAPTION.0,
-        });
-        true.into()
+        crate::windows::panics::window_message(|| {
+            let found = unsafe { &mut *(state.0 as *mut Vec<Candidate>) };
+            if !has_button(hwnd) || unsafe { IsIconic(hwnd) }.as_bool() {
+                return true.into();
+            }
+            let mut pid = 0u32;
+            unsafe { GetWindowThreadProcessId(hwnd, Some(&mut pid)) };
+            if pid == unsafe { GetCurrentProcessId() } {
+                return true.into();
+            }
+            if SHELL_CLASSES.contains(&class_of(hwnd).as_str()) {
+                return true.into();
+            }
+            let mut rect = RECT::default();
+            if unsafe { GetWindowRect(hwnd, &mut rect) }.is_err() {
+                return true.into();
+            }
+            let monitor = unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) };
+            let style = unsafe { GetWindowLongPtrW(hwnd, GWL_STYLE) } as u32;
+            found.push(Candidate {
+                monitor: monitor.0 as isize,
+                bounds: Bounds {
+                    left: rect.left,
+                    top: rect.top,
+                    right: rect.right,
+                    bottom: rect.bottom,
+                },
+                maximized: unsafe { IsZoomed(hwnd) }.as_bool()
+                    && style & WS_CAPTION.0 == WS_CAPTION.0,
+            });
+            true.into()
+        })
+        .unwrap_or_else(|| false.into())
     }
 
     /// The windows that could be in full screen, top first.

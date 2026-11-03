@@ -44,11 +44,11 @@
   gap: 8px;
   padding: 6px 8px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--r-panel);
   background: transparent;
   color: inherit;
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   text-align: left;
   cursor: pointer;
 }
@@ -96,14 +96,14 @@
 .cal-join {
   flex: none;
   padding: 3px 10px;
-  font-size: 12px;
+  font-size: var(--fs-caption);
 }
 
 .cal-empty,
 .cal-notice {
   margin: 0;
   color: var(--ink-2);
-  font-size: 12px;
+  font-size: var(--fs-caption);
 }
 
 .cal-notice {
@@ -115,7 +115,7 @@
   grid-template-columns: auto 1fr;
   gap: 6px 12px;
   margin: 0 0 10px;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
 }
 
 .cal-details dt {
@@ -131,7 +131,7 @@
   max-height: 140px;
   overflow: auto;
   margin: 0 0 10px;
-  font-size: 12px;
+  font-size: var(--fs-caption);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -157,7 +157,7 @@
 .cal-sources legend {
   margin-bottom: 4px;
   padding: 0;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   font-weight: 600;
 }
 
@@ -167,7 +167,7 @@
   grid-template-columns: auto minmax(0, 1fr);
   align-items: baseline;
   column-gap: 8px;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
 }
 
 .cal-source input {
@@ -186,7 +186,7 @@
   min-width: 0;
   overflow: hidden;
   color: var(--ink-2);
-  font-size: 11px;
+  font-size: var(--fs-kbd);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -198,7 +198,7 @@
   align-items: center;
   gap: 8px;
   padding: 5px 8px;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
 }
 
 .cal-task input {
@@ -213,7 +213,7 @@
 .cal-late {
   flex: none;
   color: var(--danger-ink);
-  font-size: 11px;
+  font-size: var(--fs-kbd);
 }
 
 @media (forced-colors: active) {

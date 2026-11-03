@@ -136,77 +136,87 @@ struct Root {
 
 impl IRawElementProviderSimple_Impl for Root_Impl {
     fn ProviderOptions(&self) -> Result<ProviderOptions> {
-        Ok(ProviderOptions_ServerSideProvider)
+        crate::windows::panics::com_call(|| Ok(ProviderOptions_ServerSideProvider))
     }
 
     fn GetPatternProvider(&self, _pattern: UIA_PATTERN_ID) -> Result<IUnknown> {
-        none()
+        crate::windows::panics::com_call(none)
     }
 
     fn GetPropertyValue(&self, property: UIA_PROPERTY_ID) -> Result<VARIANT> {
-        Ok(match property {
-            UIA_ControlTypePropertyId => VARIANT::from(UIA_MenuControlTypeId.0),
-            UIA_NamePropertyId => VARIANT::from(BSTR::from(LABEL)),
-            UIA_AutomationIdPropertyId => VARIANT::from(BSTR::from("dockmax-menu")),
-            UIA_IsKeyboardFocusablePropertyId => VARIANT::from(false),
-            _ => VARIANT::default(),
+        crate::windows::panics::com_call(|| {
+            Ok(match property {
+                UIA_ControlTypePropertyId => VARIANT::from(UIA_MenuControlTypeId.0),
+                UIA_NamePropertyId => VARIANT::from(BSTR::from(LABEL)),
+                UIA_AutomationIdPropertyId => VARIANT::from(BSTR::from("dockmax-menu")),
+                UIA_IsKeyboardFocusablePropertyId => VARIANT::from(false),
+                _ => VARIANT::default(),
+            })
         })
     }
 
     fn HostRawElementProvider(&self) -> Result<IRawElementProviderSimple> {
-        unsafe { UiaHostProviderFromHwnd(HWND(self.hwnd as _)) }
+        crate::windows::panics::com_call(|| unsafe {
+            UiaHostProviderFromHwnd(HWND(self.hwnd as _))
+        })
     }
 }
 
 impl IRawElementProviderFragment_Impl for Root_Impl {
     fn Navigate(&self, direction: NavigateDirection) -> Result<IRawElementProviderFragment> {
-        let count = lines().0.len();
-        match direction {
-            NavigateDirection_FirstChild if count > 0 => Ok(fragment(self.hwnd, 0)),
-            NavigateDirection_LastChild if count > 0 => Ok(fragment(self.hwnd, count - 1)),
-            _ => none(),
-        }
+        crate::windows::panics::com_call(|| {
+            let count = lines().0.len();
+            match direction {
+                NavigateDirection_FirstChild if count > 0 => Ok(fragment(self.hwnd, 0)),
+                NavigateDirection_LastChild if count > 0 => Ok(fragment(self.hwnd, count - 1)),
+                _ => none(),
+            }
+        })
     }
 
     fn GetRuntimeId(&self) -> Result<*mut SAFEARRAY> {
-        // The window's own: UI Automation takes it from the host.
-        Ok(std::ptr::null_mut())
+        crate::windows::panics::com_call(|| {
+            // The window's own: UI Automation takes it from the host.
+            Ok(std::ptr::null_mut())
+        })
     }
 
     fn BoundingRectangle(&self) -> Result<UiaRect> {
-        Ok(UiaRect::default())
+        crate::windows::panics::com_call(|| Ok(UiaRect::default()))
     }
 
     fn GetEmbeddedFragmentRoots(&self) -> Result<*mut SAFEARRAY> {
-        Ok(std::ptr::null_mut())
+        crate::windows::panics::com_call(|| Ok(std::ptr::null_mut()))
     }
 
     fn SetFocus(&self) -> Result<()> {
-        Ok(())
+        crate::windows::panics::com_call(|| Ok(()))
     }
 
     fn FragmentRoot(&self) -> Result<IRawElementProviderFragmentRoot> {
-        Ok(self.to_interface())
+        crate::windows::panics::com_call(|| Ok(self.to_interface()))
     }
 }
 
 impl IRawElementProviderFragmentRoot_Impl for Root_Impl {
     fn ElementProviderFromPoint(&self, x: f64, y: f64) -> Result<IRawElementProviderFragment> {
-        let found = lines().0.iter().position(|entry| {
-            let (left, top, width, height) = entry.rect;
-            x >= left && y >= top && x < left + width && y < top + height
-        });
-        match found {
-            Some(index) => Ok(fragment(self.hwnd, index)),
-            None => none(),
-        }
+        crate::windows::panics::com_call(|| {
+            let found = lines().0.iter().position(|entry| {
+                let (left, top, width, height) = entry.rect;
+                x >= left && y >= top && x < left + width && y < top + height
+            });
+            match found {
+                Some(index) => Ok(fragment(self.hwnd, index)),
+                None => none(),
+            }
+        })
     }
 
     fn GetFocus(&self) -> Result<IRawElementProviderFragment> {
-        match lines().1 {
+        crate::windows::panics::com_call(|| match lines().1 {
             Some(index) => Ok(fragment(self.hwnd, index)),
             None => none(),
-        }
+        })
     }
 }
 
@@ -240,94 +250,104 @@ impl Item_Impl {
 
 impl IRawElementProviderSimple_Impl for Item_Impl {
     fn ProviderOptions(&self) -> Result<ProviderOptions> {
-        Ok(ProviderOptions_ServerSideProvider)
+        crate::windows::panics::com_call(|| Ok(ProviderOptions_ServerSideProvider))
     }
 
     fn GetPatternProvider(&self, pattern: UIA_PATTERN_ID) -> Result<IUnknown> {
-        let Some(Entry {
-            line: Line::Item(item),
-            ..
-        }) = self.entry()
-        else {
-            return none();
-        };
-        match pattern {
-            UIA_InvokePatternId => self.to_interface::<IInvokeProvider>().cast(),
-            // Only a line that turns something on and off is a toggle.
-            UIA_TogglePatternId if item.toggle => self.to_interface::<IToggleProvider>().cast(),
-            _ => none(),
-        }
+        crate::windows::panics::com_call(|| {
+            let Some(Entry {
+                line: Line::Item(item),
+                ..
+            }) = self.entry()
+            else {
+                return none();
+            };
+            match pattern {
+                UIA_InvokePatternId => self.to_interface::<IInvokeProvider>().cast(),
+                // Only a line that turns something on and off is a toggle.
+                UIA_TogglePatternId if item.toggle => self.to_interface::<IToggleProvider>().cast(),
+                _ => none(),
+            }
+        })
     }
 
     fn GetPropertyValue(&self, property: UIA_PROPERTY_ID) -> Result<VARIANT> {
-        let (all, focus) = lines();
-        let Some(entry) = all.get(self.index) else {
-            return Ok(VARIANT::default());
-        };
-        let items: Vec<usize> = all
-            .iter()
-            .enumerate()
-            .filter(|(_, e)| matches!(e.line, Line::Item(_)))
-            .map(|(i, _)| i)
-            .collect();
-        Ok(match (&entry.line, property) {
-            (Line::Item(_), UIA_ControlTypePropertyId) => {
-                VARIANT::from(UIA_MenuItemControlTypeId.0)
-            }
-            (Line::Separator, UIA_ControlTypePropertyId) => {
-                VARIANT::from(UIA_SeparatorControlTypeId.0)
-            }
-            (Line::Title(_), UIA_ControlTypePropertyId) => VARIANT::from(UIA_TextControlTypeId.0),
-            (Line::Item(item), UIA_NamePropertyId) => {
-                VARIANT::from(BSTR::from(item.label.as_str()))
-            }
-            (Line::Title(title), UIA_NamePropertyId) => VARIANT::from(BSTR::from(title.as_str())),
-            (Line::Item(item), UIA_AcceleratorKeyPropertyId) => match &item.shortcut {
-                Some(keys) => VARIANT::from(BSTR::from(keys.as_str())),
-                None => VARIANT::default(),
-            },
-            (Line::Item(item), UIA_IsEnabledPropertyId) => VARIANT::from(item.enabled),
-            (Line::Item(_), UIA_IsKeyboardFocusablePropertyId) => VARIANT::from(true),
-            (Line::Item(_), UIA_HasKeyboardFocusPropertyId) => {
-                VARIANT::from(focus == Some(self.index))
-            }
-            (Line::Item(_), UIA_PositionInSetPropertyId) => {
-                let at = items.iter().position(|&i| i == self.index).unwrap_or(0);
-                VARIANT::from(at as i32 + 1)
-            }
-            (Line::Item(_), UIA_SizeOfSetPropertyId) => VARIANT::from(items.len() as i32),
-            (_, UIA_AutomationIdPropertyId) => {
-                VARIANT::from(BSTR::from(format!("line-{}", self.index).as_str()))
-            }
-            _ => VARIANT::default(),
+        crate::windows::panics::com_call(|| {
+            let (all, focus) = lines();
+            let Some(entry) = all.get(self.index) else {
+                return Ok(VARIANT::default());
+            };
+            let items: Vec<usize> = all
+                .iter()
+                .enumerate()
+                .filter(|(_, e)| matches!(e.line, Line::Item(_)))
+                .map(|(i, _)| i)
+                .collect();
+            Ok(match (&entry.line, property) {
+                (Line::Item(_), UIA_ControlTypePropertyId) => {
+                    VARIANT::from(UIA_MenuItemControlTypeId.0)
+                }
+                (Line::Separator, UIA_ControlTypePropertyId) => {
+                    VARIANT::from(UIA_SeparatorControlTypeId.0)
+                }
+                (Line::Title(_), UIA_ControlTypePropertyId) => {
+                    VARIANT::from(UIA_TextControlTypeId.0)
+                }
+                (Line::Item(item), UIA_NamePropertyId) => {
+                    VARIANT::from(BSTR::from(item.label.as_str()))
+                }
+                (Line::Title(title), UIA_NamePropertyId) => {
+                    VARIANT::from(BSTR::from(title.as_str()))
+                }
+                (Line::Item(item), UIA_AcceleratorKeyPropertyId) => match &item.shortcut {
+                    Some(keys) => VARIANT::from(BSTR::from(keys.as_str())),
+                    None => VARIANT::default(),
+                },
+                (Line::Item(item), UIA_IsEnabledPropertyId) => VARIANT::from(item.enabled),
+                (Line::Item(_), UIA_IsKeyboardFocusablePropertyId) => VARIANT::from(true),
+                (Line::Item(_), UIA_HasKeyboardFocusPropertyId) => {
+                    VARIANT::from(focus == Some(self.index))
+                }
+                (Line::Item(_), UIA_PositionInSetPropertyId) => {
+                    let at = items.iter().position(|&i| i == self.index).unwrap_or(0);
+                    VARIANT::from(at as i32 + 1)
+                }
+                (Line::Item(_), UIA_SizeOfSetPropertyId) => VARIANT::from(items.len() as i32),
+                (_, UIA_AutomationIdPropertyId) => {
+                    VARIANT::from(BSTR::from(format!("line-{}", self.index).as_str()))
+                }
+                _ => VARIANT::default(),
+            })
         })
     }
 
     fn HostRawElementProvider(&self) -> Result<IRawElementProviderSimple> {
-        none()
+        crate::windows::panics::com_call(none)
     }
 }
 
 impl IRawElementProviderFragment_Impl for Item_Impl {
     fn Navigate(&self, direction: NavigateDirection) -> Result<IRawElementProviderFragment> {
-        if direction == NavigateDirection_Parent {
-            let root: IRawElementProviderFragment = Root { hwnd: self.hwnd }.into();
-            return Ok(root);
-        }
-        let count = lines().0.len();
-        let found = match direction {
-            NavigateDirection_NextSibling => Some(self.index + 1).filter(|&i| i < count),
-            NavigateDirection_PreviousSibling => self.index.checked_sub(1),
-            _ => None,
-        };
-        match found {
-            Some(index) => Ok(fragment(self.hwnd, index)),
-            None => none(),
-        }
+        crate::windows::panics::com_call(|| {
+            if direction == NavigateDirection_Parent {
+                let root: IRawElementProviderFragment = Root { hwnd: self.hwnd }.into();
+                return Ok(root);
+            }
+            let count = lines().0.len();
+            let found = match direction {
+                NavigateDirection_NextSibling => Some(self.index + 1).filter(|&i| i < count),
+                NavigateDirection_PreviousSibling => self.index.checked_sub(1),
+                _ => None,
+            };
+            match found {
+                Some(index) => Ok(fragment(self.hwnd, index)),
+                None => none(),
+            }
+        })
     }
 
     fn GetRuntimeId(&self) -> Result<*mut SAFEARRAY> {
-        unsafe {
+        crate::windows::panics::com_call(|| unsafe {
             let ids = SafeArrayCreateVector(VT_I4, 0, 2);
             if ids.is_null() {
                 return none();
@@ -340,56 +360,66 @@ impl IRawElementProviderFragment_Impl for Item_Impl {
                 SafeArrayPutElement(ids, &at, std::ptr::from_ref(&value).cast())?;
             }
             Ok(ids)
-        }
+        })
     }
 
     fn BoundingRectangle(&self) -> Result<UiaRect> {
-        Ok(match self.entry() {
-            Some(entry) => {
-                let (left, top, width, height) = entry.rect;
-                UiaRect {
-                    left,
-                    top,
-                    width,
-                    height,
+        crate::windows::panics::com_call(|| {
+            Ok(match self.entry() {
+                Some(entry) => {
+                    let (left, top, width, height) = entry.rect;
+                    UiaRect {
+                        left,
+                        top,
+                        width,
+                        height,
+                    }
                 }
-            }
-            None => UiaRect::default(),
+                None => UiaRect::default(),
+            })
         })
     }
 
     fn GetEmbeddedFragmentRoots(&self) -> Result<*mut SAFEARRAY> {
-        Ok(std::ptr::null_mut())
+        crate::windows::panics::com_call(|| Ok(std::ptr::null_mut()))
     }
 
     fn SetFocus(&self) -> Result<()> {
-        self.post(WM_MENU_FOCUS);
-        Ok(())
+        crate::windows::panics::com_call(|| {
+            self.post(WM_MENU_FOCUS);
+            Ok(())
+        })
     }
 
     fn FragmentRoot(&self) -> Result<IRawElementProviderFragmentRoot> {
-        Ok(Root { hwnd: self.hwnd }.into())
+        crate::windows::panics::com_call(|| Ok(Root { hwnd: self.hwnd }.into()))
     }
 }
 
 impl IInvokeProvider_Impl for Item_Impl {
     fn Invoke(&self) -> Result<()> {
-        self.post(WM_MENU_INVOKE);
-        Ok(())
+        crate::windows::panics::com_call(|| {
+            self.post(WM_MENU_INVOKE);
+            Ok(())
+        })
     }
 }
 
 impl IToggleProvider_Impl for Item_Impl {
     fn Toggle(&self) -> Result<()> {
-        // Choosing a checked line is what changes it, as in Windows' menus.
-        self.post(WM_MENU_INVOKE);
-        Ok(())
+        crate::windows::panics::com_call(|| {
+            // Choosing a checked line is what changes it, as in Windows' menus.
+            self.post(WM_MENU_INVOKE);
+            Ok(())
+        })
     }
 
     fn ToggleState(&self) -> Result<ToggleState> {
-        Ok(match self.entry().map(|entry| entry.line) {
-            Some(Line::Item(item)) if item.checked => ToggleState_On,
-            _ => ToggleState_Off,
+        crate::windows::panics::com_call(|| {
+            Ok(match self.entry().map(|entry| entry.line) {
+                Some(Line::Item(item)) if item.checked => ToggleState_On,
+                _ => ToggleState_Off,
+            })
         })
     }
 }

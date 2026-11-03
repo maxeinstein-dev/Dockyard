@@ -13,5 +13,5 @@
 .countdown-note {
   margin: 0;
   color: var(--ink-2);
-  font-size: 12px;
+  font-size: var(--fs-caption);
 }

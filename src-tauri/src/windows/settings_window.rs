@@ -192,35 +192,39 @@ fn open_at(app: &AppHandle, section: Option<Section>) -> Result<(), Box<dyn Erro
         .spawn(move || {
             let asked = std::time::Instant::now();
             let title = crate::i18n::messages().settings.window_title;
-            let mut builder =
-                WebviewWindowBuilder::new(&app, LABEL, WebviewUrl::App("settings.html".into()))
-                    .title(title)
-                    .inner_size(880.0, 640.0)
-                    .min_inner_size(720.0, 480.0)
-                    .center()
-                    .resizable(true)
-                    .background_color(Color(red, green, blue, 255))
-                    .additional_browser_args(super::BROWSER_ARGS)
-                    // A section asked for while the window was being made
-                    // reaches the page once it has loaded and listens.
-                    .on_page_load(|webview, payload| {
-                        if payload.event() != PageLoadEvent::Finished {
-                            return;
-                        }
-                        let Some(section) = PENDING_SECTION
-                            .lock()
-                            .unwrap_or_else(std::sync::PoisonError::into_inner)
-                            .take()
-                        else {
-                            return;
-                        };
-                        if let Err(error) = webview.emit_to(LABEL, SECTION_EVENT, section.as_str())
-                        {
-                            log::warn!(
-                                "settings: the section asked for did not reach the page: {error}"
-                            );
-                        }
-                    });
+            let mut builder = WebviewWindowBuilder::new(
+                &app,
+                LABEL,
+                WebviewUrl::App("settings.html".into()),
+            )
+            .title(title)
+            .inner_size(880.0, 640.0)
+            .min_inner_size(720.0, 480.0)
+            .center()
+            .resizable(true)
+            .background_color(Color(red, green, blue, 255))
+            .additional_browser_args(super::BROWSER_ARGS)
+            // A section asked for while the window was being made
+            // reaches the page once it has loaded and listens.
+            .on_page_load(|webview, payload| {
+                let _ = crate::windows::panics::window_message(|| {
+                    if payload.event() != PageLoadEvent::Finished {
+                        return;
+                    }
+                    let Some(section) = PENDING_SECTION
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
+                        .take()
+                    else {
+                        return;
+                    };
+                    if let Err(error) = webview.emit_to(LABEL, SECTION_EVENT, section.as_str()) {
+                        log::warn!(
+                            "settings: the section asked for did not reach the page: {error}"
+                        );
+                    }
+                });
+            });
             if let Some(start) = &start {
                 builder = builder.initialization_script(start);
             }
@@ -320,25 +324,30 @@ unsafe extern "system" fn subclass_proc(
     _id: usize,
     _data: usize,
 ) -> windows::Win32::Foundation::LRESULT {
-    use windows::Win32::Foundation::LRESULT;
-    use windows::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass};
-    use windows::Win32::UI::WindowsAndMessaging::{SC_KEYMENU, WM_NCDESTROY, WM_SYSCOMMAND};
-    // The window's menu by the keyboard: Alt+Space, its character a space.
-    let menu_by_space = message == WM_SYSCOMMAND
-        && (wparam.0 & 0xFFF0) == SC_KEYMENU as usize
-        && lparam.0 == isize::from(b' ');
-    if menu_by_space && super::launcher::capturing() {
-        if let Some(app) = APP.get()
-            && let Err(error) = app.emit_to(LABEL, HOTKEY_KEY_EVENT, alt_space_now())
-        {
-            log::warn!("settings: Alt+Space did not reach the capture: {error}");
+    crate::windows::panics::window_message(|| {
+        use windows::Win32::Foundation::LRESULT;
+        use windows::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass};
+        use windows::Win32::UI::WindowsAndMessaging::{SC_KEYMENU, WM_NCDESTROY, WM_SYSCOMMAND};
+        // The window's menu by the keyboard: Alt+Space, its character a space.
+        let menu_by_space = message == WM_SYSCOMMAND
+            && (wparam.0 & 0xFFF0) == SC_KEYMENU as usize
+            && lparam.0 == isize::from(b' ');
+        if menu_by_space && super::launcher::capturing() {
+            if let Some(app) = APP.get()
+                && let Err(error) = app.emit_to(LABEL, HOTKEY_KEY_EVENT, alt_space_now())
+            {
+                log::warn!("settings: Alt+Space did not reach the capture: {error}");
+            }
+            return LRESULT(0);
         }
-        return LRESULT(0);
-    }
-    if message == WM_NCDESTROY {
-        let _ = unsafe { RemoveWindowSubclass(hwnd, Some(subclass_proc), SUBCLASS_ID) };
-    }
-    unsafe { DefSubclassProc(hwnd, message, wparam, lparam) }
+        if message == WM_NCDESTROY {
+            let _ = unsafe { RemoveWindowSubclass(hwnd, Some(subclass_proc), SUBCLASS_ID) };
+        }
+        unsafe { DefSubclassProc(hwnd, message, wparam, lparam) }
+    })
+    .unwrap_or_else(|| unsafe {
+        ::windows::Win32::UI::Shell::DefSubclassProc(hwnd, message, wparam, lparam)
+    })
 }
 
 #[cfg(test)]

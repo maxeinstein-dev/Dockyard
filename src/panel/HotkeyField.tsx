@@ -1,11 +1,14 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
+  DEFAULT_DOCK_HOTKEY,
   DEFAULT_HOTKEY,
   HOTKEY_PRESSED_EVENT,
+  captureDockHotkey,
   captureLauncherHotkey,
   hotkeyFromEvent,
   hotkeyLabel,
+  setDockHotkey,
   setLauncherHotkey,
   type HotkeyErrorCode,
 } from "../core/launcher";
@@ -13,10 +16,26 @@ import { format, useT } from "../i18n";
 import "./parts/parts.css";
 
 type HotkeyFieldProps = {
-  /** The hotkey in use (`Settings.launcherHotkey`). */
+  /** The hotkey in use (`Settings.launcherHotkey`, or `dockHotkey`). */
   hotkey: string;
   disabled?: boolean;
+  /** Whose hotkey: the launcher's (the default) or the dock's (M14). */
+  of?: "launcher" | "dock";
 };
+
+/** How each hotkey is changed and captured, and what it is unless changed. */
+const KINDS = {
+  launcher: {
+    fallback: DEFAULT_HOTKEY,
+    save: setLauncherHotkey,
+    capture: captureLauncherHotkey,
+  },
+  dock: {
+    fallback: DEFAULT_DOCK_HOTKEY,
+    save: setDockHotkey,
+    capture: captureDockHotkey,
+  },
+} as const;
 
 type State =
   | { kind: "idle" }
@@ -30,11 +49,19 @@ type State =
  * that shows it and, pressed, captures the next combination. While it
  * captures, Rust lets go of the current hotkey (or pressing it would open
  * the launcher); Esc or leaving the button cancels. Rust tries the new one
- * for real before saving it, and says why when it can't.
+ * for real before saving it, and says why when it can't. The dock's hotkey
+ * (M14) works the same way, without the try: Rust logs when another program
+ * holds it.
  */
-function HotkeyField({ hotkey, disabled = false }: HotkeyFieldProps) {
+function HotkeyField({
+  hotkey,
+  disabled = false,
+  of = "launcher",
+}: HotkeyFieldProps) {
   const t = useT();
-  const text = t.settings.launcher.hotkey;
+  const text =
+    of === "dock" ? t.settings.dockHotkey : t.settings.launcher.hotkey;
+  const { fallback, save: saveHotkey, capture: captureHotkey } = KINDS[of];
   const hintId = useId();
   const statusId = useId();
   const [state, setState] = useState<State>({ kind: "idle" });
@@ -44,20 +71,20 @@ function HotkeyField({ hotkey, disabled = false }: HotkeyFieldProps) {
   function stopCapture() {
     if (!capturing.current) return;
     capturing.current = false;
-    captureLauncherHotkey(false);
+    captureHotkey(false);
   }
 
   // Leaving Configurações in the middle gives the hotkey back.
   useEffect(
     () => () => {
-      if (capturing.current) captureLauncherHotkey(false);
+      if (capturing.current) captureHotkey(false);
     },
-    [],
+    [captureHotkey],
   );
 
   function start() {
     capturing.current = true;
-    captureLauncherHotkey(true);
+    captureHotkey(true);
     setState({ kind: "capturing" });
   }
 
@@ -68,7 +95,7 @@ function HotkeyField({ hotkey, disabled = false }: HotkeyFieldProps) {
 
   function save(wanted: string) {
     setState({ kind: "saving" });
-    void setLauncherHotkey(wanted).then((code) => {
+    void saveHotkey(wanted).then((code) => {
       // Rust ended the capture: the new hotkey, or the one before it, is
       // held again.
       capturing.current = false;
@@ -171,12 +198,12 @@ function HotkeyField({ hotkey, disabled = false }: HotkeyFieldProps) {
           {text.errors[state.code]}
         </p>
       ) : null}
-      {hotkey !== DEFAULT_HOTKEY && state.kind !== "capturing" ? (
+      {hotkey !== fallback && state.kind !== "capturing" ? (
         <button
           type="button"
           className="quiet-button"
           disabled={disabled || state.kind === "saving"}
-          onClick={() => save(DEFAULT_HOTKEY)}
+          onClick={() => save(fallback)}
         >
           {text.restore}
         </button>

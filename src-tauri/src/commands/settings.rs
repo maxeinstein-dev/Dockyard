@@ -39,6 +39,7 @@ pub struct SettingsInput {
     launcher: bool,
     launcher_keywords: Vec<WebKeywordInput>,
     launcher_hotkey: String,
+    dock_hotkey: String,
     language: Language,
     tour_shown: bool,
 }
@@ -102,6 +103,7 @@ impl From<SettingsInput> for Settings {
             launcher,
             launcher_keywords,
             launcher_hotkey,
+            dock_hotkey,
             language,
             tour_shown,
         } = input;
@@ -119,6 +121,7 @@ impl From<SettingsInput> for Settings {
                 })
                 .collect(),
             launcher_hotkey,
+            dock_hotkey,
             language,
             tour_shown,
             dock: DockSettings {
@@ -488,7 +491,7 @@ mod tests {
 
     fn full() -> String {
         format!(
-            r#"{{"version":1,"theme":"dark","dock":{{"edge":"top","iconSize":64,"opacity":"solid",{LOOK}}},"launchAtLogin":true,"launcher":false,"launcherKeywords":[{{"keyword":"d","name":"Duck","template":"https://duckduckgo.com/?q=%s"}}],"launcherHotkey":"Ctrl+Shift+K","language":"en","tourShown":true}}"#
+            r#"{{"version":1,"theme":"dark","dock":{{"edge":"top","iconSize":64,"opacity":"solid",{LOOK}}},"launchAtLogin":true,"launcher":false,"launcherKeywords":[{{"keyword":"d","name":"Duck","template":"https://duckduckgo.com/?q=%s"}}],"launcherHotkey":"Ctrl+Shift+K","dockHotkey":"Ctrl+Alt+Z","language":"en","tourShown":true}}"#
         )
     }
 
@@ -509,6 +512,7 @@ mod tests {
                     template: "https://duckduckgo.com/?q=%s".into(),
                 }],
                 launcher_hotkey: "Ctrl+Shift+K".into(),
+                dock_hotkey: "Ctrl+Alt+Z".into(),
                 language: Language::En,
                 tour_shown: true,
                 dock: DockSettings {
@@ -605,6 +609,12 @@ mod tests {
         ] {
             let mut value: serde_json::Value = serde_json::from_str(&full()).unwrap();
             value["dock"].as_object_mut().unwrap().remove(field);
+            assert!(input(&value.to_string()).is_err(), "{field}");
+        }
+        // The hotkeys too.
+        for field in ["launcherHotkey", "dockHotkey"] {
+            let mut value: serde_json::Value = serde_json::from_str(&full()).unwrap();
+            value.as_object_mut().unwrap().remove(field);
             assert!(input(&value.to_string()).is_err(), "{field}");
         }
     }

@@ -360,17 +360,20 @@ pub fn icons() -> Vec<Icon> {
 /// The taskbar's own window: the `Shell_TrayWnd` that is not ours.
 fn real_tray() -> Option<HWND> {
     unsafe extern "system" fn collect(hwnd: HWND, found: LPARAM) -> BOOL {
-        let mut name = [0u16; 32];
-        let length = unsafe { GetClassNameW(hwnd, &mut name) };
-        let name = String::from_utf16_lossy(&name[..usize::try_from(length).unwrap_or(0)]);
-        let mut process = 0;
-        unsafe { GetWindowThreadProcessId(hwnd, Some(&mut process)) };
-        if name == TRAY_CLASS && process != std::process::id() {
-            let found = unsafe { &mut *(found.0 as *mut Option<HWND>) };
-            *found = Some(hwnd);
-            return BOOL(0);
-        }
-        BOOL(1)
+        super::panics::window_message(|| {
+            let mut name = [0u16; 32];
+            let length = unsafe { GetClassNameW(hwnd, &mut name) };
+            let name = String::from_utf16_lossy(&name[..usize::try_from(length).unwrap_or(0)]);
+            let mut process = 0;
+            unsafe { GetWindowThreadProcessId(hwnd, Some(&mut process)) };
+            if name == TRAY_CLASS && process != std::process::id() {
+                let found = unsafe { &mut *(found.0 as *mut Option<HWND>) };
+                *found = Some(hwnd);
+                return BOOL(0);
+            }
+            BOOL(1)
+        })
+        .unwrap_or_else(|| false.into())
     }
     let mut found: Option<HWND> = None;
     let _ = unsafe { EnumWindows(Some(collect), LPARAM(&mut found as *mut _ as isize)) };
@@ -710,75 +713,81 @@ unsafe extern "system" fn procedure(
     wparam: WPARAM,
     lparam: LPARAM,
 ) -> LRESULT {
-    match msg {
-        WM_COPYDATA => {
-            if let Some(answer) = answer_to_rect_query(lparam) {
-                return LRESULT(answer);
-            }
-            let taken = observe(lparam);
-            // Success for what only the taskbar could answer, when it is not
-            // there to answer.
-            let answer = forward(msg, wparam, lparam, 1);
-            // The icons are the host's: it answers for them.
-            let answer = if taken == Some(true) {
-                LRESULT(1)
-            } else {
-                answer
-            };
-            if TRACE.load(Ordering::Relaxed) {
-                let data = unsafe { (lparam.0 as *const COPYDATASTRUCT).as_ref() };
-                log::warn!(
-                    "tray trace: forwarded dwData={:?} -> {}",
-                    data.map(|data| data.dwData),
-                    answer.0
-                );
-                // What is neither an icon nor an app bar message: its bytes.
-                if let Some(data) = data
-                    && !matches!(data.dwData, 0 | 1)
-                    && !data.lpData.is_null()
-                {
-                    let length = (data.cbData as usize).min(64);
-                    let bytes =
-                        unsafe { std::slice::from_raw_parts(data.lpData as *const u8, length) };
-                    let hex: Vec<String> = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
-                    log::warn!(
-                        "tray trace: dwData={} cbData={} answer={:#x} bytes={}",
-                        data.dwData,
-                        data.cbData,
-                        answer.0,
-                        hex.join(" ")
-                    );
+    super::panics::window_message(|| {
+        match msg {
+            WM_COPYDATA => {
+                if let Some(answer) = answer_to_rect_query(lparam) {
+                    return LRESULT(answer);
                 }
+                let taken = observe(lparam);
+                // Success for what only the taskbar could answer, when it is not
+                // there to answer.
+                let answer = forward(msg, wparam, lparam, 1);
+                // The icons are the host's: it answers for them.
+                let answer = if taken == Some(true) {
+                    LRESULT(1)
+                } else {
+                    answer
+                };
+                if TRACE.load(Ordering::Relaxed) {
+                    let data = unsafe { (lparam.0 as *const COPYDATASTRUCT).as_ref() };
+                    log::warn!(
+                        "tray trace: forwarded dwData={:?} -> {}",
+                        data.map(|data| data.dwData),
+                        answer.0
+                    );
+                    // What is neither an icon nor an app bar message: its bytes.
+                    if let Some(data) = data
+                        && !matches!(data.dwData, 0 | 1)
+                        && !data.lpData.is_null()
+                    {
+                        let length = (data.cbData as usize).min(64);
+                        let bytes =
+                            unsafe { std::slice::from_raw_parts(data.lpData as *const u8, length) };
+                        let hex: Vec<String> =
+                            bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+                        log::warn!(
+                            "tray trace: dwData={} cbData={} answer={:#x} bytes={}",
+                            data.dwData,
+                            data.cbData,
+                            answer.0,
+                            hex.join(" ")
+                        );
+                    }
+                }
+                return answer;
             }
-            return answer;
-        }
-        WM_TIMER if wparam.0 == TIMER_ID => {
-            let _ = unsafe { KillTimer(Some(hwnd), TIMER_ID) };
-            changed();
-            return LRESULT(0);
-        }
-        WM_TIMER if wparam.0 == REBROADCAST_ID => {
-            let _ = unsafe { KillTimer(Some(hwnd), REBROADCAST_ID) };
-            raise();
-            broadcast_taskbar_created();
-            let done = REBROADCASTS.fetch_add(1, Ordering::Relaxed) + 1;
-            if let Some(pause) = rebroadcast_pause(done) {
-                unsafe { SetTimer(Some(hwnd), REBROADCAST_ID, pause, None) };
+            WM_TIMER if wparam.0 == TIMER_ID => {
+                let _ = unsafe { KillTimer(Some(hwnd), TIMER_ID) };
+                changed();
+                return LRESULT(0);
             }
-            return LRESULT(0);
+            WM_TIMER if wparam.0 == REBROADCAST_ID => {
+                let _ = unsafe { KillTimer(Some(hwnd), REBROADCAST_ID) };
+                raise();
+                broadcast_taskbar_created();
+                let done = REBROADCASTS.fetch_add(1, Ordering::Relaxed) + 1;
+                if let Some(pause) = rebroadcast_pause(done) {
+                    unsafe { SetTimer(Some(hwnd), REBROADCAST_ID, pause, None) };
+                }
+                return LRESULT(0);
+            }
+            WM_CLOSE => {
+                let _ = unsafe { DestroyWindow(hwnd) };
+                return LRESULT(0);
+            }
+            WM_DESTROY => {
+                WINDOW.store(0, Ordering::Release);
+                unsafe { PostQuitMessage(0) };
+                return LRESULT(0);
+            }
+            _ => {}
         }
-        WM_CLOSE => {
-            let _ = unsafe { DestroyWindow(hwnd) };
-            return LRESULT(0);
-        }
-        WM_DESTROY => {
-            WINDOW.store(0, Ordering::Release);
-            unsafe { PostQuitMessage(0) };
-            return LRESULT(0);
-        }
-        _ => {}
-    }
-    unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
+        unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
+    })
+    .unwrap_or_else(|| unsafe {
+        ::windows::Win32::UI::WindowsAndMessaging::DefWindowProcW(hwnd, msg, wparam, lparam)
+    })
 }
 
 /// Puts the host's window above every other topmost one, the taskbar's

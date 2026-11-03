@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { errorKind, log } from "./log";
 import type { WidgetId } from "./widgets";
+import { useTauriSnapshot, type SnapshotSource } from "./snapshot";
 
 /* The pinned programs that are open (spec 0009). Rust follows the windows
  * and keeps the handles; the dock only hears who is open and whether the user
@@ -201,40 +201,19 @@ export function useOpenBadge(key: string, has: boolean): string | null {
   return has && badge !== null && badge.key === key ? badge.url : null;
 }
 
+const OPEN_APPS_SOURCE: SnapshotSource<OpenNow> = {
+  event: OPEN_APPS_CHANGED_EVENT,
+  read: () => invoke<OpenSnapshot>(OPEN_APPS_COMMANDS.list),
+  accept: (value) => (validSnapshot(value) ? nowOf(value) : null),
+  readFailed: (error) =>
+    log.warn(`apps: open programs read failed: ${errorKind(error)}`),
+  listenFailed: (error) =>
+    log.warn(`apps: open programs: listen failed: ${errorKind(error)}`),
+};
+
 /** The open programs, kept current by `open-windows-changed`; none while
  * loading and if they can't be read (the dock then shows no program as
  * open). */
 export function useOpenApps(): OpenNow {
-  const [open, setOpen] = useState<OpenNow>(NONE);
-
-  useEffect(() => {
-    let active = true;
-    // A change may arrive before the first read answers; that read is older
-    // then, so it is dropped.
-    let changed = false;
-
-    const unlisten = listen<OpenSnapshot>(OPEN_APPS_CHANGED_EVENT, (event) => {
-      if (!active || !validSnapshot(event.payload)) return;
-      changed = true;
-      setOpen(nowOf(event.payload));
-    });
-
-    invoke<OpenSnapshot>(OPEN_APPS_COMMANDS.list).then(
-      (current) => {
-        if (active && !changed && validSnapshot(current)) {
-          setOpen(nowOf(current));
-        }
-      },
-      (error: unknown) => {
-        log.warn(`apps: open programs read failed: ${errorKind(error)}`);
-      },
-    );
-
-    return () => {
-      active = false;
-      void unlisten.then((stop) => stop());
-    };
-  }, []);
-
-  return open;
+  return useTauriSnapshot(OPEN_APPS_SOURCE) ?? NONE;
 }
