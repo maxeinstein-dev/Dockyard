@@ -12,6 +12,10 @@ pub const CYCLE_SYMBOL: &str = "🌸";
 /// Minutes before a meeting that the tile's middle click joins it.
 pub const JOIN_AHEAD: i64 = 10 * 60;
 
+/// Seconds before a meeting that the tile stops saying its time and counts
+/// the minutes to it ("em 30 min").
+pub const COUNTDOWN_AHEAD: i64 = 30 * 60;
+
 /// A calendar the events come from, as the accounts list it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -331,7 +335,7 @@ pub fn clock(at: i64, offset: i64) -> String {
 pub enum When {
     /// It started.
     Now,
-    /// It starts within the hour: in this many minutes.
+    /// It starts within [`COUNTDOWN_AHEAD`]: in this many minutes.
     In(i64),
     /// Later today, at this time (`14:30`).
     At(String),
@@ -344,7 +348,7 @@ pub fn when(event: &Event, now: i64, offset: i64) -> When {
     let day = |at: i64| (at + offset).div_euclid(24 * 3600);
     if event.start <= now {
         When::Now
-    } else if event.start - now < 3600 {
+    } else if event.start - now <= COUNTDOWN_AHEAD {
         When::In((event.start - now + 59) / 60)
     } else if day(event.start) > day(now) {
         When::Tomorrow(clock(event.start, offset))
@@ -611,6 +615,9 @@ mod tests {
         assert_eq!(when(&at(now - 60), now, BRT), When::Now);
         assert_eq!(when(&at(now + 9 * 60), now, BRT), When::In(9));
         assert_eq!(when(&at(now + 61), now, BRT), When::In(2));
+        // The time until half an hour before; then the minutes.
+        assert_eq!(when(&at(now + 31 * 60), now, BRT), When::At("09:31".into()));
+        assert_eq!(when(&at(now + 30 * 60), now, BRT), When::In(30));
         assert_eq!(
             when(&at(now + 5 * 3600), now, BRT),
             When::At("14:00".into())

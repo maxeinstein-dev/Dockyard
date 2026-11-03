@@ -611,6 +611,16 @@ mod tests {
     }
 
     #[test]
+    fn the_calendar_tile_says_the_time_until_half_an_hour_before() {
+        let day = snapshot(vec![event("Daily", "max", NOW + 45 * 60)]);
+        assert_eq!(lines(1, &[], Some(&day)), ["09:45 · Daily"]);
+        assert_eq!(lines(2, &[], Some(&day)), ["09:45 · Daily"]);
+        let soon = snapshot(vec![event("Daily", "max", NOW + 30 * 60)]);
+        assert_eq!(lines(1, &[], Some(&soon)), ["30 min · Daily"]);
+        assert_eq!(lines(2, &[], Some(&soon)), ["em 30 min · Daily"]);
+    }
+
+    #[test]
     fn the_calendar_tile_carries_each_calendars_color() {
         let mut work = event("Daily", "max", NOW + 600);
         work.color = Some("#9fc6e7".into());
