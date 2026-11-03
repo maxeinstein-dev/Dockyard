@@ -76,7 +76,13 @@ pnpm tauri build          # build de release com o instalador NSIS
 pnpm tauri build --no-bundle  # só o executável, sem instalador
 ```
 
-Verificações (as mesmas da CI):
+Verificações (as mesmas dos jobs `frontend` e `rust` da CI). `pnpm check` roda todas em sequência e para na primeira que falhar. O `pnpm install` liga o gancho de pre-push (`.githooks/pre-push`), que roda o `pnpm check` antes de cada push de branch; para enviar sem ele, `git push --no-verify`.
+
+```bash
+pnpm check
+```
+
+Ou uma a uma:
 
 ```bash
 pnpm lint

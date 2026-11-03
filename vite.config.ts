@@ -1,8 +1,8 @@
-/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { configDefaults } from "vitest/config";
 
 const host = process.env.TAURI_DEV_HOST;
 
@@ -52,5 +52,7 @@ export default defineConfig(() => ({
     // Lets tests read the CSS sources as text (`?raw`), for the
     // design-token guards.
     css: { include: [/\.css/] },
+    // `.claude/worktrees`: other agent sessions' checkouts of this repo.
+    exclude: [...configDefaults.exclude, ".claude/**"],
   },
 }));

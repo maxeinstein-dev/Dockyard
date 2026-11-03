@@ -11,7 +11,8 @@ const LOG_CALL =
   'CallExpression[callee.type="MemberExpression"][callee.object.name="log"][callee.property.name=/^(error|warn|info)$/]';
 
 export default defineConfig(
-  globalIgnores(["dist", "src-tauri", "node_modules", "docs"]),
+  // `.claude/worktrees`: other agent sessions' checkouts of this repo.
+  globalIgnores(["dist", "src-tauri", "node_modules", "docs", ".claude"]),
   {
     files: ["**/*.{js,ts,tsx}"],
     extends: [
