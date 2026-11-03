@@ -13,10 +13,11 @@
 
 use std::sync::{Mutex, PoisonError};
 
+use crate::windows::uia::{none, number_of, rect, runtime_id};
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::Com::SAFEARRAY;
 use windows::Win32::System::Ole::{SafeArrayCreateVector, SafeArrayPutElement};
-use windows::Win32::System::Variant::{VARIANT, VT_I4, VT_UNKNOWN};
+use windows::Win32::System::Variant::{VARIANT, VT_UNKNOWN};
 use windows::Win32::UI::Accessibility::{
     IInvokeProvider, IInvokeProvider_Impl, IRawElementProviderFragment,
     IRawElementProviderFragment_Impl, IRawElementProviderFragmentRoot,
@@ -32,11 +33,10 @@ use windows::Win32::UI::Accessibility::{
     UIA_ListControlTypeId, UIA_ListItemControlTypeId, UIA_NamePropertyId, UIA_PATTERN_ID,
     UIA_PROPERTY_ID, UIA_PositionInSetPropertyId, UIA_SelectionItem_ElementSelectedEventId,
     UIA_SelectionItemPatternId, UIA_SelectionPatternId, UIA_SizeOfSetPropertyId,
-    UIA_ValuePatternId, UiaAppendRuntimeId, UiaClientsAreListening, UiaHostProviderFromHwnd,
-    UiaRaiseAutomationEvent, UiaRaiseNotificationEvent, UiaRect, UiaReturnRawElementProvider,
-    UiaRootObjectId,
+    UIA_ValuePatternId, UiaClientsAreListening, UiaHostProviderFromHwnd, UiaRaiseAutomationEvent,
+    UiaRaiseNotificationEvent, UiaRect, UiaReturnRawElementProvider, UiaRootObjectId,
 };
-use windows::core::{BSTR, Error, IUnknown, IUnknownImpl, Interface, Result, implement};
+use windows::core::{BSTR, IUnknown, IUnknownImpl, Interface, Result, implement};
 
 /// One result as assistive technology sees it.
 #[derive(Debug, Clone, PartialEq)]
@@ -195,11 +195,6 @@ pub fn announce(hwnd: isize, text: &str) {
             &BSTR::from("dockmax-launcher"),
         );
     }
-}
-
-/// Nothing: a null out-pointer with success.
-fn none<T>() -> Result<T> {
-    Err(Error::empty())
 }
 
 fn item(hwnd: isize, key: String) -> IRawElementProviderFragment {
@@ -368,17 +363,6 @@ impl Item_Impl {
     }
 }
 
-/// A number for the key, the same each time it is asked.
-fn number_of(key: &str) -> i32 {
-    // FNV-1a: stable across runs, unlike the standard hasher.
-    let mut hash: u32 = 0x811c_9dc5;
-    for byte in key.bytes() {
-        hash ^= u32::from(byte);
-        hash = hash.wrapping_mul(0x0100_0193);
-    }
-    hash as i32
-}
-
 /// What the row `entry`, at `index` of `count`, says of `property` (its
 /// name, its kind...). Apart from `Item` so a test reads it without making
 /// one: an `Item` brings its `Invoke`, and with it the whole launcher and
@@ -456,34 +440,13 @@ impl IRawElementProviderFragment_Impl for Item_Impl {
     }
 
     fn GetRuntimeId(&self) -> Result<*mut SAFEARRAY> {
-        crate::windows::panics::com_call(|| unsafe {
-            let ids = SafeArrayCreateVector(VT_I4, 0, 2);
-            if ids.is_null() {
-                return none();
-            }
-            for (index, value) in [UiaAppendRuntimeId as i32, number_of(&self.key)]
-                .into_iter()
-                .enumerate()
-            {
-                let at = index as i32;
-                SafeArrayPutElement(ids, &at, std::ptr::from_ref(&value).cast())?;
-            }
-            Ok(ids)
-        })
+        crate::windows::panics::com_call(|| runtime_id(number_of(&self.key)))
     }
 
     fn BoundingRectangle(&self) -> Result<UiaRect> {
         crate::windows::panics::com_call(|| {
             Ok(match self.entry() {
-                Some((_, _, entry)) => {
-                    let (left, top, width, height) = entry.rect;
-                    UiaRect {
-                        left,
-                        top,
-                        width,
-                        height,
-                    }
-                }
+                Some((_, _, entry)) => rect(entry.rect),
                 None => UiaRect::default(),
             })
         })
