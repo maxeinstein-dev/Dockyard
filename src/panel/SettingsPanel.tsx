@@ -143,388 +143,115 @@ function SettingsPanel({
 
   const groups = t.settings.app.groups;
 
-  if (grouped) {
-    return (
-      <>
-        <SettingsGroup title={groups.dock} grouped>
-          <OptionGroup
-            label={t.settings.groups.theme}
-            options={options(THEMES, t.settings.theme)}
-            selected={theme}
-            onSelect={(value) => change((s) => ({ ...s, theme: value }))}
-          />
-          <ChoiceCards
-            label={t.settings.groups.edge}
-            choices={options(EDGES, t.settings.edge)}
-            selected={edge}
-            disabled={shown === null}
-            onSelect={(value) =>
-              change((s) => ({
-                ...s,
-                dock: { ...s.dock, edge: value },
-              }))
-            }
-            thumb={(value) => <ScreenThumb edge={value} />}
-          />
-          <OptionGroup
-            label={t.settings.groups.size}
-            options={options(SIZES, t.settings.size)}
-            selected={size}
-            onSelect={(value) =>
-              change((s) => ({
-                ...s,
-                dock: { ...s.dock, iconSize: SIZE_PRESETS[value] },
-              }))
-            }
-          />
-          <OptionGroup
-            label={t.settings.groups.opacity}
-            options={options(OPACITIES, t.settings.opacity)}
-            selected={opacity}
-            onSelect={(value) =>
-              change((s) => ({
-                ...s,
-                dock: { ...s.dock, opacity: value },
-              }))
-            }
-          />
-        </SettingsGroup>
-        <SettingsGroup title={groups.taskbar} grouped>
-          <ChoiceCards
-            label={t.settings.groups.taskbar}
-            choices={TASKBARS.map((value) => ({
-              value,
-              label: t.settings.taskbar[value],
-              hint: t.settings.taskbarHints[value],
-            }))}
-            selected={taskbar}
-            disabled={shown === null}
-            onSelect={(value) =>
-              change((s) => ({
-                ...s,
-                dock: { ...s.dock, taskbar: value },
-              }))
-            }
-            thumb={(value) => (
-              <ScreenThumb edge={edge ?? "bottom"} taskbar={value} />
-            )}
-          />
-          {/* The dock holds the tray only with the taskbar hidden altogether. */}
-          {withTrayInDock && shown !== null && taskbar === "hidden" ? (
-            <TrayInDockField
-              inDock={shown.dock.trayInDock ?? []}
-              onChange={(trayInDock) =>
-                change((s) => ({ ...s, dock: { ...s.dock, trayInDock } }))
-              }
-            />
-          ) : null}
-        </SettingsGroup>
-        <SettingsGroup title={groups.behavior} grouped>
-          <ToggleField
-            label={t.settings.everyMonitor}
-            hint={t.settings.everyMonitorHint}
-            checked={shown?.dock.everyMonitor ?? true}
-            disabled={shown === null}
-            onChange={(everyMonitor) =>
-              change((s) => ({ ...s, dock: { ...s.dock, everyMonitor } }))
-            }
-          />
-          <ToggleField
-            label={t.settings.switchEveryMonitor}
-            hint={t.settings.switchEveryMonitorHint}
-            checked={shown?.dock.switchEveryMonitor ?? false}
-            disabled={shown === null}
-            onChange={(switchEveryMonitor) =>
-              change((s) => ({
-                ...s,
-                dock: { ...s.dock, switchEveryMonitor },
-              }))
-            }
-          />
-          <ToggleField
-            label={t.settings.indicatorFollowsWorkspace}
-            hint={t.settings.indicatorFollowsWorkspaceHint}
-            checked={shown?.dock.indicatorFollowsWorkspace ?? false}
-            disabled={shown === null}
-            onChange={(indicatorFollowsWorkspace) =>
-              change((s) => ({
-                ...s,
-                dock: { ...s.dock, indicatorFollowsWorkspace },
-              }))
-            }
-          />
-          <ToggleField
-            label={t.settings.autoHide}
-            hint={t.settings.autoHideHint}
-            checked={shown?.dock.autoHide ?? false}
-            disabled={shown === null}
-            onChange={(autoHide) =>
-              change((s) => ({ ...s, dock: { ...s.dock, autoHide } }))
-            }
-          />
-          {shown?.dock.autoHide ? (
-            <>
-              <RangeField
-                label={t.settings.autoHideReveal}
-                hint={t.settings.autoHideRevealHint}
-                value={shown.dock.autoHideReveal}
-                min={0}
-                max={MAX_AUTO_HIDE_REVEAL}
-                step={50}
-                display={seconds}
-                onCommit={(autoHideReveal) =>
-                  change((s) => ({ ...s, dock: { ...s.dock, autoHideReveal } }))
-                }
-              />
-              <RangeField
-                label={t.settings.autoHideDelay}
-                hint={t.settings.autoHideDelayHint}
-                value={shown.dock.autoHideDelay}
-                min={0}
-                max={MAX_AUTO_HIDE_DELAY}
-                step={100}
-                display={seconds}
-                onCommit={(autoHideDelay) =>
-                  change((s) => ({ ...s, dock: { ...s.dock, autoHideDelay } }))
-                }
-              />
-            </>
-          ) : null}
-          <ToggleField
-            label={t.settings.previews}
-            hint={t.settings.previewsHint}
-            checked={shown?.dock.previews ?? true}
-            disabled={shown === null}
-            onChange={(previews) =>
-              change((s) => ({ ...s, dock: { ...s.dock, previews } }))
-            }
-          />
-          {shown?.dock.previews ? (
-            <>
-              <RangeField
-                label={t.settings.previewDelay}
-                hint={t.settings.previewDelayHint}
-                value={shown.dock.previewDelay}
-                min={0}
-                max={MAX_PREVIEW_DELAY}
-                step={50}
-                display={seconds}
-                onCommit={(previewDelay) =>
-                  change((s) => ({ ...s, dock: { ...s.dock, previewDelay } }))
-                }
-              />
-              <ToggleField
-                label={t.settings.previewsOnlySeveral}
-                hint={t.settings.previewsOnlySeveralHint}
-                checked={shown.dock.previewsOnlySeveral}
-                onChange={(previewsOnlySeveral) =>
-                  change((s) => ({
-                    ...s,
-                    dock: { ...s.dock, previewsOnlySeveral },
-                  }))
-                }
-              />
-            </>
-          ) : null}
-          <ToggleField
-            label={t.settings.showOpenApps}
-            hint={t.settings.showOpenAppsHint}
-            checked={shown?.dock.showOpenApps ?? true}
-            disabled={shown === null}
-            onChange={(showOpenApps) =>
-              change((s) => ({ ...s, dock: { ...s.dock, showOpenApps } }))
-            }
-          />
-          <OptionGroup
-            label={t.settings.groups.middleClick}
-            options={options(MIDDLE_CLICKS, t.settings.middleClick)}
-            selected={shown?.dock.middleClick ?? null}
-            onSelect={(value) =>
-              change((s) => ({ ...s, dock: { ...s.dock, middleClick: value } }))
-            }
-          />
-          {withLauncher && shown !== null ? (
-            <HotkeyField of="dock" hotkey={shown.dockHotkey} />
-          ) : null}
-        </SettingsGroup>
-        {withLauncher ? (
-          <SettingsGroup title={groups.launcher} grouped>
-            {withLauncher ? (
-              <LauncherField
-                on={shown?.launcher ?? null}
-                hotkey={shown?.launcherHotkey ?? null}
-                onChange={(launcher) => change((s) => ({ ...s, launcher }))}
-              />
-            ) : null}
-            {withLauncher && shown !== null ? (
-              <WebKeywordsField
-                keywords={shown.launcherKeywords}
-                onChange={(launcherKeywords) =>
-                  change((s) => ({ ...s, launcherKeywords }))
-                }
-              />
-            ) : null}
-          </SettingsGroup>
-        ) : null}
-        <SettingsGroup title={t.settings.groups.language} grouped>
-          <OptionGroup
-            label={t.settings.groups.language}
-            options={options(LANGUAGES, t.settings.language)}
-            selected={shown?.language ?? null}
-            onSelect={(value) => change((s) => ({ ...s, language: value }))}
-          />
-        </SettingsGroup>
-        <SettingsGroup title={groups.startup} grouped>
-          <ToggleField
-            label={t.settings.launchAtLogin}
-            hint={t.settings.launchAtLoginHint}
-            checked={shown?.launchAtLogin ?? false}
-            disabled={shown === null}
-            onChange={(launchAtLogin) =>
-              change((s) => ({ ...s, launchAtLogin }))
-            }
-          />
-        </SettingsGroup>
-        {onOpenLook ? (
-          <NavRow
-            label={t.settings.look.title}
-            value={shown ? t.settings.look.styles[shown.dock.style] : ""}
-            onClick={onOpenLook}
-            focusOnMount={focusLookRow}
-          />
-        ) : null}
-        {onOpenApps ? (
-          <NavRow
-            label={t.apps.title}
-            value={appsValue(t, apps)}
-            warning={apps !== null && apps.storage.state !== "ok"}
-            onClick={onOpenApps}
-            focusOnMount={focusAppsRow}
-          />
-        ) : null}
-        {onOpenItems ? (
-          <NavRow
-            label={t.widgets.items.title}
-            value={itemsValue(t, widgets)}
-            // The notice lives in the subview (spec 0003 §2.4 item 7).
-            warning={widgets !== null && widgets.storage.state !== "ok"}
-            onClick={onOpenItems}
-            focusOnMount={focusItemsRow}
-          />
-        ) : null}
-        <PanelFooter alert={error && t.settings.errors[error]}>
-          {t.settings.footer}
-        </PanelFooter>
-      </>
-    );
-  }
+  /** A switch of `shown.dock`, `fallback` while there are no settings. */
+  const dockToggle = (
+    key:
+      | "everyMonitor"
+      | "switchEveryMonitor"
+      | "indicatorFollowsWorkspace"
+      | "autoHide"
+      | "previews"
+      | "showOpenApps"
+      | "showBadges",
+    label: string,
+    hint: string,
+    fallback: boolean,
+  ) => (
+    <ToggleField
+      label={label}
+      hint={hint}
+      checked={shown?.dock[key] ?? fallback}
+      disabled={shown === null}
+      onChange={(value) =>
+        change((s) => ({ ...s, dock: { ...s.dock, [key]: value } }))
+      }
+    />
+  );
 
-  return (
+  // Each field once; the two layouts below put them in their own order.
+  const themeField = (
+    <OptionGroup
+      label={t.settings.groups.theme}
+      options={options(THEMES, t.settings.theme)}
+      selected={theme}
+      onSelect={(value) => change((s) => ({ ...s, theme: value }))}
+    />
+  );
+  const languageField = (
+    <OptionGroup
+      label={t.settings.groups.language}
+      options={options(LANGUAGES, t.settings.language)}
+      selected={shown?.language ?? null}
+      onSelect={(value) => change((s) => ({ ...s, language: value }))}
+    />
+  );
+  const setEdge = (value: DockEdge) =>
+    change((s) => ({ ...s, dock: { ...s.dock, edge: value } }));
+  const sizeField = (
+    <OptionGroup
+      label={t.settings.groups.size}
+      options={options(SIZES, t.settings.size)}
+      selected={size}
+      onSelect={(value) =>
+        change((s) => ({
+          ...s,
+          dock: { ...s.dock, iconSize: SIZE_PRESETS[value] },
+        }))
+      }
+    />
+  );
+  const opacityField = (
+    <OptionGroup
+      label={t.settings.groups.opacity}
+      options={options(OPACITIES, t.settings.opacity)}
+      selected={opacity}
+      onSelect={(value) =>
+        change((s) => ({ ...s, dock: { ...s.dock, opacity: value } }))
+      }
+    />
+  );
+  const setTaskbar = (value: TaskbarMode) =>
+    change((s) => ({ ...s, dock: { ...s.dock, taskbar: value } }));
+  // The dock holds the tray only with the taskbar hidden altogether.
+  const trayInDockField =
+    withTrayInDock && shown !== null && taskbar === "hidden" ? (
+      <TrayInDockField
+        inDock={shown.dock.trayInDock ?? []}
+        onChange={(trayInDock) =>
+          change((s) => ({ ...s, dock: { ...s.dock, trayInDock } }))
+        }
+      />
+    ) : null;
+  const monitorFields = (
     <>
-      <OptionGroup
-        label={t.settings.groups.theme}
-        options={options(THEMES, t.settings.theme)}
-        selected={theme}
-        onSelect={(value) => change((s) => ({ ...s, theme: value }))}
-      />
-      <OptionGroup
-        label={t.settings.groups.language}
-        options={options(LANGUAGES, t.settings.language)}
-        selected={shown?.language ?? null}
-        onSelect={(value) => change((s) => ({ ...s, language: value }))}
-      />
-      <OptionGroup
-        label={t.settings.groups.edge}
-        options={options(EDGES, t.settings.edge)}
-        selected={edge}
-        onSelect={(value) =>
-          change((s) => ({
-            ...s,
-            dock: { ...s.dock, edge: value },
-          }))
-        }
-      />
-      <OptionGroup
-        label={t.settings.groups.size}
-        options={options(SIZES, t.settings.size)}
-        selected={size}
-        onSelect={(value) =>
-          change((s) => ({
-            ...s,
-            dock: { ...s.dock, iconSize: SIZE_PRESETS[value] },
-          }))
-        }
-      />
-      <OptionGroup
-        label={t.settings.groups.opacity}
-        options={options(OPACITIES, t.settings.opacity)}
-        selected={opacity}
-        onSelect={(value) =>
-          change((s) => ({
-            ...s,
-            dock: { ...s.dock, opacity: value },
-          }))
-        }
-      />
-      <OptionGroup
-        label={t.settings.groups.taskbar}
-        options={options(TASKBARS, t.settings.taskbar)}
-        selected={taskbar}
-        onSelect={(value) =>
-          change((s) => ({
-            ...s,
-            dock: { ...s.dock, taskbar: value },
-          }))
-        }
-      />
-      {/* The dock holds the tray only with the taskbar hidden altogether. */}
-      {withTrayInDock && shown !== null && taskbar === "hidden" ? (
-        <TrayInDockField
-          inDock={shown.dock.trayInDock ?? []}
-          onChange={(trayInDock) =>
-            change((s) => ({ ...s, dock: { ...s.dock, trayInDock } }))
-          }
-        />
-      ) : null}
-      <ToggleField
-        label={t.settings.everyMonitor}
-        hint={t.settings.everyMonitorHint}
-        checked={shown?.dock.everyMonitor ?? true}
-        disabled={shown === null}
-        onChange={(everyMonitor) =>
-          change((s) => ({ ...s, dock: { ...s.dock, everyMonitor } }))
-        }
-      />
-      <ToggleField
-        label={t.settings.switchEveryMonitor}
-        hint={t.settings.switchEveryMonitorHint}
-        checked={shown?.dock.switchEveryMonitor ?? false}
-        disabled={shown === null}
-        onChange={(switchEveryMonitor) =>
-          change((s) => ({ ...s, dock: { ...s.dock, switchEveryMonitor } }))
-        }
-      />
-      <ToggleField
-        label={t.settings.indicatorFollowsWorkspace}
-        hint={t.settings.indicatorFollowsWorkspaceHint}
-        checked={shown?.dock.indicatorFollowsWorkspace ?? false}
-        disabled={shown === null}
-        onChange={(indicatorFollowsWorkspace) =>
-          change((s) => ({
-            ...s,
-            dock: { ...s.dock, indicatorFollowsWorkspace },
-          }))
-        }
-      />
-      <ToggleField
-        label={t.settings.autoHide}
-        hint={t.settings.autoHideHint}
-        checked={shown?.dock.autoHide ?? false}
-        disabled={shown === null}
-        onChange={(autoHide) =>
-          change((s) => ({ ...s, dock: { ...s.dock, autoHide } }))
-        }
-      />
+      {dockToggle(
+        "everyMonitor",
+        t.settings.everyMonitor,
+        t.settings.everyMonitorHint,
+        true,
+      )}
+      {dockToggle(
+        "switchEveryMonitor",
+        t.settings.switchEveryMonitor,
+        t.settings.switchEveryMonitorHint,
+        false,
+      )}
+      {dockToggle(
+        "indicatorFollowsWorkspace",
+        t.settings.indicatorFollowsWorkspace,
+        t.settings.indicatorFollowsWorkspaceHint,
+        false,
+      )}
+    </>
+  );
+  const autoHideFields = (
+    <>
+      {dockToggle(
+        "autoHide",
+        t.settings.autoHide,
+        t.settings.autoHideHint,
+        false,
+      )}
       {shown?.dock.autoHide ? (
         <>
           <RangeField
@@ -553,15 +280,16 @@ function SettingsPanel({
           />
         </>
       ) : null}
-      <ToggleField
-        label={t.settings.previews}
-        hint={t.settings.previewsHint}
-        checked={shown?.dock.previews ?? true}
-        disabled={shown === null}
-        onChange={(previews) =>
-          change((s) => ({ ...s, dock: { ...s.dock, previews } }))
-        }
-      />
+    </>
+  );
+  const previewFields = (
+    <>
+      {dockToggle(
+        "previews",
+        t.settings.previews,
+        t.settings.previewsHint,
+        true,
+      )}
       {shown?.dock.previews ? (
         <>
           <RangeField
@@ -589,57 +317,56 @@ function SettingsPanel({
           />
         </>
       ) : null}
-      <ToggleField
-        label={t.settings.showOpenApps}
-        hint={t.settings.showOpenAppsHint}
-        checked={shown?.dock.showOpenApps ?? true}
-        disabled={shown === null}
-        onChange={(showOpenApps) =>
-          change((s) => ({ ...s, dock: { ...s.dock, showOpenApps } }))
+    </>
+  );
+  const showOpenAppsField = dockToggle(
+    "showOpenApps",
+    t.settings.showOpenApps,
+    t.settings.showOpenAppsHint,
+    true,
+  );
+  const middleClickField = (
+    <OptionGroup
+      label={t.settings.groups.middleClick}
+      options={options(MIDDLE_CLICKS, t.settings.middleClick)}
+      selected={shown?.dock.middleClick ?? null}
+      onSelect={(value) =>
+        change((s) => ({ ...s, dock: { ...s.dock, middleClick: value } }))
+      }
+    />
+  );
+  const dockHotkeyField =
+    withLauncher && shown !== null ? (
+      <HotkeyField of="dock" hotkey={shown.dockHotkey} />
+    ) : null;
+  const launcherField = withLauncher ? (
+    <LauncherField
+      on={shown?.launcher ?? null}
+      hotkey={shown?.launcherHotkey ?? null}
+      onChange={(launcher) => change((s) => ({ ...s, launcher }))}
+    />
+  ) : null;
+  const webKeywordsField =
+    withLauncher && shown !== null ? (
+      <WebKeywordsField
+        keywords={shown.launcherKeywords}
+        onChange={(launcherKeywords) =>
+          change((s) => ({ ...s, launcherKeywords }))
         }
       />
-      <ToggleField
-        label={t.settings.showBadges}
-        hint={t.settings.showBadgesHint}
-        checked={shown?.dock.showBadges ?? true}
-        disabled={shown === null}
-        onChange={(showBadges) =>
-          change((s) => ({ ...s, dock: { ...s.dock, showBadges } }))
-        }
-      />
-      <ToggleField
-        label={t.settings.launchAtLogin}
-        hint={t.settings.launchAtLoginHint}
-        checked={shown?.launchAtLogin ?? false}
-        disabled={shown === null}
-        onChange={(launchAtLogin) => change((s) => ({ ...s, launchAtLogin }))}
-      />
-      {withLauncher ? (
-        <LauncherField
-          on={shown?.launcher ?? null}
-          hotkey={shown?.launcherHotkey ?? null}
-          onChange={(launcher) => change((s) => ({ ...s, launcher }))}
-        />
-      ) : null}
-      {withLauncher && shown !== null ? (
-        <WebKeywordsField
-          keywords={shown.launcherKeywords}
-          onChange={(launcherKeywords) =>
-            change((s) => ({ ...s, launcherKeywords }))
-          }
-        />
-      ) : null}
-      <OptionGroup
-        label={t.settings.groups.middleClick}
-        options={options(MIDDLE_CLICKS, t.settings.middleClick)}
-        selected={shown?.dock.middleClick ?? null}
-        onSelect={(value) =>
-          change((s) => ({ ...s, dock: { ...s.dock, middleClick: value } }))
-        }
-      />
-      {withLauncher && shown !== null ? (
-        <HotkeyField of="dock" hotkey={shown.dockHotkey} />
-      ) : null}
+    ) : null;
+  const launchAtLoginField = (
+    <ToggleField
+      label={t.settings.launchAtLogin}
+      hint={t.settings.launchAtLoginHint}
+      checked={shown?.launchAtLogin ?? false}
+      disabled={shown === null}
+      onChange={(launchAtLogin) => change((s) => ({ ...s, launchAtLogin }))}
+    />
+  );
+  // The rows to the subviews and the footer, last in both layouts.
+  const ending = (
+    <>
       {onOpenLook ? (
         <NavRow
           label={t.settings.look.title}
@@ -670,6 +397,102 @@ function SettingsPanel({
       <PanelFooter alert={error && t.settings.errors[error]}>
         {t.settings.footer}
       </PanelFooter>
+    </>
+  );
+
+  if (grouped) {
+    return (
+      <>
+        <SettingsGroup title={groups.dock} grouped>
+          {themeField}
+          <ChoiceCards
+            label={t.settings.groups.edge}
+            choices={options(EDGES, t.settings.edge)}
+            selected={edge}
+            disabled={shown === null}
+            onSelect={setEdge}
+            thumb={(value) => <ScreenThumb edge={value} />}
+          />
+          {sizeField}
+          {opacityField}
+        </SettingsGroup>
+        <SettingsGroup title={groups.taskbar} grouped>
+          <ChoiceCards
+            label={t.settings.groups.taskbar}
+            choices={TASKBARS.map((value) => ({
+              value,
+              label: t.settings.taskbar[value],
+              hint: t.settings.taskbarHints[value],
+            }))}
+            selected={taskbar}
+            disabled={shown === null}
+            onSelect={setTaskbar}
+            thumb={(value) => (
+              <ScreenThumb edge={edge ?? "bottom"} taskbar={value} />
+            )}
+          />
+          {trayInDockField}
+        </SettingsGroup>
+        <SettingsGroup title={groups.behavior} grouped>
+          {monitorFields}
+          {autoHideFields}
+          {previewFields}
+          {showOpenAppsField}
+          {middleClickField}
+          {dockHotkeyField}
+        </SettingsGroup>
+        {withLauncher ? (
+          <SettingsGroup title={groups.launcher} grouped>
+            {launcherField}
+            {webKeywordsField}
+          </SettingsGroup>
+        ) : null}
+        <SettingsGroup title={t.settings.groups.language} grouped>
+          {languageField}
+        </SettingsGroup>
+        <SettingsGroup title={groups.startup} grouped>
+          {launchAtLoginField}
+        </SettingsGroup>
+        {ending}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {themeField}
+      {languageField}
+      <OptionGroup
+        label={t.settings.groups.edge}
+        options={options(EDGES, t.settings.edge)}
+        selected={edge}
+        onSelect={setEdge}
+      />
+      {sizeField}
+      {opacityField}
+      <OptionGroup
+        label={t.settings.groups.taskbar}
+        options={options(TASKBARS, t.settings.taskbar)}
+        selected={taskbar}
+        onSelect={setTaskbar}
+      />
+      {trayInDockField}
+      {monitorFields}
+      {autoHideFields}
+      {previewFields}
+      {showOpenAppsField}
+      {dockToggle(
+        "showBadges",
+        t.settings.showBadges,
+        t.settings.showBadgesHint,
+        true,
+      )}
+      {launchAtLoginField}
+      {launcherField}
+      {webKeywordsField}
+      {middleClickField}
+      {dockHotkeyField}
+      {ending}
     </>
   );
 }
