@@ -32,7 +32,7 @@ async function waitForDock(style: string, iconPack: string | null) {
 /** A card of the Settings group with the visible label `group`. */
 function card(group: string, name: string) {
   return $(
-    `//*[@role="group"][@aria-labelledby=//*[normalize-space()="${group}"]/@id]` +
+    `//*[@role="radiogroup"][@aria-labelledby=//*[normalize-space()="${group}"]/@id]` +
       `//button[normalize-space()="${name}"]`,
   );
 }
@@ -50,13 +50,13 @@ describe("Themes", () => {
     await expect(trial).toBeDisplayed();
     await $(`button=${look.themeKeepButton}`).click();
     await expect(trial).not.toBeDisplayed();
-    await expect(neon).toHaveAttribute("aria-pressed", "true");
+    await expect(neon).toHaveAttribute("aria-checked", "true");
 
     // Another one, tried and given back: the dock is Neon again.
     await card(look.themes, look.themeNames.glass).click();
     await waitForDock("liquidGlass", "vidro");
     await $(`button=${look.themeRevertButton}`).click();
     await waitForDock("neon", "neon");
-    await expect(neon).toHaveAttribute("aria-pressed", "true");
+    await expect(neon).toHaveAttribute("aria-checked", "true");
   });
 });
