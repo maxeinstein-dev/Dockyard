@@ -916,11 +916,18 @@ impl Dock {
         {
             self.press = None;
         }
-        self.label_widths = self
+        // Every label the dock can show: the items', the strip cells' and
+        // the workspace dots'.
+        let labels: Vec<String> = self
             .names
-            .clone()
             .iter()
-            .map(|name| self.painter.label_width(name))
+            .cloned()
+            .chain(self.strip.iter().map(Cell::tip))
+            .chain(self.data.workspaces.iter().map(|w| w.name.clone()))
+            .collect();
+        self.label_widths = labels
+            .iter()
+            .map(|label| self.painter.label_width(label))
             .collect();
         self.notices = self.read_notices();
         self.request_pictures();
