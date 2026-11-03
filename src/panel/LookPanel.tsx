@@ -15,7 +15,7 @@ import {
 } from "../core/settings";
 import { dockLookOf } from "../dock/look";
 import { STYLE_PAINTS } from "../dock/paints";
-import { useT } from "../i18n";
+import { activeLocale, useT } from "../i18n";
 import IconPacksField from "./IconPacksField";
 import OptionGroup, { type Option } from "./OptionGroup";
 import PanelFooter from "./PanelFooter";
@@ -314,7 +314,10 @@ function LookPanel({
             max={MAX_HOVER_SCALE}
             step={5}
             display={(value) =>
-              `${(value / 100).toFixed(2).replace(".", ",")}×`
+              `${(value / 100).toLocaleString(activeLocale(), {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}×`
             }
             onCommit={(hoverScale) => update({ hoverScale })}
           />
