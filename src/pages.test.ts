@@ -14,7 +14,9 @@ const PAGES = ["panel.html", "settings.html", "tour.html", "e2e.html"];
 describe("the pages' icon", () => {
   it.each(PAGES)("%s links the Dockyard logo", (page) => {
     const html = readFileSync(root(page), "utf8");
-    const link = /<link rel="icon" type="image\/png" href="\/([^"]+)" \/>/.exec(html);
+    const link = /<link rel="icon" type="image\/png" href="\/([^"]+)" \/>/.exec(
+      html,
+    );
     expect(link, page).not.toBeNull();
     expect(existsSync(root(`public/${link?.[1] ?? ""}`)), page).toBe(true);
   });
