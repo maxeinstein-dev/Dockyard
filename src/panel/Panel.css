@@ -293,3 +293,12 @@ kbd {
   height: 6px;
   accent-color: var(--accent);
 }
+
+/* Windows' contrast mode (M6): the chosen segment is a tint, which is gone
+   there; it takes the selection's colors. */
+@media (forced-colors: active) {
+  .segmented button[aria-pressed="true"] {
+    color: HighlightText;
+    background: Highlight;
+  }
+}

@@ -84,6 +84,28 @@ fn own(style: DockStyle) -> (bool, u8, bool) {
 
 const WHITE: Color = Color::WHITE;
 
+/// The bar in Windows' contrast mode (M6), whatever the style: the
+/// palette's colors only, with a border; no skin, glass, glow,
+/// reflection or shadow.
+pub fn contrast() -> Look {
+    Look {
+        style: DockStyle::Native,
+        border: true,
+        corners: 0.65,
+        reflections: false,
+        indicator: None,
+        fill: None,
+        separator: None,
+        ink: None,
+        hi: None,
+        glows: Vec::new(),
+        flat: true,
+        outline: None,
+        shelf: false,
+        skin: false,
+    }
+}
+
 impl Look {
     pub fn of(settings: &DockSettings) -> Look {
         let style = settings.style;
@@ -254,6 +276,13 @@ mod tests {
             style,
             ..DockSettings::default()
         }
+    }
+
+    #[test]
+    fn the_contrast_look_draws_no_picture_of_its_own() {
+        let look = contrast();
+        assert!(look.border && !look.skin && !look.reflections && !look.shelf);
+        assert!(look.glows.is_empty() && look.outline.is_none() && look.fill.is_none());
     }
 
     #[test]

@@ -256,6 +256,9 @@ pub struct Dock {
     groups: Vec<usize>,
     label_widths: Vec<f64>,
     dark: bool,
+    /// Windows' contrast colors while its contrast mode is on (M6): the
+    /// dock draws with them alone.
+    contrast: Option<theme::Contrast>,
     motion: bool,
     /// The window in physical pixels and the monitor's scale.
     window: Rect,
@@ -451,6 +454,7 @@ fn make_dock(app: &AppHandle, monitor: Monitor) -> Option<Dock> {
         groups: Vec::new(),
         label_widths: Vec::new(),
         dark: theme::system_dark(),
+        contrast: theme::system_contrast(),
         motion: system_motion(),
         window: Rect {
             x: 0,
@@ -1734,7 +1738,10 @@ impl Dock {
     }
 
     fn palette(&self) -> Palette {
-        Palette::of(self.dark_now(), self.data.settings.dock.opacity)
+        match self.contrast {
+            Some(colors) => Palette::contrast(colors),
+            None => Palette::of(self.dark_now(), self.data.settings.dock.opacity),
+        }
     }
 
     fn scene(&mut self) -> Scene {
@@ -1746,7 +1753,11 @@ impl Dock {
         let now_placement = self.placement_now();
         let target = dock_layout::place(&shape, edge, self.viewport(), self.magnified());
         let rest = self.rest();
-        let look = look::Look::of(&settings);
+        let look = if self.contrast.is_some() {
+            look::contrast()
+        } else {
+            look::Look::of(&settings)
+        };
         let attention = dock_items::needs_attention(self.data.widgets.as_ref());
         let clock = local_now();
         let drag = self.press.filter(|press| press.dragging);
@@ -3498,6 +3509,8 @@ extern "system" fn procedure(hwnd: HWND, message: u32, wparam: WPARAM, lparam: L
             check_tray_icon();
             with_dock(hwnd, |dock| {
                 dock.dark = theme::system_dark();
+                // The contrast mode turned on or off, or another theme of it.
+                dock.contrast = theme::system_contrast();
                 dock.motion = system_motion();
                 // A pack's icons for the theme Windows switched to.
                 dock.request_pictures();

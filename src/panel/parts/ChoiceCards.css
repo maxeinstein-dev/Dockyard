@@ -81,3 +81,19 @@
   line-height: 1.35;
   color: var(--ink-2);
 }
+
+/* Windows' contrast mode (M6): the ring is a shadow, which is gone there.
+   An edge on every card, and a thick one in the selection's color on the
+   chosen one. */
+@media (forced-colors: active) {
+  .choice-card::after,
+  .choice-card:hover::after {
+    box-shadow: none;
+    border: 1px solid CanvasText;
+  }
+
+  .choice-card[aria-pressed="true"]::after,
+  .choice-card[aria-checked="true"]::after {
+    border: 3px solid Highlight;
+  }
+}
