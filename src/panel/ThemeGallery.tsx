@@ -6,7 +6,7 @@ import {
   type Theme,
   type ThemeId,
 } from "../core/themes";
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { format, useT } from "../i18n";
 import ChoiceCards from "./parts/ChoiceCards";
 import "./parts/parts.css";
@@ -14,8 +14,10 @@ import { MINI_ITEMS, MiniDock, type GalleryDock } from "./StyleGallery";
 import { usePackPreview } from "./usePackPreview";
 
 /** The dock in `theme`: its style, its icons on the first pinned programs
- * and its mark. Decorative: the card's name says which theme it is. */
-function ThemeThumb({
+ * and its mark. Decorative: the card's name says which theme it is. Kept
+ * as it is while only the countdown of "Manter este tema?" changes (M8):
+ * eleven docks drawn again each second for one number. */
+const ThemeThumb = memo(function ThemeThumb({
   theme,
   dock,
   appIds,
@@ -34,7 +36,7 @@ function ThemeThumb({
       icons={icons ?? appIds.slice(0, MINI_ITEMS).map(() => null)}
     />
   );
-}
+});
 
 type Choices = Pick<DockSettings, "style" | "iconPack" | "indicatorColor">;
 
