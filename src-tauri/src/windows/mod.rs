@@ -82,6 +82,7 @@ pub mod update;
 pub mod water;
 #[cfg(windows)]
 pub mod weather;
+pub mod webview_failure;
 #[cfg(windows)]
 pub mod window_spaces;
 

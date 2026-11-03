@@ -20,6 +20,12 @@ pub(super) enum MenuChoice {
     /// Configurações › Geral, where the launcher's hotkey is (the
     /// Lançador's menu, spec 0012).
     SetHotkey,
+    /// A program's own menu, when its panel can't open (`program_items`):
+    /// opens it (a new window when it is open), closes its windows, takes
+    /// it out of the dock.
+    OpenProgram,
+    CloseWindows,
+    Unpin,
 }
 
 /// One line of the dock's menu: what it does and how it shows (spec 0014
@@ -39,6 +45,8 @@ pub(super) const HIDE_GLYPH: char = '\u{E70D}';
 pub(super) const QUIT_GLYPH: char = '\u{E7E8}';
 pub(super) const REMOVE_GLYPH: char = '\u{E711}';
 pub(super) const KEYBOARD_GLYPH: char = '\u{E765}';
+pub(super) const OPEN_GLYPH: char = '\u{E8A7}';
+pub(super) const CLOSE_GLYPH: char = '\u{E8BB}';
 
 impl MenuEntry {
     fn item(choice: MenuChoice, item: menu::Item) -> MenuEntry {
@@ -177,6 +185,71 @@ pub(super) fn widget_items(config: &WidgetConfig) -> Vec<MenuEntry> {
     items
 }
 
+/// The program a program's own menu is for: a pinned one, by the dock's id
+/// for it, or an open one that is not pinned, by its key.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum Program {
+    Pinned(String),
+    Open(String),
+}
+
+/// A program's own menu, native, for when its panel can't open (its
+/// WebView2 window never came up): "Abrir", "Fechar janela" (or
+/// "Fechar janelas") while it has `windows` open, and "Remover do dock"
+/// for a pinned one. The panel's other entries (its Jump List, moving its
+/// windows) need the panel.
+pub(super) fn program_items(program: &Program, windows: usize) -> Vec<MenuEntry> {
+    let text = &crate::i18n::messages().tray;
+    let mut items = vec![MenuEntry::item(
+        MenuChoice::OpenProgram,
+        menu::Item::new(text.open_app, OPEN_GLYPH),
+    )];
+    if windows > 0 {
+        let close = if windows > 1 {
+            text.close_windows
+        } else {
+            text.close_window
+        };
+        items.push(MenuEntry::item(
+            MenuChoice::CloseWindows,
+            menu::Item::new(close, CLOSE_GLYPH),
+        ));
+    }
+    if matches!(program, Program::Pinned(_)) {
+        items.push(MenuEntry::item(
+            MenuChoice::Unpin,
+            menu::Item::new(text.remove_widget, REMOVE_GLYPH),
+        ));
+    }
+    items
+}
+
+/// Does what was chosen in a program's own menu, for `program`, in the
+/// workspace `workspace`.
+pub(super) fn act_on_program(
+    app: &AppHandle,
+    choice: MenuChoice,
+    program: Program,
+    workspace: Option<String>,
+) {
+    use crate::commands::apps;
+    match (choice, program) {
+        (MenuChoice::OpenProgram, Program::Pinned(id)) => apps::launch_pinned(app, &id, || {}),
+        (MenuChoice::OpenProgram, Program::Open(key)) => apps::launch_other(&key, || {}),
+        (MenuChoice::CloseWindows, Program::Pinned(id)) => {
+            let _ = apps::close_app(app.clone(), id);
+        }
+        (MenuChoice::CloseWindows, Program::Open(key)) => {
+            let _ = apps::close_open(app.clone(), key);
+        }
+        (MenuChoice::Unpin, Program::Pinned(id)) => {
+            let storage = app.state::<Mutex<crate::persistence::database::Storage>>();
+            let _ = apps::unpin_app(app.clone(), storage, id, workspace);
+        }
+        _ => {}
+    }
+}
+
 /// Shows the menu `items` at the pointer, opening away from the screen edge,
 /// and returns what was chosen. The pointer resting on Configurações warms
 /// WebView2 for it (`settings_window::warm`), as an item that opens a panel
@@ -292,6 +365,8 @@ pub(super) fn act(
                 crate::commands::widgets::remove_from_dock(app, id, workspace);
             }
         }
+        // A program's own menu: `act_on_program`.
+        MenuChoice::OpenProgram | MenuChoice::CloseWindows | MenuChoice::Unpin => {}
         MenuChoice::SetHotkey => {
             let general = crate::domain::launcher_pages::Section::General;
             if let Err(error) = super::super::settings_window::open_section(app, general) {
