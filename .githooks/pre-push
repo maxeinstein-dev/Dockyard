@@ -1,0 +1,12 @@
+#!/bin/sh
+# Runs `pnpm check` before a push that sends a branch; a push of tags or one
+# that only deletes a branch goes straight through. Skip with --no-verify.
+zero=0000000000000000000000000000000000000000
+run=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$local_ref" in
+    refs/heads/*) [ "$local_sha" != "$zero" ] && run=1 ;;
+  esac
+done
+[ "$run" = 1 ] || exit 0
+exec pnpm check
