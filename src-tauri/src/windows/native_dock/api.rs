@@ -45,6 +45,17 @@ pub fn nudged(widgets: Vec<String>) {
     post(move |dock| dock.nudged(&widgets));
 }
 
+/// The panel `panel`, a program's menu, could not open: the dock that
+/// anchored it shows the program's own menu instead.
+pub fn program_menu(panel: PanelId) {
+    queue(Box::new(move |docks| {
+        let active = shared().active;
+        if let Some(dock) = docks.iter_mut().find(|dock| dock.hwnd.0 as isize == active) {
+            dock.program_menu(&panel);
+        }
+    }));
+}
+
 /// Files dragged over the dock `hwnd` at the screen point `at`, or gone
 /// with `None` (spec 0018): the id of the program under them.
 pub fn drop_over(hwnd: isize, at: Option<(i32, i32)>) -> Option<String> {

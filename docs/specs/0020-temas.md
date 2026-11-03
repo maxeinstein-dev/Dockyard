@@ -117,7 +117,7 @@ Tomadas numa sessão de perguntas (Q1–Q22), todas na recomendação:
     - **Skin** `scifi` (`skins/fonte/scifi.py`, em vetor): 56×64 px, pontas de 26 px e meio esticado, suavizada. Casco de metal azul-acinzentado em gradiente (`#3A4458` → `#1C2230`) com os quatro cantos chanfrados, filete de luz no topo, faixa de luz ciano (`#4FD8FF`) perto da base, com brilho, e divisas que apontam para fora e rebites nas pontas. Separador ciano a 30%, relógio aço claro (`#9FB2CC`), indicador ciano. Barra escura nos dois modos.
     - **Pacote** `espacial` (`fonte/espacial.txt`, estilo de camadas `espacial`): escotilha com aro de metal (`#7A879C` → `#3A4458`), anel ciano, vidro azul-marinho (`#13234A` → `#070E22`) e o glifo branco com brilho ciano. Cobre os 55 glifos. A reserva é um planeta com anel (`apps/planeta.png`).
   - **Temas** `cyberpunk`, `arcade` e `scifi`: cada um com a skin e o pacote dele e o indicador do estilo. Aparecem na galeria depois do Caçador, e as skins e os pacotes aparecem também avulsos (Q19).
-  - **A verificar ao vivo**: os três cartões e o dock com cada um, como nos temas da primeira leva.
+  - **Verificado ao vivo** (2026-11-03, build e2e da branch dos temas, cópia dos dados do autor): em Configurações › Aparência do dock, cada cartão aplicado e mantido gravou o estilo e o pacote dele (`cyberpunk/cyberpunk`, `arcade/fliperama`, `scifi/espacial`), e o dock foi fotografado em cada um. A foto do Fliperama mostrou a data difícil de ler sobre as listras: as listras ficaram mais apagadas e o relógio passou a branco (`a9e7950`), antes do merge.
 
 ## 5. A pasta `Skins` (Q14)
 
