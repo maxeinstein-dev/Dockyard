@@ -38,7 +38,10 @@ export type DockStyle =
   | "phosphor"
   | "tactical"
   | "medieval"
-  | "hunter";
+  | "hunter"
+  | "cyberpunk"
+  | "arcade"
+  | "scifi";
 
 /** Every style, in the order the Settings panel lists them. */
 export const DOCK_STYLES: readonly DockStyle[] = [
@@ -56,6 +59,9 @@ export const DOCK_STYLES: readonly DockStyle[] = [
   "tactical",
   "medieval",
   "hunter",
+  "cyberpunk",
+  "arcade",
+  "scifi",
 ];
 
 /** What the user changed in one style; a field left out keeps the style's

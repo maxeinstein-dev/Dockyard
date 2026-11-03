@@ -11,6 +11,12 @@ import medievalJson from "../../src-tauri/skins/medieval/skin.json";
 import medievalPng from "../../src-tauri/skins/medieval/skin.png";
 import hunterJson from "../../src-tauri/skins/hunter/skin.json";
 import hunterPng from "../../src-tauri/skins/hunter/skin.png";
+import cyberpunkJson from "../../src-tauri/skins/cyberpunk/skin.json";
+import cyberpunkPng from "../../src-tauri/skins/cyberpunk/skin.png";
+import arcadeJson from "../../src-tauri/skins/arcade/skin.json";
+import arcadePng from "../../src-tauri/skins/arcade/skin.png";
+import scifiJson from "../../src-tauri/skins/scifi/skin.json";
+import scifiPng from "../../src-tauri/skins/scifi/skin.png";
 
 /* The colors each style paints the bar with, for the miniatures of
  * Configurações › Aparência (spec 0014 R1). A mirror of
@@ -183,6 +189,21 @@ export const STYLE_PAINTS: Readonly<Record<DockStyle, StylePaint>> = {
     ...PLAIN,
     indicator: [0xf2, 0xa3, 0x3a, 1],
     skin: skinPaint(hunterPng, hunterJson),
+  },
+  cyberpunk: {
+    ...PLAIN,
+    indicator: [0xff, 0x2b, 0xd6, 1],
+    skin: skinPaint(cyberpunkPng, cyberpunkJson),
+  },
+  arcade: {
+    ...PLAIN,
+    indicator: [0xff, 0xd2, 0x3f, 1],
+    skin: skinPaint(arcadePng, arcadeJson),
+  },
+  scifi: {
+    ...PLAIN,
+    indicator: [0x4f, 0xd8, 0xff, 1],
+    skin: skinPaint(scifiPng, scifiJson),
   },
 };
 

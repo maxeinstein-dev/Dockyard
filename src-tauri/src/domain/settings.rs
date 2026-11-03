@@ -397,6 +397,12 @@ pub enum DockStyle {
     Medieval,
     /// The Caçador theme's skin (spec 0020 §4).
     Hunter,
+    /// The Cyberpunk theme's skin (spec 0020 §4).
+    Cyberpunk,
+    /// The Fliperama theme's skin (spec 0020 §4).
+    Arcade,
+    /// The Espacial theme's skin (spec 0020 §4).
+    Scifi,
 }
 
 impl DockStyle {
@@ -412,7 +418,10 @@ impl DockStyle {
             | DockStyle::Phosphor
             | DockStyle::Tactical
             | DockStyle::Medieval
-            | DockStyle::Hunter => true,
+            | DockStyle::Hunter
+            | DockStyle::Cyberpunk
+            | DockStyle::Arcade
+            | DockStyle::Scifi => true,
             DockStyle::Paper | DockStyle::Classic98 => false,
             DockStyle::Native
             | DockStyle::LiquidGlass
@@ -928,6 +937,9 @@ mod tests {
             (DockStyle::Tactical, "tactical"),
             (DockStyle::Medieval, "medieval"),
             (DockStyle::Hunter, "hunter"),
+            (DockStyle::Cyberpunk, "cyberpunk"),
+            (DockStyle::Arcade, "arcade"),
+            (DockStyle::Scifi, "scifi"),
         ];
         for (style, name) in styles {
             assert_eq!(serde_json::to_value(style).unwrap(), name);
