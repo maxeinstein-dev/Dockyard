@@ -3,7 +3,7 @@ glifos.txt: cada glifo vira um sprite de 32×32 numa tela de fliperama com
 linhas de varredura, e o resultado é o texto de `fliperama.txt`, que se edita
 à mão depois e que `gerar.py fliperama` transforma nos PNGs.
 
-Uso: python pixelar.py > fliperama.txt   (uma vez; depois, edite o texto)
+Uso: python pixelar.py   (uma vez: escreve fliperama.txt; depois, edite o texto)
 
 O sprite: o glifo traçado grosso numa imagem de 128 px e reduzido a 32 pela
 cobertura, na cor de fliperama mais perto da matiz do app, com 1 px de
@@ -130,7 +130,9 @@ def main():
     for glifo in glifos:
         saida += ["", f"@{glifo['id']}", "nomes: " + " | ".join(glifo["nomes"])]
         saida += desenho(glifo)
-    print("\n".join(saida))
+    # Sempre em LF, como o resto do repositório.
+    texto = "\n".join(saida) + "\n"
+    (AQUI / "fliperama.txt").write_text(texto, encoding="utf-8", newline="\n")
 
 
 if __name__ == "__main__":
