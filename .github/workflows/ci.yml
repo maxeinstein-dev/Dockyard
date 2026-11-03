@@ -33,8 +33,68 @@ jobs:
           fi
           echo "Base: main"
 
-  checks:
+  # The required `checks` is this gate: it passes when the three jobs it
+  # waits for pass, so the branch protection keeps its three names.
+  gate:
     name: checks
+    if: always()
+    needs: [frontend, checks, rust-e2e]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: frontend, rust and rust-e2e passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Results: $RESULTS"
+          for result in $RESULTS; do
+            if [ "$result" != "success" ]; then
+              echo "::error::a job checks waits for did not pass ($RESULTS)"
+              exit 1
+            fi
+          done
+
+  # Lint, format, typecheck and the Vitest suite need no Rust, so they run
+  # beside the Rust jobs, on the quicker Linux runner.
+  frontend:
+    name: frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # No `version`: the action reads `packageManager` from package.json.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+  # The job id stays `checks`: rust-cache keys its cache by the job id, and
+  # main's cache was saved under it.
+  checks:
+    name: rust
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -69,18 +129,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint
-        run: pnpm lint
-
-      - name: Format check
-        run: pnpm format:check
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Test
-        run: pnpm test
-
       # The Vite build must run before the Rust steps: `tauri::generate_context!`
       # requires `frontendDist` (../dist) to exist at compile time.
       - name: Build frontend
@@ -112,6 +160,58 @@ jobs:
       - name: cargo test
         working-directory: src-tauri
         run: cargo test --locked
+
+  # The `e2e` feature's clippy and tests, beside the e2e job instead of
+  # before its app build. `--locked` proves Cargo.lock covers the feature.
+  rust-e2e:
+    name: rust-e2e
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # No `version`: the action reads `packageManager` from package.json.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # With no arguments, rustup installs the channel and components from rust-toolchain.toml.
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install
+          rustup show
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: src-tauri -> target
+          key: e2e
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # `tauri::generate_context!` requires `frontendDist` (../dist) at compile time.
+      - name: Build frontend
+        run: pnpm build
+
+      - name: cargo clippy (e2e)
+        working-directory: src-tauri
+        run: cargo clippy --all-targets --locked --features e2e -- -D warnings
+
+      # Only the `e2e` module's tests depend on the feature; the rust job
+      # runs the whole suite, and clippy above checks every target with it.
+      - name: cargo test (e2e)
+        working-directory: src-tauri
+        run: "cargo test --locked --features e2e --lib e2e::"
 
   # Spec 0003 §2.8: drives a test build of the app (own identifier, data in a
   # temporary folder per run, WebDriver server embedded) with WebdriverIO.
@@ -156,17 +256,6 @@ jobs:
       # `tauri::generate_context!` requires `frontendDist` (../dist) at compile time.
       - name: Build frontend
         run: pnpm build
-
-      # Before the app build, so `--locked` proves Cargo.lock covers the feature.
-      - name: cargo clippy (e2e)
-        working-directory: src-tauri
-        run: cargo clippy --all-targets --locked --features e2e -- -D warnings
-
-      # Only the `e2e` module's tests depend on the feature; the `checks` job
-      # runs the whole suite, and clippy above checks every target with it.
-      - name: cargo test (e2e)
-        working-directory: src-tauri
-        run: "cargo test --locked --features e2e --lib e2e::"
 
       - name: Build test app
         run: pnpm test:e2e:build
