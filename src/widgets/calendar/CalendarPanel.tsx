@@ -1,5 +1,6 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import {
+  blockInk,
   clockText,
   completeTask,
   dayOf,
@@ -29,6 +30,38 @@ function Dot({ color }: { color: string | null }) {
     }
   }, [color]);
   return <span ref={dot} className="cal-dot" aria-hidden="true" />;
+}
+
+/** An event's row as a block in its calendar's color (Google's agenda),
+ * the text white or black as it reads best (`blockInk`); without a color,
+ * the accent. The colors go through the CSSOM (strict CSP). */
+function EventBlock({
+  color,
+  onClick,
+  children,
+}: {
+  color: string | null;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  const block = useRef<HTMLButtonElement>(null);
+  useLayoutEffect(() => {
+    const style = block.current?.style;
+    const ink = blockInk(color);
+    if (!style) return;
+    if (color && ink) {
+      style.setProperty("--block", color);
+      style.setProperty("--block-ink", ink);
+    } else {
+      style.removeProperty("--block");
+      style.removeProperty("--block-ink");
+    }
+  }, [color]);
+  return (
+    <button ref={block} type="button" className="cal-event" onClick={onClick}>
+      {children}
+    </button>
+  );
 }
 
 /** An event's title; one without: "Ocupado" from a free/busy calendar,
@@ -298,12 +331,10 @@ function CalendarPanel({
                         key={event.id + event.calendar}
                         className={event.allDay ? "all-day" : undefined}
                       >
-                        <button
-                          type="button"
-                          className="cal-event"
+                        <EventBlock
+                          color={event.color}
                           onClick={() => setOpen(event.id)}
                         >
-                          <Dot color={event.color} />
                           <span className="cal-time">
                             {event.allDay
                               ? text.allDay
@@ -312,7 +343,7 @@ function CalendarPanel({
                                 : clockText(event.start, offset)}
                           </span>
                           <span className="cal-title">{title}</span>
-                        </button>
+                        </EventBlock>
                         {event.join && !event.allDay ? (
                           <button
                             type="button"

@@ -182,7 +182,6 @@ pub struct DockMessages {
     pub calendar_free: &'static str,
     pub calendar_now: &'static str,
     pub calendar_in: &'static str,
-    pub calendar_minutes: &'static str,
     pub calendar_tomorrow: &'static str,
     /// The Calendário's card (F2a-4): the days, a task late, the all-day
     /// events, the tasks' heading and an empty span. Weekdays, Sunday first.
@@ -206,8 +205,6 @@ pub struct DockMessages {
     /// A meeting with no title: from a free/busy calendar, or untitled.
     pub calendar_busy: &'static str,
     pub calendar_untitled: &'static str,
-    /// Before the meeting after the next one: `Depois 15:00 Daily`.
-    pub calendar_then: &'static str,
     /// The periods' names on a wide progress tile, in the order of
     /// `Period::ALL`.
     pub periods: [&'static str; 5],
@@ -334,7 +331,6 @@ const PT_BR: Messages = Messages {
         calendar_free: "Livre",
         calendar_now: "agora",
         calendar_in: "em {n} min",
-        calendar_minutes: "{n} min",
         calendar_tomorrow: "amanhã",
         calendar_today: "Hoje",
         calendar_tomorrow_title: "Amanhã",
@@ -351,7 +347,6 @@ const PT_BR: Messages = Messages {
         update_notice_line: "Para atualizar, abra Sobre no dock.",
         calendar_busy: "Ocupado",
         calendar_untitled: "(sem título)",
-        calendar_then: "Depois",
         periods: ["Dia", "Semana", "Mês", "Ano", "Expediente"],
         with_notice: "{name} (com aviso)",
         workspace: "Espaço {name}",
@@ -542,7 +537,6 @@ const EN: Messages = Messages {
         calendar_free: "Free",
         calendar_now: "now",
         calendar_in: "in {n} min",
-        calendar_minutes: "{n} min",
         calendar_tomorrow: "tomorrow",
         calendar_today: "Today",
         calendar_tomorrow_title: "Tomorrow",
@@ -559,7 +553,6 @@ const EN: Messages = Messages {
         update_notice_line: "To update, open About in the dock.",
         calendar_busy: "Busy",
         calendar_untitled: "(no title)",
-        calendar_then: "Then",
         periods: ["Day", "Week", "Month", "Year", "Workday"],
         with_notice: "{name} (with notice)",
         workspace: "Workspace {name}",

@@ -54,6 +54,7 @@ use super::look::Look;
 use super::svg::{self, Segment};
 use super::theme::{APP_INK, Color, Glaze, Palette};
 use crate::domain::badges::Badge;
+use crate::domain::calendar;
 use crate::domain::dock_layout::{self, Area};
 use crate::domain::settings::{DockEdge, IconShape, Indicator};
 use crate::domain::system_activity::HISTORY;
@@ -168,11 +169,24 @@ pub enum Face {
         meters: Vec<Meter>,
         graph: Option<Vec<f32>>,
     },
-    /// The Calendário (spec 0017 F2a): lines of text, the first one the
-    /// strongest, left-aligned on a wide tile and centered on a square one.
+    /// Lines of text (the Contagem regressiva's and the Lista de tarefas'),
+    /// the first one the strongest, left-aligned on a wide tile and
+    /// centered on a square one.
     Agenda {
         glaze: Glaze,
         lines: Vec<AgendaLine>,
+    },
+    /// The Calendário (spec 0017 F2a), as Google's agenda widget: on a
+    /// neutral ground, light or dark as the theme, the date on the left
+    /// and the next meetings as blocks in their calendars' colors; on a
+    /// square tile, the date over a strip in the next one's color.
+    Calendar {
+        /// `seg.`, and the day of the month.
+        weekday: String,
+        day: String,
+        blocks: Vec<AgendaBlock>,
+        /// Where there is no block: "Livre", "Conectar" or "–".
+        note: Option<String>,
     },
     /// The Tocando agora (spec 0017 F4): the cover (a note without one),
     /// dimmed while paused; on a wide tile, the title and the artist beside
@@ -231,6 +245,15 @@ pub struct AgendaLine {
     pub size: f64,
     /// White and bold; the others are fainter.
     pub strong: bool,
+}
+
+/// A meeting on the Calendário's tile: when and what, in a block of its
+/// calendar's color (`None`: the theme's accent).
+#[derive(Debug, Clone, PartialEq)]
+pub struct AgendaBlock {
+    pub when: String,
+    pub title: String,
+    pub color: Option<String>,
 }
 
 /// The network's last minute, each value 0–1 of the graph's height.
@@ -1405,6 +1428,17 @@ impl Painter {
                     glaze: *glaze,
                     lines: lines.clone(),
                 },
+                Face::Calendar {
+                    weekday,
+                    day,
+                    blocks,
+                    note,
+                } => Face::Calendar {
+                    weekday: weekday.clone(),
+                    day: day.clone(),
+                    blocks: blocks.clone(),
+                    note: note.clone(),
+                },
                 Face::Media {
                     glaze,
                     art,
@@ -1581,6 +1615,20 @@ impl Painter {
             Face::Agenda { glaze, lines } => {
                 self.glaze(area, *glaze, tile.pressed);
                 self.agenda(area, lines);
+            }
+            Face::Calendar {
+                weekday,
+                day,
+                blocks,
+                note,
+            } => {
+                let ground = if scene.palette.dark {
+                    Glaze::NEUTRAL_DARK
+                } else {
+                    Glaze::NEUTRAL_LIGHT
+                };
+                self.glaze(area, ground, tile.pressed);
+                self.calendar(scene, area, (weekday, day), blocks, note.as_deref());
             }
             Face::Rates {
                 glaze,
@@ -2079,6 +2127,126 @@ impl Painter {
                 self.text(&text, place, size, weight, true, ink);
             }
             y += height;
+        }
+    }
+
+    fn fill_round(&mut self, area: Area, radius: f64, ink: Color) {
+        let brush = self.solid(ink).clone();
+        unsafe {
+            self.target.FillRoundedRectangle(
+                &D2D1_ROUNDED_RECT {
+                    rect: rect(area),
+                    radiusX: radius as f32,
+                    radiusY: radius as f32,
+                },
+                &brush,
+            )
+        };
+    }
+
+    /// `text` from the left of `area`, centered on its height, cut to fit.
+    fn text_left(&mut self, text: &str, area: Area, size: f64, weight: i32, ink: Color) {
+        let text = self.fit(text, area.width, size, weight);
+        let width = self.text_width(&text, size, weight, true);
+        self.text(&text, Area { width, ..area }, size, weight, true, ink);
+    }
+
+    /// The Calendário: the date, and the blocks beside it on a wide tile;
+    /// on a square one, the date over a strip in the next meeting's color.
+    fn calendar(
+        &mut self,
+        scene: &Scene,
+        area: Area,
+        (weekday, day): (&str, &str),
+        blocks: &[AgendaBlock],
+        note: Option<&str>,
+    ) {
+        let u = area.height;
+        let ink = scene.palette.ink;
+        let faint = ink.with_alpha(0.72);
+        let byte = |v: f32| (v * 255.0).round() as u8;
+        let accent = scene.palette.accent;
+        let accent = (byte(accent.r), byte(accent.g), byte(accent.b));
+        let colors = |block: &AgendaBlock| {
+            let block = calendar::Block::of(block.color.as_deref(), accent);
+            let ((r, g, b), (ir, ig, ib)) = (block.fill, block.ink());
+            (Color::rgb(r, g, b), Color::rgb(ir, ig, ib))
+        };
+        let wide = area.width > u * 1.2;
+        let date = Area {
+            width: if wide { u * 0.8 } else { area.width },
+            ..area
+        };
+        // The weekday small over the day, the pair centered; a little higher
+        // over a strip.
+        let (small, large) = (u * 0.15, u * 0.36);
+        let strip = !wide && !blocks.is_empty();
+        let top = area.y + u * if strip { 0.1 } else { 0.16 };
+        let weekday_area = Area {
+            y: top,
+            height: small * 1.3,
+            ..date
+        };
+        self.text(weekday, weekday_area, small, 600, true, faint);
+        let day_area = Area {
+            y: top + small * 1.2,
+            height: large * 1.3,
+            ..date
+        };
+        self.text(day, day_area, large, 650, true, ink);
+        if !wide {
+            if let Some(next) = blocks.first().filter(|_| strip) {
+                let bar = Area {
+                    x: area.x + area.width * 0.22,
+                    y: area.y + u * 0.75,
+                    width: area.width * 0.56,
+                    height: u * 0.1,
+                };
+                self.fill_round(bar, bar.height / 2.0, colors(next).0);
+            }
+            return;
+        }
+        let x = date.x + date.width;
+        let room = Area {
+            x,
+            y: area.y + u * 0.13,
+            width: (area.x + area.width - u * 0.13 - x).max(0.0),
+            height: u * 0.74,
+        };
+        if blocks.is_empty() {
+            self.text_left(note.unwrap_or_default(), room, u * 0.17, 600, faint);
+            return;
+        }
+        // One block: when over the title; two: one line each.
+        let gap = u * 0.06;
+        let count = blocks.len() as f64;
+        let tall = (room.height - gap * (count - 1.0)) / count;
+        let inset = u * 0.09;
+        for (index, block) in blocks.iter().enumerate() {
+            let (fill, text_ink) = colors(block);
+            let place = Area {
+                y: room.y + index as f64 * (tall + gap),
+                height: tall,
+                ..room
+            };
+            self.fill_round(place, u * 0.12, fill);
+            let line = |y: f64, height: f64| Area {
+                x: place.x + inset,
+                y,
+                width: (place.width - 2.0 * inset).max(0.0),
+                height,
+            };
+            if blocks.len() == 1 {
+                let (when, title) = (u * 0.15, u * 0.165);
+                let mid = place.y + place.height / 2.0;
+                let above = line(mid - when * 1.3, when * 1.3);
+                self.text_left(&block.when, above, when, 600, text_ink);
+                let below = line(mid, title * 1.3);
+                self.text_left(&block.title, below, title, 500, text_ink);
+            } else {
+                let text = format!("{} {}", block.when, block.title);
+                self.text_left(&text, line(place.y, place.height), u * 0.14, 600, text_ink);
+            }
         }
     }
 

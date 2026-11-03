@@ -242,11 +242,17 @@ impl Glaze {
         s: 24.0,
         l: 40.0,
     };
-    /// Argila: the Calendário.
-    pub const CALENDAR: Glaze = Glaze {
-        h: 16.0,
-        s: 40.0,
-        l: 44.0,
+    /// The Calendário's neutral grounds (Google's agenda widget), light and
+    /// dark as the theme: its meetings bring the colors.
+    pub const NEUTRAL_LIGHT: Glaze = Glaze {
+        h: 225.0,
+        s: 14.0,
+        l: 95.0,
+    };
+    pub const NEUTRAL_DARK: Glaze = Glaze {
+        h: 228.0,
+        s: 8.0,
+        l: 21.0,
     };
     /// Ardósia rosada: the Ciclo, discreet.
     pub const CYCLE: Glaze = Glaze {
@@ -438,7 +444,6 @@ mod tests {
             ("t-settings", Glaze::SETTINGS),
             ("t-activity", Glaze::ACTIVITY),
             ("t-network", Glaze::NETWORK),
-            ("t-calendar", Glaze::CALENDAR),
             ("t-cycle", Glaze::CYCLE),
             ("t-countdown", Glaze::COUNTDOWN),
             ("t-pomodoro", Glaze::POMODORO),
