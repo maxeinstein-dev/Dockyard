@@ -18,7 +18,7 @@
   grid-template-columns: 1fr auto;
   row-gap: 5px;
   align-items: baseline;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
 }
 
 .sys-name {
@@ -41,7 +41,7 @@
   grid-column: 1 / -1;
   height: 6px;
   overflow: hidden;
-  border-radius: 3px;
+  border-radius: var(--r-meter);
   background: var(--pg-track);
 }
 

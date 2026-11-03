@@ -78,6 +78,11 @@
   --r-tile: 23%;
   --r-pill: 999px;
   --r-dot: 50%;
+  /* A row inside a panel (menu entries, a day's line). */
+  --r-inset: 6px;
+  --r-control: 4px;
+  /* A thin bar that measures (progress, a system meter). */
+  --r-meter: 3px;
 
   /* Typography, system fonts only (DESIGN.md "Typography"). */
   --font:
@@ -86,6 +91,25 @@
   --font-display:
     "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui,
     sans-serif;
+  /* The text scale (DESIGN.md "Typography"): a panel's title, its labels
+     and controls, captions and hints, keys. */
+  --fs-title: 15px;
+  --fs-label: 12.5px;
+  --fs-caption: 12px;
+  --fs-kbd: 11px;
+
+  /* The glaze of a tile, its fixed parts (The Own Glaze Rule): the light
+     from above and the edges. The color under them is each tile's. */
+  --glaze-sheen: radial-gradient(
+    130% 70% at 50% -12%,
+    rgb(255 255 255 / 0.26),
+    transparent 58%
+  );
+  --glaze-edge:
+    inset 0 1px 0 rgb(255 255 255 / 0.32), inset 0 -1px 0 rgb(0 0 0 / 0.16);
+
+  /* The wallpaper of the miniatures: dusk blue, the same in every theme. */
+  --thumb-wall: linear-gradient(165deg, #56688f 0%, #2e3a57 55%, #191f2e 100%);
 
   /* Motion (DESIGN.md "Components": Dock item and Painel). */
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);

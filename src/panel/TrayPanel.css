@@ -63,7 +63,7 @@
 }
 
 .tray-empty .tray-empty-hint {
-  font-size: 12px;
+  font-size: var(--fs-caption);
   color: var(--ink-2);
 }
 
