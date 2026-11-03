@@ -9,7 +9,7 @@
         "url": "e2e.html",
         "visible": false,
         "skipTaskbar": true,
-        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --process-per-site --in-process-gpu"
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --process-per-site --in-process-gpu --disable-component-update"
       }
     ]
   }
