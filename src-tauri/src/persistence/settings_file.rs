@@ -74,7 +74,14 @@ fn parse(bytes: &[u8]) -> Result<Settings, LoadIssue> {
     if !value.is_object() {
         return Err(LoadIssue::Invalid);
     }
-    let settings = Settings::deserialize(value).map_err(|_| LoadIssue::Invalid)?;
+    let had_dock_hotkey = value.get("dockHotkey").is_some();
+    let mut settings = Settings::deserialize(value).map_err(|_| LoadIssue::Invalid)?;
+    // A file from before the dock's hotkey (M14) whose launcher already has
+    // the dock's default: the dock takes another, or the whole file would
+    // be refused for a combination its owner never chose.
+    if !had_dock_hotkey && settings.dock_hotkey == settings.launcher_hotkey {
+        crate::domain::hotkey::DOCK_FALLBACK.clone_into(&mut settings.dock_hotkey);
+    }
     settings.validate().map_err(|_| LoadIssue::Invalid)?;
     Ok(settings)
 }
@@ -169,6 +176,7 @@ mod tests {
             launcher: true,
             launcher_keywords: crate::domain::launcher_web::defaults(),
             launcher_hotkey: crate::domain::hotkey::DEFAULT.to_owned(),
+            dock_hotkey: crate::domain::hotkey::DOCK_DEFAULT.to_owned(),
             language: Language::System,
             tour_shown: true,
             dock: DockSettings {
@@ -305,6 +313,20 @@ mod tests {
     }
 
     #[test]
+    fn an_old_file_whose_launcher_has_the_docks_default_keeps_its_values() {
+        let loaded = load_str(r#"{"version":1,"theme":"dark","launcherHotkey":"Alt+Win+Z"}"#);
+
+        assert_eq!(loaded.issue, None);
+        assert_eq!(loaded.settings.theme, Theme::Dark);
+        assert_eq!(loaded.settings.launcher_hotkey, "Alt+Win+Z");
+        assert_eq!(loaded.settings.dock_hotkey, "Ctrl+Alt+Win+Z");
+        // Written by hand the same, the file is refused as any other value.
+        let loaded =
+            load_str(r#"{"version":1,"launcherHotkey":"Alt+Win+Z","dockHotkey":"Alt+Win+Z"}"#);
+        assert_eq!(loaded.issue, Some(LoadIssue::Invalid));
+    }
+
+    #[test]
     fn file_with_a_utf8_bom_loads() {
         let loaded = load_str("\u{FEFF}{\"version\":1,\"theme\":\"dark\"}");
 
@@ -379,6 +401,7 @@ mod tests {
                 {"keyword": "gh", "name": "GitHub", "template": "https://github.com/search?q=%s"}
               ],
               "launcherHotkey": "Alt+Space",
+                "dockHotkey": "Alt+Win+Z",
                 "language": "system",
                 "tourShown": false
             })

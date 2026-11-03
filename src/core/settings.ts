@@ -267,6 +267,10 @@ export interface Settings {
   /** What opens the launcher (spec 0012 L3), as Rust writes it
    * (`Alt+Space`); changed only through `setLauncherHotkey`. */
   launcherHotkey: string;
+  /** What takes the keyboard to the dock (M14), written the same way
+   * (`Alt+Win+Z`), never the launcher's; changed only through
+   * `setDockHotkey`. */
+  dockHotkey: string;
   /** The launcher's web search by keyword (spec 0012 L2); the first is the
    * default search. */
   launcherKeywords: WebKeyword[];
@@ -375,6 +379,9 @@ export type SettingsErrorCode =
   | "launcherKeywordsInvalid"
   /** The launcher's hotkey is malformed or one it can't take. */
   | "launcherHotkeyInvalid"
+  /** The dock's hotkey is malformed, one it can't take, or the
+   * launcher's. */
+  | "dockHotkeyInvalid"
   | "unsupportedVersion"
   | "writeFailed"
   /** The settings can't be changed in this run (no config folder), or the
@@ -393,6 +400,7 @@ const ERROR_CODES: ReadonlySet<string> = new Set(
     lookOutOfRange: true,
     launcherKeywordsInvalid: true,
     launcherHotkeyInvalid: true,
+    dockHotkeyInvalid: true,
     unsupportedVersion: true,
     writeFailed: true,
     notReady: true,

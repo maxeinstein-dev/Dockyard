@@ -14,6 +14,7 @@
 
 pub(crate) mod access;
 mod faces;
+mod keys;
 mod look;
 mod paint;
 mod strip;
@@ -38,15 +39,15 @@ use windows::Win32::UI::WindowsAndMessaging::{
     HCURSOR, HWND_MESSAGE, HWND_TOPMOST, IDC_ARROW, KillTimer, LoadCursorW, PostMessageW,
     RegisterClassW, SPI_GETCLIENTAREAANIMATION, SW_HIDE, SW_SHOWNOACTIVATE, SWP_NOACTIVATE,
     SWP_NOMOVE, SWP_NOSIZE, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS, SetCursor, SetTimer, SetWindowPos,
-    ShowWindow, SystemParametersInfoW, WM_APP, WM_CAPTURECHANGED, WM_CLOSE, WM_DISPLAYCHANGE,
-    WM_DPICHANGED, WM_GETOBJECT, WM_HOTKEY, WM_LBUTTONDBLCLK, WM_LBUTTONDOWN, WM_LBUTTONUP,
-    WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_RBUTTONUP, WM_SETTINGCHANGE,
-    WM_TIMER, WNDCLASSW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
-    WS_POPUP,
+    ShowWindow, SystemParametersInfoW, WM_ACTIVATE, WM_APP, WM_CAPTURECHANGED, WM_CLOSE,
+    WM_DISPLAYCHANGE, WM_DPICHANGED, WM_GETOBJECT, WM_HOTKEY, WM_KEYDOWN, WM_KILLFOCUS,
+    WM_LBUTTONDBLCLK, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEMOVE,
+    WM_MOUSEWHEEL, WM_RBUTTONUP, WM_SETTINGCHANGE, WM_SYSKEYDOWN, WM_TIMER, WNDCLASSW,
+    WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
 };
 use windows::core::{PCWSTR, w};
 
-use self::paint::{Dot, Face, Painter, Scene, Status, StripCell, Tile, Tip};
+use self::paint::{Dot, Face, FocusRing, Painter, Scene, Status, StripCell, Tile, Tip};
 use self::strip::Cell;
 use self::theme::{Color, Palette};
 use super::dock::Rect;
@@ -325,6 +326,14 @@ pub struct Dock {
     away_since: Option<Instant>,
     /// The dock's menu is open (it runs a loop of its own).
     menu_open: bool,
+    /// The item the keyboard is on (M14), by key: one of `nav_keys`. Only
+    /// while the dock has the keyboard, which only its hotkey gives it.
+    keyboard: Option<String>,
+    /// The window that had the keyboard before the hotkey: Esc gives it
+    /// back.
+    before: Option<HWND>,
+    /// The next menu is the keyboard's: by the item, not at the pointer.
+    menu_by_keyboard: bool,
     effects: Vec<Effect>,
 }
 
@@ -496,6 +505,9 @@ fn make_dock(app: &AppHandle, monitor: Monitor) -> Option<Dock> {
         on_edge_since: None,
         away_since: None,
         menu_open: false,
+        keyboard: None,
+        before: None,
+        menu_by_keyboard: false,
         effects: Vec::new(),
     };
     dock.arm_clock();
@@ -777,7 +789,9 @@ impl Dock {
         // Where each item is drawn now, on the screen, by key: from there it
         // slides to its new place.
         let drawn: HashMap<String, f64> = self.drawn_x().collect();
+        let chosen_at = self.keyboard_index();
         self.rebuild_layout();
+        self.keep_keyboard(chosen_at);
         let rest = self.rest();
         let left = f64::from(self.window.x) / self.scale;
         let (width, _) = self.viewport();
@@ -801,6 +815,7 @@ impl Dock {
         self.landing = None;
         self.arm_auto_hide();
         arm_hotkeys(self.data.workspaces.len());
+        arm_focus_hotkey();
         self.animate();
         self.paint();
     }
@@ -1496,6 +1511,7 @@ impl Dock {
             return;
         }
         let busy = self.open.is_some()
+            || self.keyboard.is_some()
             || self.press.is_some()
             || self.landing.is_some()
             || self.menu_open
@@ -1519,6 +1535,9 @@ impl Dock {
 
     fn hide(&mut self) {
         self.visible = false;
+        self.keyboard = None;
+        self.before = None;
+        access::set_focus(self.hwnd.0 as isize, None);
         self.hovered = None;
         self.press = None;
         self.pressed = None;
@@ -1880,6 +1899,7 @@ impl Dock {
         let tip = self
             .magnified()
             .or(self.hovered.filter(|_| self.open.is_none()))
+            .or_else(|| self.keyboard_position(|keys| &keys.items))
             .filter(|_| drag.is_none())
             // The risen Calendário says it all itself.
             .filter(|&index| self.widen.get(index).copied().unwrap_or(0.0) == 0.0)
@@ -1916,7 +1936,10 @@ impl Dock {
             .collect();
         // Over a cell of the strip, its label.
         let tip = tip.or_else(|| {
-            let index = self.strip_hovered.filter(|_| self.open.is_none())?;
+            let index = self
+                .strip_hovered
+                .filter(|_| self.open.is_none())
+                .or_else(|| self.keyboard_position(|keys| &keys.strip))?;
             Some(Tip {
                 anchor: dock_layout::tip_anchor(*cells.get(index)?, edge),
                 text: self.strip.get(index)?.tip(),
@@ -1940,7 +1963,10 @@ impl Dock {
             })
             .collect();
         let tip = tip.or_else(|| {
-            let index = self.switcher_hovered.filter(|_| self.open.is_none())?;
+            let index = self
+                .switcher_hovered
+                .filter(|_| self.open.is_none())
+                .or_else(|| self.keyboard_position(|keys| &keys.dots))?;
             let (x, y) = *dot_centers.get(index)?;
             let side = 2.0 * dock_layout::ACTIVE_DOT_RADIUS;
             Some(Tip {
@@ -1986,6 +2012,236 @@ impl Dock {
             tip,
             indicator: settings.indicator,
             indicator_color,
+            focus: self.focus_ring(&palette),
+        }
+    }
+
+    // ---- The keyboard (M14) ----
+
+    /// What the keyboard goes through, in the order assistive technology
+    /// reads it (`publish`): the workspace dots, the items, the strip.
+    fn nav_keys(&self) -> NavKeys {
+        let dots = self.rest().switcher.map_or(0, |area| {
+            dock_layout::switcher_dots(area, self.data.workspaces.len()).len()
+        });
+        NavKeys {
+            dots: self
+                .data
+                .workspaces
+                .iter()
+                .take(dots)
+                .map(|w| format!("{WORKSPACE_KEY}{}", w.id))
+                .collect(),
+            items: self.items.iter().map(Item::key).collect(),
+            strip: self.strip.iter().map(Cell::key).collect(),
+        }
+    }
+
+    /// Where the item the keyboard is on is in `nav_keys`.
+    fn keyboard_index(&self) -> Option<usize> {
+        let key = self.keyboard.as_ref()?;
+        self.nav_keys().all().position(|each| each == key)
+    }
+
+    /// Where the item the keyboard is on is in one part of `nav_keys`.
+    fn keyboard_position(&self, part: impl Fn(&NavKeys) -> &Vec<String>) -> Option<usize> {
+        let key = self.keyboard.as_ref()?;
+        part(&self.nav_keys()).iter().position(|each| each == key)
+    }
+
+    /// The list changed under the keyboard: an item gone leaves it on the
+    /// one now in its place (or the last).
+    fn keep_keyboard(&mut self, chosen_at: Option<usize>) {
+        let Some(at) = chosen_at else {
+            return;
+        };
+        let keys: Vec<String> = self.nav_keys().all().cloned().collect();
+        if self.keyboard.as_ref().is_some_and(|key| keys.contains(key)) {
+            return;
+        }
+        let next = keys.get(at.min(keys.len().saturating_sub(1))).cloned();
+        self.keyboard.clone_from(&next);
+        access::set_focus(self.hwnd.0 as isize, next);
+    }
+
+    /// The box of the item the keyboard is on, as drawn now (logical, in the
+    /// window).
+    fn keyboard_area(&self) -> Option<Area> {
+        let key = self.keyboard.as_ref()?;
+        let now = self.placement_now();
+        if let Some(id) = key.strip_prefix(WORKSPACE_KEY) {
+            let index = self.data.workspaces.iter().position(|w| w.id == id)?;
+            let (x, y) = *now
+                .switcher
+                .map(|area| dock_layout::switcher_dots(area, self.data.workspaces.len()))
+                .unwrap_or_default()
+                .get(index)?;
+            let side = 2.0 * dock_layout::ACTIVE_DOT_RADIUS + 6.0;
+            return Some(Area {
+                x: x - side / 2.0,
+                y: y - side / 2.0,
+                width: side,
+                height: side,
+            });
+        }
+        if let Some(index) = self.items.iter().position(|item| &item.key() == key) {
+            let mut area = *now.items.get(index)?;
+            area.x += self.shown_offsets(&self.rest()).get(index).copied()?;
+            return Some(area);
+        }
+        let index = self.strip.iter().position(|cell| &cell.key() == key)?;
+        self.strip_cells().get(index).copied()
+    }
+
+    /// The ring around the item the keyboard is on: the accent, or the
+    /// system's highlight in contrast mode, with a line of the bar's color
+    /// inside it so it shows on any icon.
+    fn focus_ring(&self, palette: &Palette) -> Option<FocusRing> {
+        let area = self.keyboard_area()?;
+        let (ring, inside) = if super::launcher::high_contrast() {
+            use windows::Win32::Graphics::Gdi::{COLOR_HIGHLIGHT, COLOR_WINDOW};
+            let color = |index| {
+                let (r, g, b) = super::launcher::system_color(index);
+                Color::rgb(r, g, b)
+            };
+            (color(COLOR_HIGHLIGHT), color(COLOR_WINDOW))
+        } else {
+            (palette.accent, palette.surface.with_alpha(1.0))
+        };
+        Some(FocusRing { area, ring, inside })
+    }
+
+    /// The point a menu opened by the keyboard comes from: the middle of the
+    /// item's side away from the screen edge, on the screen.
+    fn keyboard_menu_point(&self) -> Option<POINT> {
+        let area = self.keyboard_area()?;
+        let y = match self.edge() {
+            DockEdge::Bottom => area.y,
+            DockEdge::Top => area.y + area.height,
+        };
+        Some(POINT {
+            x: self.window.x + (area.center_x() * self.scale).round() as i32,
+            y: self.window.y + (y * self.scale).round() as i32,
+        })
+    }
+
+    /// The keyboard is on `key` now (or on nothing), for the ring and for
+    /// assistive technology.
+    fn select(&mut self, key: Option<String>) {
+        self.keyboard.clone_from(&key);
+        access::set_focus(self.hwnd.0 as isize, key);
+        self.paint();
+    }
+
+    /// The hotkey brought the keyboard here, from the window `before`: the
+    /// dock comes to the front with the first item chosen.
+    fn take_keyboard(&mut self, before: Option<HWND>) {
+        self.end_preview();
+        self.untuck();
+        // WS_EX_NOACTIVATE only keeps a click from activating the dock (the
+        // program in use stays in front); activating it on purpose still
+        // works. Windows lets a process come to the front when the last
+        // input was its own, and the hotkey just pressed was.
+        if !unsafe { windows::Win32::UI::WindowsAndMessaging::SetForegroundWindow(self.hwnd) }
+            .as_bool()
+        {
+            log::warn!("dock: Windows did not let the dock take the keyboard");
+            return;
+        }
+        let _ = unsafe { windows::Win32::UI::Input::KeyboardAndMouse::SetFocus(Some(self.hwnd)) };
+        self.before = before;
+        let first = self
+            .keyboard
+            .clone()
+            .or_else(|| self.nav_keys().all().next().cloned());
+        self.select(first);
+    }
+
+    /// The dock lost the keyboard: nothing is chosen, and the focus is left
+    /// where it went. Not while its menu is up, which takes the keyboard and
+    /// gives it back.
+    fn lose_keyboard(&mut self) {
+        if self.menu_open || (self.keyboard.is_none() && self.before.is_none()) {
+            return;
+        }
+        self.before = None;
+        self.select(None);
+    }
+
+    /// Esc: nothing is chosen, and the window from before has the keyboard
+    /// again.
+    fn leave(&mut self) {
+        use windows::Win32::UI::WindowsAndMessaging::{IsWindow, SetForegroundWindow};
+        let before = self.before.take();
+        self.select(None);
+        if let Some(window) = before.filter(|window| unsafe { IsWindow(Some(*window)) }.as_bool()) {
+            let _ = unsafe { SetForegroundWindow(window) };
+        }
+    }
+
+    /// A key pressed while the dock has the keyboard; whether it was the
+    /// dock's.
+    fn key_down(&mut self, key: u16, shift: bool) -> bool {
+        use keys::{KeyAction, key_action};
+        let ours = matches!(
+            key,
+            keys::VK_LEFT
+                | keys::VK_RIGHT
+                | keys::VK_UP
+                | keys::VK_DOWN
+                | keys::VK_HOME
+                | keys::VK_END
+                | keys::VK_RETURN
+                | keys::VK_SPACE
+                | keys::VK_APPS
+                | keys::VK_ESCAPE
+        ) || (key == keys::VK_F10 && shift);
+        if !ours {
+            return false;
+        }
+        let all: Vec<String> = self.nav_keys().all().cloned().collect();
+        match key_action(all.len(), self.keyboard_index(), key, shift) {
+            KeyAction::Select(index) => self.select(all.get(index).cloned()),
+            KeyAction::Press(index) => {
+                // As a click: the panel it opens may take the focus.
+                shared().clicked = Some(Instant::now());
+                self.use_here();
+                self.press(&all[index]);
+            }
+            KeyAction::Menu(index) => self.item_menu(&all[index]),
+            KeyAction::Leave => self.leave(),
+            KeyAction::Nothing => {}
+        }
+        true
+    }
+
+    /// The menu of the item `key`, as the right button opens it, by the
+    /// item.
+    fn item_menu(&mut self, key: &str) {
+        shared().clicked = Some(Instant::now());
+        self.use_here();
+        self.menu_by_keyboard = true;
+        if key.starts_with(WORKSPACE_KEY) {
+            self.dock_menu(None);
+        } else if let Some(index) = self.items.iter().position(|item| item.key() == key) {
+            if self.items[index].is_program() {
+                self.right_click(index);
+            } else {
+                self.dock_menu(Some(index));
+            }
+        } else if let Some(index) = self.strip.iter().position(|cell| cell.key() == key) {
+            self.strip_click(index, true);
+        }
+        self.menu_by_keyboard = false;
+    }
+
+    /// The dock's menu closed: without the keyboard back, nothing is
+    /// chosen any more.
+    fn menu_closed(&mut self) {
+        self.menu_open = false;
+        let foreground = unsafe { windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow() };
+        if foreground != self.hwnd {
+            self.lose_keyboard();
         }
     }
 
@@ -2920,6 +3176,12 @@ impl Dock {
         self.paint();
         let hwnd = self.hwnd.0 as isize;
         let edge = self.edge();
+        // By the keyboard: by the item, the dock its owner (it takes the
+        // keyboard back when the menu closes).
+        let from_keys = std::mem::take(&mut self.menu_by_keyboard)
+            .then(|| self.keyboard_menu_point())
+            .flatten()
+            .map(|at| (self.hwnd, at));
         let shown = self.data.workspace.as_ref().map(|w| w.id.clone());
         let workspaces: Vec<MenuWorkspace> = self
             .data
@@ -2946,8 +3208,8 @@ impl Dock {
         // Up, under its menu, until it closes.
         self.menu_open = true;
         self.effects.push(Box::new(move |app| {
-            let chosen = show_dock_menu(app, edge, items);
-            post_to(hwnd, |dock: &mut Dock| dock.menu_open = false);
+            let chosen = show_dock_menu(app, edge, items, from_keys);
+            post_to(hwnd, Dock::menu_closed);
             if let Some(choice) = chosen {
                 act(
                     app,
@@ -3145,12 +3407,8 @@ fn arm_hotkeys(count: usize) {
     }
 }
 
-/// `Ctrl+Alt+<number>`: the dock on the monitor the pointer is on goes to
-/// that workspace.
-fn hotkey(number: usize) {
-    let Some(index) = number.checked_sub(1) else {
-        return;
-    };
+/// The monitor the pointer is on, as a number (an `HMONITOR`).
+fn pointer_monitor() -> isize {
     let mut at = POINT::default();
     let _ = unsafe { windows::Win32::UI::WindowsAndMessaging::GetCursorPos(&mut at) };
     let monitor = unsafe {
@@ -3159,17 +3417,148 @@ fn hotkey(number: usize) {
             windows::Win32::Graphics::Gdi::MONITOR_DEFAULTTONEAREST,
         )
     };
+    monitor.0 as isize
+}
+
+/// The id of the hotkey that takes the keyboard to the dock (M14), on the
+/// wake window: past the workspaces' 1–9.
+const FOCUS_HOTKEY: i32 = 10;
+/// Takes that hotkey back if a capture never ended (Configurações closed in
+/// the middle), on the wake window; past the docks' timers.
+const FOCUS_CAPTURE_TIMER: usize = 10;
+const FOCUS_CAPTURE_FOR: u32 = 60_000;
+
+/// Configurações captures a new hotkey: the dock's is let go meanwhile.
+static FOCUS_CAPTURING: AtomicBool = AtomicBool::new(false);
+/// The dock's hotkey last asked of Windows (`None` inside: none, while a
+/// capture runs), so that one another program holds is tried, and logged,
+/// only once per change of the settings.
+static FOCUS_ARMED: Mutex<Option<Option<String>>> = Mutex::new(None);
+
+/// Asks Windows for the dock's hotkey of the settings on the wake window,
+/// when it changed. One another program holds is skipped, with a line in
+/// the log. On the main thread.
+fn arm_focus_hotkey() {
+    use crate::domain::hotkey;
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        HOT_KEY_MODIFIERS, MOD_NOREPEAT, RegisterHotKey, UnregisterHotKey,
+    };
+    let (Some(app), wake) = (APP.get(), WAKE.load(Ordering::SeqCst)) else {
+        return;
+    };
+    if wake == 0 {
+        return;
+    }
+    let wanted = (!FOCUS_CAPTURING.load(Ordering::SeqCst))
+        .then(|| crate::commands::settings::current(app).dock_hotkey);
+    {
+        let mut armed = FOCUS_ARMED.lock().unwrap_or_else(PoisonError::into_inner);
+        if armed.as_ref() == Some(&wanted) {
+            return;
+        }
+        *armed = Some(wanted.clone());
+    }
+    let wake = HWND(wake as _);
+    let _ = unsafe { UnregisterHotKey(Some(wake), FOCUS_HOTKEY) };
+    let Some(text) = wanted else {
+        return;
+    };
+    let Ok(hotkey) = hotkey::check(&text) else {
+        log::warn!("dock: the hotkey of the settings is not one it can take");
+        return;
+    };
+    let registered = unsafe {
+        RegisterHotKey(
+            Some(wake),
+            FOCUS_HOTKEY,
+            HOT_KEY_MODIFIERS(hotkey.modifiers()) | MOD_NOREPEAT,
+            hotkey.key.vk(),
+        )
+    };
+    if let Err(error) = registered {
+        log::warn!("dock: {hotkey} is held by another program: {error}");
+    }
+}
+
+/// Configurações captures a new hotkey (`on`): the dock's is let go, or the
+/// combination would take the keyboard to the dock. It comes back when the
+/// capture ends, or on its own after `FOCUS_CAPTURE_FOR`. From any thread.
+pub fn capture_hotkey(on: bool) {
+    queue(Box::new(move |_| {
+        FOCUS_CAPTURING.store(on, Ordering::SeqCst);
+        let wake = HWND(WAKE.load(Ordering::SeqCst) as _);
+        unsafe {
+            if on {
+                SetTimer(Some(wake), FOCUS_CAPTURE_TIMER, FOCUS_CAPTURE_FOR, None);
+            } else {
+                let _ = KillTimer(Some(wake), FOCUS_CAPTURE_TIMER);
+            }
+        }
+        arm_focus_hotkey();
+    }));
+}
+
+/// The dock's hotkey: the keyboard goes to the dock on the monitor the
+/// pointer is on (or the first one on screen), and Esc brings it back to
+/// the window that has it now.
+fn take_focus() {
+    let foreground = unsafe { windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow() };
+    let monitor = pointer_monitor();
+    with_docks(|docks| {
+        // Pressed again from a dock: the window from before that one.
+        let before = match docks.iter().find(|dock| dock.hwnd == foreground) {
+            Some(dock) => dock.before,
+            None => (!foreground.is_invalid()).then_some(foreground),
+        };
+        let target = docks
+            .iter()
+            .position(|dock| dock.visible && dock.monitor.handle == monitor)
+            .or_else(|| docks.iter().position(|dock| dock.visible));
+        let Some(target) = target else {
+            return;
+        };
+        // Activating one dock reaches the others' procedure while they are
+        // borrowed here, so they let go of the keyboard now.
+        for (index, dock) in docks.iter_mut().enumerate() {
+            if index != target {
+                dock.lose_keyboard();
+            }
+        }
+        docks[target].take_keyboard(before);
+    });
+}
+
+/// `Ctrl+Alt+<number>`: the dock on the monitor the pointer is on goes to
+/// that workspace.
+fn hotkey(number: usize) {
+    let Some(index) = number.checked_sub(1) else {
+        return;
+    };
+    let monitor = pointer_monitor();
     let key = {
         let shared = shared();
         shared
             .docks
             .iter()
-            .find(|placed| placed.handle == monitor.0 as isize)
+            .find(|placed| placed.handle == monitor)
             .or(shared.docks.first())
             .map(|placed| placed.monitor.clone())
     };
     if let (Some(key), Some(app)) = (key, APP.get()) {
         crate::commands::workspaces::switch_to_index(app, &key, index);
+    }
+}
+
+/// What the keyboard goes through, in parts (`Dock::nav_keys`).
+struct NavKeys {
+    dots: Vec<String>,
+    items: Vec<String>,
+    strip: Vec<String>,
+}
+
+impl NavKeys {
+    fn all(&self) -> impl Iterator<Item = &String> {
+        self.dots.iter().chain(&self.items).chain(&self.strip)
     }
 }
 
@@ -3352,7 +3741,14 @@ fn widget_items(config: &WidgetConfig) -> Vec<MenuEntry> {
 /// and returns what was chosen. The pointer resting on Configurações warms
 /// WebView2 for it (`settings_window::warm`), as an item that opens a panel
 /// does (H2).
-fn show_dock_menu(app: &AppHandle, edge: DockEdge, items: Vec<MenuEntry>) -> Option<MenuChoice> {
+/// From the keyboard (`from_keys`), it opens by the item, its first line
+/// lit, for the dock's window.
+fn show_dock_menu(
+    app: &AppHandle,
+    edge: DockEdge,
+    items: Vec<MenuEntry>,
+    from_keys: Option<(HWND, POINT)>,
+) -> Option<MenuChoice> {
     let (choices, lines): (Vec<_>, Vec<_>) = items
         .into_iter()
         .map(|entry| (entry.choice, entry.line))
@@ -3361,11 +3757,19 @@ fn show_dock_menu(app: &AppHandle, edge: DockEdge, items: Vec<MenuEntry>) -> Opt
         .iter()
         .position(|choice| *choice == Some(MenuChoice::Settings));
     let app = app.clone();
-    let chosen = menu::show_hovering(None, edge == DockEdge::Bottom, lines, move |index| {
-        if Some(index) == settings {
-            super::settings_window::warm(&app);
-        }
-    })?;
+    let (owner, at) = from_keys.map_or((None, None), |(owner, at)| (Some(owner), Some(at)));
+    let chosen = menu::show_hovering(
+        owner,
+        at,
+        edge == DockEdge::Bottom,
+        lines,
+        from_keys.is_some(),
+        move |index| {
+            if Some(index) == settings {
+                super::settings_window::warm(&app);
+            }
+        },
+    )?;
     choices.get(chosen).copied().flatten()
 }
 
@@ -3387,6 +3791,7 @@ pub fn tray_menu(app: &AppHandle) {
         app,
         DockEdge::Bottom,
         dock_menu_items(auto_hide, &[], false),
+        None,
     );
     if chosen == Some(MenuChoice::Settings) {
         // From the tray, the dock comes up too if it is hiding.
@@ -3628,7 +4033,31 @@ fn handle(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
             // user.
             dock.wheel((wparam.0 >> 16) as u16 as i16);
         }),
+        WM_HOTKEY if wparam.0 == FOCUS_HOTKEY as usize => take_focus(),
         WM_HOTKEY => hotkey(wparam.0),
+        // The keyboard, only ever given by the dock's hotkey (M14).
+        WM_KEYDOWN | WM_SYSKEYDOWN => {
+            let shift = unsafe {
+                windows::Win32::UI::Input::KeyboardAndMouse::GetKeyState(i32::from(
+                    windows::Win32::UI::Input::KeyboardAndMouse::VK_SHIFT.0,
+                ))
+            } < 0;
+            let mut ours = false;
+            // Alt and a key (WM_SYSKEYDOWN) stays Windows' but for Shift+F10.
+            if message == WM_KEYDOWN || wparam.0 == usize::from(keys::VK_F10) {
+                with_dock(hwnd, |dock| ours = dock.key_down(wparam.0 as u16, shift));
+            }
+            handled = ours;
+        }
+        // Losing the keyboard: nothing is chosen; the focus stays where it
+        // went. Windows still does its own part.
+        WM_ACTIVATE | WM_KILLFOCUS => {
+            let inactive = message == WM_KILLFOCUS || (wparam.0 & 0xFFFF) == 0;
+            if inactive {
+                with_dock(hwnd, Dock::lose_keyboard);
+            }
+            handled = false;
+        }
         WM_MOUSEMOVE => with_dock(hwnd, |dock| {
             let (x, y) = dock.point(lparam);
             dock.mouse_move(x, y);
@@ -3679,6 +4108,11 @@ fn handle(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
             }
         }),
         WM_TIMER => match wparam.0 {
+            FOCUS_CAPTURE_TIMER => {
+                let _ = unsafe { KillTimer(Some(hwnd), FOCUS_CAPTURE_TIMER) };
+                FOCUS_CAPTURING.store(false, Ordering::SeqCst);
+                arm_focus_hotkey();
+            }
             ANIMATION_TIMER => with_dock(hwnd, Dock::step),
             CLOCK_TIMER => with_dock(hwnd, |dock| {
                 dock.paint();

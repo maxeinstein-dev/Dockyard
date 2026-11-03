@@ -29,6 +29,8 @@
     "allow-clear-launcher-history",
     "allow-set-launcher-hotkey",
     "allow-capture-launcher-hotkey",
+    "allow-set-dock-hotkey",
+    "allow-capture-dock-hotkey",
     "allow-list-workspaces",
     "allow-create-workspace",
     "allow-rename-workspace",
