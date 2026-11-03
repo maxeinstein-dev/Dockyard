@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { errorKind, log } from "./log";
+import { useTauriSnapshot, type SnapshotSource } from "./snapshot";
 
 /* The launcher (spec 0012): a native window Rust opens with its hotkey.
  * Configurações switches it, says when another program holds the hotkey,
@@ -22,6 +21,10 @@ export const LAUNCHER_STATUS_COMMAND = "launcher_status";
 export const CLEAR_LAUNCHER_HISTORY_COMMAND = "clear_launcher_history";
 export const SET_LAUNCHER_HOTKEY_COMMAND = "set_launcher_hotkey";
 export const CAPTURE_LAUNCHER_HOTKEY_COMMAND = "capture_launcher_hotkey";
+/** The dock's hotkey (M14), which takes the keyboard to the dock: changed
+ * and captured as the launcher's. */
+export const SET_DOCK_HOTKEY_COMMAND = "set_dock_hotkey";
+export const CAPTURE_DOCK_HOTKEY_COMMAND = "capture_dock_hotkey";
 
 /** Rust's word that Alt+Space was pressed while the hotkey is captured:
  * Windows opens the window's menu with it before the page sees the key. */
@@ -29,6 +32,10 @@ export const HOTKEY_PRESSED_EVENT = "launcher-hotkey-pressed";
 
 /** The hotkey unless the user changes it. */
 export const DEFAULT_HOTKEY = "Alt+Space";
+
+/** The dock's unless the user changes it: Win+Alt+Z, written in the order
+ * Rust keeps (`Ctrl`, `Alt`, `Shift`, `Win`). */
+export const DEFAULT_DOCK_HOTKEY = "Alt+Win+Z";
 
 /** Why a new hotkey was refused; must match `HotkeyErrorCode` in
  * `src-tauri/src/commands/launcher.rs`, plus `unsupportedKey` (a key Rust
@@ -39,6 +46,9 @@ export type HotkeyErrorCode =
   | "takesTyping"
   | "reserved"
   | "taken"
+  /** It is the other hotkey's: the dock's for the launcher, the
+   * launcher's for the dock. */
+  | "clash"
   | "notSaved"
   | "unsupportedKey";
 
@@ -49,16 +59,19 @@ const HOTKEY_ERRORS: ReadonlySet<string> = new Set(
     takesTyping: true,
     reserved: true,
     taken: true,
+    clash: true,
     notSaved: true,
     unsupportedKey: true,
   } satisfies Record<HotkeyErrorCode, true>),
 );
 
-/** Makes `hotkey` the launcher's. Resolves null when it did, or why not. */
-export function setLauncherHotkey(
+/** Runs the command that changes a hotkey. Resolves null when it did, or
+ * why not. */
+function setHotkey(
+  command: string,
   hotkey: string,
 ): Promise<HotkeyErrorCode | null> {
-  return invoke(SET_LAUNCHER_HOTKEY_COMMAND, { hotkey }).then(
+  return invoke(command, { hotkey }).then(
     () => null,
     (error: unknown) => {
       const code =
@@ -66,18 +79,40 @@ export function setLauncherHotkey(
           ? String(error.code)
           : "";
       if (HOTKEY_ERRORS.has(code)) return code as HotkeyErrorCode;
-      log.warn(`launcher: the hotkey change failed: ${errorKind(error)}`);
+      log.warn(`hotkey: the change failed: ${errorKind(error)}`);
       return "notSaved";
     },
   );
 }
 
-/** Lets go of the hotkey while a new one is captured (`on`), or takes it
- * back. Failures are logged; Rust takes it back on its own after a minute. */
-export function captureLauncherHotkey(on: boolean): void {
-  invoke(CAPTURE_LAUNCHER_HOTKEY_COMMAND, { on }).catch((error: unknown) => {
-    log.warn(`launcher: capture failed: ${errorKind(error)}`);
+/** Makes `hotkey` the launcher's. Resolves null when it did, or why not. */
+export function setLauncherHotkey(
+  hotkey: string,
+): Promise<HotkeyErrorCode | null> {
+  return setHotkey(SET_LAUNCHER_HOTKEY_COMMAND, hotkey);
+}
+
+/** Makes `hotkey` the dock's. Resolves null when it did, or why not. */
+export function setDockHotkey(hotkey: string): Promise<HotkeyErrorCode | null> {
+  return setHotkey(SET_DOCK_HOTKEY_COMMAND, hotkey);
+}
+
+function capture(command: string, on: boolean): void {
+  invoke(command, { on }).catch((error: unknown) => {
+    log.warn(`hotkey: capture failed: ${errorKind(error)}`);
   });
+}
+
+/** Lets go of the hotkeys while a new launcher's one is captured (`on`), or
+ * takes them back. Failures are logged; Rust takes them back on its own
+ * after a minute. */
+export function captureLauncherHotkey(on: boolean): void {
+  capture(CAPTURE_LAUNCHER_HOTKEY_COMMAND, on);
+}
+
+/** `captureLauncherHotkey`, for a new dock's hotkey. */
+export function captureDockHotkey(on: boolean): void {
+  capture(CAPTURE_DOCK_HOTKEY_COMMAND, on);
 }
 
 /** The key part of a hotkey from Windows' virtual-key code (`keyCode`):
@@ -137,38 +172,18 @@ export function clearLauncherHistory(): Promise<boolean> {
   );
 }
 
+const LAUNCHER_STATUS_SOURCE: SnapshotSource<LauncherStatus> = {
+  event: LAUNCHER_STATUS_EVENT,
+  read: () => invoke<LauncherStatus>(LAUNCHER_STATUS_COMMAND),
+  accept: (value) => (value as LauncherStatus | null) ?? null,
+  readFailed: (error) =>
+    log.warn(`launcher: status read failed: ${errorKind(error)}`),
+  listenFailed: (error) =>
+    log.warn(`launcher: status: listen failed: ${errorKind(error)}`),
+};
+
 /** The launcher's status, kept current by `launcher-status`; null while
  * loading, and for good if it can't be read. */
 export function useLauncherStatus(): LauncherStatus | null {
-  const [status, setStatus] = useState<LauncherStatus | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    // A change may arrive before the first read answers: the read is older
-    // then, and is dropped.
-    let changed = false;
-
-    const unlisten = listen<LauncherStatus>(LAUNCHER_STATUS_EVENT, (event) => {
-      if (!active) return;
-      changed = true;
-      setStatus(event.payload);
-    });
-
-    invoke<LauncherStatus>(LAUNCHER_STATUS_COMMAND).then(
-      (current) => {
-        if (active && !changed) setStatus(current);
-      },
-      (error: unknown) => {
-        if (active)
-          log.warn(`launcher: status read failed: ${errorKind(error)}`);
-      },
-    );
-
-    return () => {
-      active = false;
-      void unlisten.then((stop) => stop());
-    };
-  }, []);
-
-  return status;
+  return useTauriSnapshot(LAUNCHER_STATUS_SOURCE);
 }

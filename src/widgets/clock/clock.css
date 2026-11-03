@@ -64,14 +64,14 @@
 
 .clock-period {
   margin-left: 6px;
-  font-size: 15px;
+  font-size: var(--fs-title);
   letter-spacing: 0;
   color: var(--ink-2);
 }
 
 .clock-date {
   margin: 0;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   color: var(--ink-2);
 }
 
@@ -83,6 +83,6 @@
    against its group, like the Progress panel's ring hint. */
 .clock-hint {
   margin: -8px 0 0;
-  font-size: 12px;
+  font-size: var(--fs-caption);
   color: var(--ink-2);
 }

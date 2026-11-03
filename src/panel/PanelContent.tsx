@@ -16,8 +16,9 @@ import {
   type WidgetInstance,
   type WidgetsSnapshot,
 } from "../core/widgets";
+import { memo } from "react";
 import type { WidgetUpdate } from "../widgets/contract";
-import { SECOND_MS, useNow } from "../widgets/now";
+import { useNow } from "../widgets/now";
 import { definitionOf } from "../widgets/registry";
 import AboutPanel from "./AboutPanel";
 import AppMenuPanel from "./AppMenuPanel";
@@ -69,9 +70,21 @@ type PanelContentProps = {
   onRemoved: () => void;
 };
 
-/** A widget's main view, with the panel's timer: its `now` moves every
- * second while the view shows, and starts fresh with each view. */
-function WidgetMain({
+/** A widget's main view, with the panel's timer: its `now` moves as often
+ * as the kind asks (`panelTick`: each second, each minute or never) while
+ * the view shows, and starts fresh with each view. Drawn again only when
+ * its widget or its view changes (M8): the panel's root also follows the
+ * open programs, the pinned ones and the workspaces, which it shows none
+ * of. `onAdjust` is new on each render of the root but always does the
+ * same (`onView(SUB_VIEW)`; the request it belongs to remounts the panel
+ * when it changes), so it is not compared. */
+const WidgetMain = memo(
+  WidgetMainView,
+  (before, after) =>
+    before.instance === after.instance && before.returned === after.returned,
+);
+
+function WidgetMainView({
   instance,
   returned,
   onAdjust,
@@ -80,8 +93,8 @@ function WidgetMain({
   returned: boolean;
   onAdjust: () => void;
 }) {
-  const now = useNow(SECOND_MS);
-  const { Panel } = definitionOf(instance);
+  const { Panel, panelTick } = definitionOf(instance);
+  const now = useNow(panelTick);
   const onUpdate = async ({ label, config }: WidgetUpdate<CreatableKind>) => {
     // Sound: the view of a kind sends that kind's config.
     const tagged = { kind: instance.kind, config } as WidgetConfig;

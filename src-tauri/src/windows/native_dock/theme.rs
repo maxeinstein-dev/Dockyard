@@ -111,6 +111,59 @@ impl Palette {
     }
 }
 
+/// The colors Windows' contrast mode asks for (M6): the window's, its
+/// text's and the selection's.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Contrast {
+    pub window: Color,
+    pub text: Color,
+    pub highlight: Color,
+}
+
+impl Palette {
+    /// The palette of Windows' contrast mode: its colors only, opaque, no
+    /// light edge; the hairline in the text's color, so the bar has an edge.
+    pub fn contrast(colors: Contrast) -> Palette {
+        let Contrast {
+            window,
+            text,
+            highlight,
+        } = colors;
+        Palette {
+            dark: 0.2126 * window.r + 0.7152 * window.g + 0.0722 * window.b < 0.5,
+            accent: highlight,
+            surface: window,
+            ink: text,
+            hair: text,
+            hi: Color::CLEAR,
+            tip_bg: window,
+            tip_ink: text,
+            danger: text,
+        }
+    }
+}
+
+/// Windows' contrast colors, when its contrast mode is on.
+#[cfg(windows)]
+pub fn system_contrast() -> Option<Contrast> {
+    use windows::Win32::Graphics::Gdi::{
+        COLOR_HIGHLIGHT, COLOR_WINDOW, COLOR_WINDOWTEXT, GetSysColor, SYS_COLOR_INDEX,
+    };
+    if !crate::windows::launcher::high_contrast() {
+        return None;
+    }
+    // COLORREF: 0x00bbggrr.
+    let color = |index: SYS_COLOR_INDEX| {
+        let value = unsafe { GetSysColor(index) };
+        Color::rgb(value as u8, (value >> 8) as u8, (value >> 16) as u8)
+    };
+    Some(Contrast {
+        window: color(COLOR_WINDOW),
+        text: color(COLOR_WINDOWTEXT),
+        highlight: color(COLOR_HIGHLIGHT),
+    })
+}
+
 /// The glaze of a tile: its hue, saturation and lightness (tokens.css, The
 /// Own Glaze Rule).
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -299,6 +352,30 @@ pub fn system_dark() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_contrast_palette_is_only_the_system_colors() {
+        // "Deserto": dark text on a light window; "Aquático": the reverse.
+        let desert = Palette::contrast(Contrast {
+            window: Color::rgb(0xff, 0xfa, 0xef),
+            text: Color::rgb(0x3d, 0x3d, 0x3d),
+            highlight: Color::rgb(0x90, 0x39, 0x09),
+        });
+        assert!(!desert.dark);
+        assert_eq!(desert.surface, Color::rgb(0xff, 0xfa, 0xef));
+        assert_eq!(
+            (desert.ink, desert.hair),
+            (Color::rgb(0x3d, 0x3d, 0x3d), Color::rgb(0x3d, 0x3d, 0x3d))
+        );
+        assert_eq!(desert.accent, Color::rgb(0x90, 0x39, 0x09));
+        assert_eq!(desert.hi, Color::CLEAR);
+        let aquatic = Palette::contrast(Contrast {
+            window: Color::rgb(0x20, 0x20, 0x20),
+            text: Color::WHITE,
+            highlight: Color::rgb(0x8e, 0xe3, 0xf0),
+        });
+        assert!(aquatic.dark);
+    }
 
     fn bytes(color: Color) -> (u8, u8, u8) {
         let byte = |v: f32| (v * 255.0).round() as u8;

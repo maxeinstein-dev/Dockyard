@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { errorKind, log } from "./log";
+import { useTauriSnapshot, type SnapshotSource } from "./snapshot";
 
 /* Widget instances (spec 0003 §2.1, §2.5–§2.7). Must match
  * `src-tauri/src/domain/widgets/`; the JSON in
@@ -731,39 +730,19 @@ export function dismissStorageNotice(): Promise<void> {
   );
 }
 
+const WIDGETS_SOURCE: SnapshotSource<WidgetsSnapshot> = {
+  event: WIDGETS_CHANGED_EVENT,
+  read: listWidgets,
+  accept: (value) => (value as WidgetsSnapshot | null) ?? null,
+  // `listWidgets` already logged the kind of an unexpected failure.
+  readFailed: () => log.warn("widgets: read failed"),
+  listenFailed: (error) =>
+    log.warn(`widgets: listen failed: ${errorKind(error)}`),
+};
+
 /** The instances and storage state, kept current by `widgets-changed`; null
  * while loading, and for good if they can't be read (the dock then shows
  * only Settings and About). */
 export function useWidgets(): WidgetsSnapshot | null {
-  const [snapshot, setSnapshot] = useState<WidgetsSnapshot | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    // A change may arrive before the initial read answers; the read is
-    // older then, so it is dropped.
-    let changed = false;
-
-    const unlisten = listen<WidgetsSnapshot>(WIDGETS_CHANGED_EVENT, (event) => {
-      if (!active) return;
-      changed = true;
-      setSnapshot(event.payload);
-    });
-
-    listWidgets().then(
-      (current) => {
-        if (active && !changed) setSnapshot(current);
-      },
-      () => {
-        // `listWidgets` already logged the kind of an unexpected failure.
-        if (active) log.warn("widgets: read failed");
-      },
-    );
-
-    return () => {
-      active = false;
-      void unlisten.then((stop) => stop());
-    };
-  }, []);
-
-  return snapshot;
+  return useTauriSnapshot(WIDGETS_SOURCE);
 }

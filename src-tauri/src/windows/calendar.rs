@@ -164,9 +164,7 @@ pub fn want(dock: isize, calendar: bool, cycles: Vec<Ciclo>) {
     let was = WANTED.swap(on, Ordering::Relaxed);
     if on {
         STARTED.call_once(|| {
-            let _ = std::thread::Builder::new()
-                .name("calendar".into())
-                .spawn(run);
+            let _ = super::panics::lasting("calendar", run);
         });
         if !was {
             read_now();

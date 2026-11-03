@@ -19,7 +19,7 @@
 .tour-count {
   margin: 0 0 6px;
   color: var(--ink-2);
-  font-size: 12px;
+  font-size: var(--fs-caption);
   font-variant-numeric: tabular-nums;
 }
 

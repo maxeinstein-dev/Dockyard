@@ -65,13 +65,13 @@
   column-gap: 10px;
   row-gap: 3px;
   align-items: center;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
 }
 
 .pg-bar {
   height: 6px;
   overflow: hidden;
-  border-radius: 3px;
+  border-radius: var(--r-meter);
   background: var(--pg-track);
 }
 
@@ -79,7 +79,7 @@
   display: block;
   width: calc(var(--f, 0) * 100%);
   height: 100%;
-  border-radius: 3px;
+  border-radius: var(--r-meter);
   background: var(--pg-fill);
 }
 
@@ -91,7 +91,7 @@
 
 .pg-left {
   grid-column: 2 / 4;
-  font-size: 12px;
+  font-size: var(--fs-caption);
   font-variant-numeric: tabular-nums;
   color: var(--ink-2);
 }
@@ -115,7 +115,7 @@
 }
 
 .period-field-label {
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   color: var(--ink-2);
 }
 
@@ -132,7 +132,7 @@
   align-items: center;
   gap: 8px;
   padding: 2px 0 2px 2px;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
 }
 
 .periods label {
@@ -157,17 +157,17 @@
 .periods li.period-hours {
   gap: 6px;
   padding: 0 0 4px 23px;
-  font-size: 12px;
+  font-size: var(--fs-caption);
   color: var(--ink-2);
 }
 
 .period-hint {
-  font-size: 12px;
+  font-size: var(--fs-caption);
   color: var(--ink-2);
 }
 
 .progress-hint {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--fs-caption);
   color: var(--ink-2);
 }

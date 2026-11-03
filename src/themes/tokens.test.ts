@@ -239,10 +239,29 @@ describe("tokens.css", () => {
   });
 
   it("has the radii", () => {
-    for (const name of ["panel", "track", "segment", "kbd", "tile", "pill"]) {
+    for (const name of [
+      "panel",
+      "track",
+      "inset",
+      "segment",
+      "control",
+      "kbd",
+      "meter",
+      "tile",
+      "pill",
+    ]) {
       expect(blocks.light.get(`--r-${name}`), name).toBe(rounded[name]);
     }
     expect(blocks.light.get("--r-dot")).toBe(rounded.dot);
+  });
+
+  it("has the text scale", () => {
+    for (const name of ["title", "label", "caption", "kbd"]) {
+      const size = new RegExp(`\n  ${name}:\n[^]*?fontSize: "([^"]+)"`);
+      expect(blocks.light.get(`--fs-${name}`), name).toBe(
+        size.exec(design)?.[1] ?? "missing in DESIGN.md",
+      );
+    }
   });
 
   it("has the system font stacks", () => {
@@ -303,6 +322,28 @@ describe("the provisional PR 1 glass", () => {
     const needle = "--" + "glass-";
     const offenders = Object.entries(sources)
       .filter(([, text]) => text.includes(needle))
+      .map(([path]) => path);
+    expect(offenders).toEqual([]);
+  });
+});
+
+/* M13: a value of the scale is written once, in tokens.css. A literal copy
+ * elsewhere is one more place to forget when a theme changes it. */
+describe("the scale's values", () => {
+  const css = Object.entries(sources)
+    .filter(([path]) => path.endsWith(".css"))
+    .filter(([path]) => path !== "/src/themes/tokens.css");
+
+  it("are not written as text sizes outside tokens.css", () => {
+    const offenders = css
+      .filter(([, text]) => /font-size:\s*(12\.5|12|11|15)px/.test(text))
+      .map(([path]) => path);
+    expect(offenders).toEqual([]);
+  });
+
+  it("are not written as a pill outside tokens.css", () => {
+    const offenders = css
+      .filter(([, text]) => /border-radius:\s*999px/.test(text))
       .map(([path]) => path);
     expect(offenders).toEqual([]);
   });

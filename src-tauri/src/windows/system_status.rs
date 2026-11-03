@@ -2,6 +2,9 @@
 //! taskbar does (and the PrimoDock): the battery, the network and the
 //! volume. Read when asked; cheap enough to ask every few seconds.
 
+use std::sync::{Mutex, PoisonError};
+use std::time::{Duration, Instant};
+
 use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
 use windows::Win32::Media::Audio::{IMMDeviceEnumerator, MMDeviceEnumerator, eConsole, eRender};
 use windows::Win32::NetworkManagement::IpHelper::{
@@ -51,6 +54,33 @@ pub fn read() -> Status {
         network: network(),
         volume: volume(),
     }
+}
+
+/// The last reading, and when it was made.
+static LAST: Mutex<Option<(Instant, Status)>> = Mutex::new(None);
+
+/// How long a reading serves every dock: each dock asks every 3 s, so with
+/// two monitors the second one gets the first one's reading.
+const SHARED_FOR: Duration = Duration::from_millis(2_500);
+
+/// What [`read`] gives, read once for all the docks that ask within
+/// [`SHARED_FOR`].
+pub fn read_shared() -> Status {
+    let mut last = LAST.lock().unwrap_or_else(PoisonError::into_inner);
+    let now = Instant::now();
+    if let Some((at, status)) = *last
+        && still_fresh(at, now)
+    {
+        return status;
+    }
+    let status = read();
+    *last = Some((now, status));
+    status
+}
+
+/// Whether a reading made `at` still serves `now`.
+fn still_fresh(at: Instant, now: Instant) -> bool {
+    now.saturating_duration_since(at) < SHARED_FOR
 }
 
 fn battery() -> Option<Battery> {
@@ -136,6 +166,16 @@ fn volume() -> Option<Volume> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn one_reading_serves_every_dock_for_a_moment() {
+        let at = Instant::now();
+        // The second dock asks a moment after the first: the same reading.
+        assert!(still_fresh(at, at));
+        assert!(still_fresh(at, at + Duration::from_millis(400)));
+        // The next round, 3 s later, reads again.
+        assert!(!still_fresh(at, at + Duration::from_secs(3)));
+    }
 
     fn power(flag: u8, percent: u8, line: u8) -> SYSTEM_POWER_STATUS {
         SYSTEM_POWER_STATUS {

@@ -76,9 +76,12 @@ pub fn all() -> Vec<Monitor> {
         _rect: *mut RECT,
         state: LPARAM,
     ) -> BOOL {
-        let found = unsafe { &mut *(state.0 as *mut Vec<HMONITOR>) };
-        found.push(handle);
-        true.into()
+        crate::windows::panics::window_message(|| {
+            let found = unsafe { &mut *(state.0 as *mut Vec<HMONITOR>) };
+            found.push(handle);
+            true.into()
+        })
+        .unwrap_or_else(|| false.into())
     }
     let mut handles: Vec<HMONITOR> = Vec::new();
     let _ = unsafe {

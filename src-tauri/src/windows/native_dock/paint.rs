@@ -310,6 +310,16 @@ pub struct Scene {
     pub tip: Option<Tip>,
     pub indicator: Indicator,
     pub indicator_color: Color,
+    /// The ring around the item the keyboard is on (M14).
+    pub focus: Option<FocusRing>,
+}
+
+/// The ring around the item the keyboard is on: its box, the ring's color
+/// and a thin line inside it, so it shows on any icon.
+pub struct FocusRing {
+    pub area: Area,
+    pub ring: Color,
+    pub inside: Color,
 }
 
 fn v(x: f64, y: f64) -> Vector2 {
@@ -882,8 +892,35 @@ impl Painter {
         if let Some(status) = &scene.status {
             self.status(scene, status);
         }
+        if let Some(focus) = &scene.focus {
+            self.focus_ring(focus);
+        }
         if let Some(tip) = &scene.tip {
             self.tip(scene, tip);
+        }
+    }
+
+    /// Two pixels of the ring around the item, one of the inside color
+    /// within.
+    fn focus_ring(&mut self, focus: &FocusRing) {
+        let rounded = |inset: f64| D2D1_ROUNDED_RECT {
+            rect: rect(Area {
+                x: focus.area.x + inset,
+                y: focus.area.y + inset,
+                width: (focus.area.width - 2.0 * inset).max(0.0),
+                height: (focus.area.height - 2.0 * inset).max(0.0),
+            }),
+            radiusX: 6.0,
+            radiusY: 6.0,
+        };
+        self.transform(&IDENTITY);
+        let ring = self.solid(focus.ring).clone();
+        let inside = self.solid(focus.inside).clone();
+        unsafe {
+            self.target
+                .DrawRoundedRectangle(&rounded(1.0), &ring, 2.0, None);
+            self.target
+                .DrawRoundedRectangle(&rounded(2.5), &inside, 1.0, None);
         }
     }
 

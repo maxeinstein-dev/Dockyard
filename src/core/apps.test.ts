@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   APP_ERROR_CODES,
   APPS_CHANGED_EVENT,
+  MAX_ICONS,
   appIcon,
   appMenu,
   forgetIcons,
@@ -229,6 +230,22 @@ describe("icons", () => {
 
     expect(await appIcon("none")).toBeNull();
     expect(await appIcon("broken")).toBeNull();
+  });
+
+  it("keeps at most MAX_ICONS, letting go of the one asked longest ago", async () => {
+    invoke.mockResolvedValue("data:image/png;base64,AA==");
+
+    await appIcon("first", 32);
+    for (let n = 1; n < MAX_ICONS; n++) await appIcon(`app${n}`, 32);
+    // Asked again: kept, while the next one asked longest ago goes.
+    await appIcon("first", 32);
+    await appIcon("one more", 32);
+    expect(invoke).toHaveBeenCalledTimes(MAX_ICONS + 1);
+
+    await appIcon("first", 32);
+    expect(invoke).toHaveBeenCalledTimes(MAX_ICONS + 1);
+    await appIcon("app1", 32);
+    expect(invoke).toHaveBeenCalledTimes(MAX_ICONS + 2);
   });
 
   it("reads a few at a time", async () => {

@@ -79,6 +79,10 @@ pub struct Settings {
     /// What opens the launcher (spec 0012 L3), as `hotkey::Hotkey` writes
     /// it (`Alt+Space`).
     pub launcher_hotkey: String,
+    /// What takes the keyboard to the dock (M14), written as
+    /// `launcher_hotkey`; never the same as it. A file from before it gets
+    /// `hotkey::DOCK_DEFAULT`.
+    pub dock_hotkey: String,
     /// The interface's language (spec 0019 G1).
     pub language: Language,
     /// The welcome tour was shown (spec 0019 G2). A new install starts
@@ -102,6 +106,7 @@ impl Default for Settings {
             launcher: true,
             launcher_keywords: launcher_web::defaults(),
             launcher_hotkey: hotkey::DEFAULT.to_owned(),
+            dock_hotkey: hotkey::DOCK_DEFAULT.to_owned(),
             language: Language::default(),
             tour_shown: false,
         }
@@ -123,6 +128,10 @@ impl Settings {
         }
         if hotkey::check(&self.launcher_hotkey).is_err() {
             return Err(SettingsError::LauncherHotkeyInvalid);
+        }
+        // One combination can't do two things.
+        if hotkey::check(&self.dock_hotkey).is_err() || self.dock_hotkey == self.launcher_hotkey {
+            return Err(SettingsError::DockHotkeyInvalid);
         }
         self.dock.validate_look()
     }
@@ -588,6 +597,9 @@ pub enum SettingsError {
     /// The launcher's hotkey is malformed or one it can't take.
     #[error("launcher hotkey invalid")]
     LauncherHotkeyInvalid,
+    /// The dock's hotkey is malformed, one it can't take, or the launcher's.
+    #[error("dock hotkey invalid")]
+    DockHotkeyInvalid,
     #[error("settings file could not be written ({0})")]
     Write(io::ErrorKind),
     /// There is nowhere to save: the app config folder could not be
@@ -605,6 +617,7 @@ impl SettingsError {
             SettingsError::LookOutOfRange => SettingsErrorCode::LookOutOfRange,
             SettingsError::LauncherKeywordsInvalid => SettingsErrorCode::LauncherKeywordsInvalid,
             SettingsError::LauncherHotkeyInvalid => SettingsErrorCode::LauncherHotkeyInvalid,
+            SettingsError::DockHotkeyInvalid => SettingsErrorCode::DockHotkeyInvalid,
             SettingsError::UnsupportedVersion => SettingsErrorCode::UnsupportedVersion,
             SettingsError::Write(_) => SettingsErrorCode::WriteFailed,
             SettingsError::Unavailable => SettingsErrorCode::NotReady,
@@ -627,6 +640,8 @@ pub enum SettingsErrorCode {
     LauncherKeywordsInvalid,
     /// The launcher's hotkey is malformed or one it can't take.
     LauncherHotkeyInvalid,
+    /// The dock's hotkey is malformed, one it can't take, or the launcher's.
+    DockHotkeyInvalid,
     /// The format version is not `CURRENT_VERSION`.
     UnsupportedVersion,
     /// The settings could not be saved; the previous ones stay.
@@ -708,6 +723,37 @@ mod tests {
     }
 
     #[test]
+    fn the_docks_hotkey_follows_the_launchers_rules_and_is_not_the_same() {
+        assert_eq!(Settings::default().dock_hotkey, "Alt+Win+Z");
+        for hotkey in ["", "Win+Alt+Z", "Space", "Ctrl+C", "Win+L", "Alt+Space"] {
+            let settings = Settings {
+                dock_hotkey: hotkey.into(),
+                ..Settings::default()
+            };
+            assert_eq!(
+                settings.validate(),
+                Err(SettingsError::DockHotkeyInvalid),
+                "{hotkey:?}"
+            );
+        }
+        // The launcher's moved to the dock's: refused, whichever changed.
+        let settings = Settings {
+            launcher_hotkey: "Alt+Win+Z".into(),
+            ..Settings::default()
+        };
+        assert_eq!(settings.validate(), Err(SettingsError::DockHotkeyInvalid));
+        let settings = Settings {
+            dock_hotkey: "Ctrl+Shift+D".into(),
+            ..Settings::default()
+        };
+        assert_eq!(settings.validate(), Ok(()));
+        assert_eq!(
+            SettingsError::DockHotkeyInvalid.code(),
+            SettingsErrorCode::DockHotkeyInvalid
+        );
+    }
+
+    #[test]
     fn a_bad_launcher_keyword_is_rejected() {
         let mut settings = Settings::default();
         settings.launcher_keywords[0].template = "http://example.com/?q=%s".into();
@@ -781,6 +827,7 @@ mod tests {
                 {"keyword": "gh", "name": "GitHub", "template": "https://github.com/search?q=%s"}
               ],
               "launcherHotkey": "Alt+Space",
+              "dockHotkey": "Alt+Win+Z",
               "language": "system",
               "tourShown": false
             }"#,

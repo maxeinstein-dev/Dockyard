@@ -59,9 +59,7 @@ pub fn start(app: &AppHandle) {
     }
     STARTED.call_once(|| {
         let app = app.clone();
-        let spawned = std::thread::Builder::new()
-            .name("update".into())
-            .spawn(move || run(&app));
+        let spawned = super::panics::lasting("update", move || run(&app));
         if let Err(error) = spawned {
             log::warn!("update: the thread could not start: {error}");
         }

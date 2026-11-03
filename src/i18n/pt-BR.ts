@@ -152,6 +152,29 @@ const messages = {
     previewsOnlySeveralHint: "Um app com uma janela só não mostra a prévia",
     launchAtLogin: "Iniciar com o Windows",
     launchAtLoginHint: "Abre o Dockyard ao entrar no Windows",
+    /** The dock's hotkey (M14), which takes the keyboard to the dock: as
+     * the launcher's; `{hotkey}` is replaced. */
+    dockHotkey: {
+      label: "Atalho do dock",
+      hint: "Leva o teclado ao dock: as setas andam pelos itens, Enter abre, Shift+F10 abre o menu e Esc volta ao programa de antes",
+      change: "Alterar o atalho do dock, hoje {hotkey}",
+      press: "Pressione a combinação… (Esc cancela)",
+      saving: "Salvando…",
+      saved: "Atalho salvo: {hotkey}",
+      restore: "Voltar para Alt+Win+Z",
+      space: "Espaço",
+      errors: {
+        malformed: "Essa combinação não pode ser usada.",
+        noModifier: "Use Ctrl, Alt, Shift ou Win junto com a tecla.",
+        takesTyping:
+          "Essa combinação tiraria a digitação ou um atalho de edição de todos os programas. Use Alt ou Win, ou Ctrl com Shift.",
+        reserved: "Essa combinação é do Windows ou do Dockyard.",
+        taken: "Essa combinação está em uso por outro programa.",
+        clash: "Essa combinação já abre o lançador.",
+        notSaved: "Não foi possível salvar o atalho. Tente de novo.",
+        unsupportedKey: "Use uma letra, um número, F1 a F24 ou Espaço.",
+      } satisfies Record<HotkeyErrorCode, string>,
+    },
     /** The launcher (spec 0012): its switch, the notice when another
      * program holds its hotkey, its history and the hotkey; `{hotkey}` is
      * replaced. */
@@ -180,6 +203,7 @@ const messages = {
             "Essa combinação tiraria a digitação ou um atalho de edição de todos os programas. Use Alt ou Win, ou Ctrl com Shift.",
           reserved: "Essa combinação é do Windows ou do Dockyard.",
           taken: "Essa combinação está em uso por outro programa.",
+          clash: "Essa combinação já leva o teclado ao dock.",
           notSaved: "Não foi possível salvar o atalho. Tente de novo.",
           unsupportedKey: "Use uma letra, um número, F1 a F24 ou Espaço.",
         } satisfies Record<HotkeyErrorCode, string>,
@@ -403,6 +427,7 @@ const messages = {
       launcherKeywordsInvalid:
         "Essa palavra-chave da busca na web não é aceita.",
       launcherHotkeyInvalid: "Esse atalho do lançador não é aceito.",
+      dockHotkeyInvalid: "Esse atalho do dock não é aceito.",
       iconSizeOutOfRange:
         "Esse tamanho não é aceito. Escolha Pequeno, Médio ou Grande.",
       unsupportedVersion:

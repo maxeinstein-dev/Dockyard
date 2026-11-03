@@ -101,6 +101,27 @@ export const en: Messages = {
     previewsOnlySeveralHint: "An app with a single window shows no preview",
     launchAtLogin: "Start with Windows",
     launchAtLoginHint: "Opens Dockyard when you sign in to Windows",
+    dockHotkey: {
+      label: "Dock shortcut",
+      hint: "Takes the keyboard to the dock: the arrows move between items, Enter opens, Shift+F10 opens the menu and Esc goes back to the previous program",
+      change: "Change the dock shortcut, currently {hotkey}",
+      press: "Press the combination… (Esc cancels)",
+      saving: "Saving…",
+      saved: "Shortcut saved: {hotkey}",
+      restore: "Reset to Alt+Win+Z",
+      space: "Space",
+      errors: {
+        malformed: "That combination can't be used.",
+        noModifier: "Use Ctrl, Alt, Shift or Win together with the key.",
+        takesTyping:
+          "That combination would take typing or an editing shortcut away from every program. Use Alt or Win, or Ctrl with Shift.",
+        reserved: "That combination belongs to Windows or Dockyard.",
+        taken: "That combination is in use by another program.",
+        clash: "That combination already opens the launcher.",
+        notSaved: "The shortcut couldn't be saved. Try again.",
+        unsupportedKey: "Use a letter, a number, F1 to F24 or Space.",
+      },
+    },
     launcher: {
       label: "Launcher ({hotkey})",
       hint: "Find and open apps from anywhere; also in Search apps…, in the dock menu",
@@ -126,6 +147,7 @@ export const en: Messages = {
             "That combination would take typing or an editing shortcut away from every program. Use Alt or Win, or Ctrl with Shift.",
           reserved: "That combination belongs to Windows or Dockyard.",
           taken: "That combination is in use by another program.",
+          clash: "That combination already takes the keyboard to the dock.",
           notSaved: "The shortcut couldn't be saved. Try again.",
           unsupportedKey: "Use a letter, a number, F1 to F24 or Space.",
         },
@@ -327,6 +349,7 @@ export const en: Messages = {
       lookOutOfRange: "That appearance setting isn't accepted.",
       launcherKeywordsInvalid: "That web search keyword isn't accepted.",
       launcherHotkeyInvalid: "That launcher shortcut isn't accepted.",
+      dockHotkeyInvalid: "That dock shortcut isn't accepted.",
       iconSizeOutOfRange:
         "That size isn't accepted. Choose Small, Medium or Large.",
       unsupportedVersion:

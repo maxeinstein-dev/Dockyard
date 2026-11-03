@@ -12,6 +12,14 @@ use std::fmt;
 /// The hotkey unless the user changes it.
 pub const DEFAULT: &str = "Alt+Space";
 
+/// What takes the keyboard to the dock unless the user changes it (M14):
+/// Win+Alt+Z, written in the settings' order. Not Win+Alt+D (Windows 11's
+/// calendar) nor Win+Alt+G, R, B or K (the Game Bar's).
+pub const DOCK_DEFAULT: &str = "Alt+Win+Z";
+
+/// The dock's, for a file whose launcher already took `DOCK_DEFAULT`.
+pub const DOCK_FALLBACK: &str = "Ctrl+Alt+Win+Z";
+
 /// `RegisterHotKey`'s modifier flags.
 pub const MOD_ALT: u32 = 0x1;
 pub const MOD_CONTROL: u32 = 0x2;
@@ -261,6 +269,17 @@ mod tests {
         ] {
             assert!(check(text).is_ok(), "{text}");
         }
+    }
+
+    #[test]
+    fn the_docks_hotkeys_are_valid_and_written_one_way() {
+        for text in [DOCK_DEFAULT, DOCK_FALLBACK] {
+            let hotkey = check(text).unwrap();
+            assert_eq!(hotkey.to_string(), text);
+            assert!(hotkey.win && hotkey.alt);
+            assert_eq!(hotkey.key, Key::Letter('Z'));
+        }
+        assert_eq!(Hotkey::parse("Win+Alt+Z"), None, "not the settings' order");
     }
 
     #[test]

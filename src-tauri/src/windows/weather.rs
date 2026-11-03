@@ -74,9 +74,7 @@ pub fn want(dock: isize, cities: Vec<Key>) {
     };
     if wanted {
         STARTED.call_once(|| {
-            let _ = std::thread::Builder::new()
-                .name("weather".into())
-                .spawn(run);
+            let _ = super::panics::lasting("weather", run);
         });
         if new {
             read_now();

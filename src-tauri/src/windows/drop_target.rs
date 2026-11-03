@@ -97,13 +97,15 @@ impl IDropTarget_Impl for DockDropTarget_Impl {
         pt: &POINTL,
         pdwEffect: *mut DROPEFFECT,
     ) -> windows::core::Result<()> {
-        let paths = pDataObj.as_ref().map(paths_of).unwrap_or_default();
-        self.accepts
-            .set(!commands::apps::droppable(&paths).is_empty());
-        *self.paths.borrow_mut() = paths;
-        let (_, effect) = self.effect_at(pt);
-        unsafe { *pdwEffect = effect };
-        Ok(())
+        crate::windows::panics::com_call(|| {
+            let paths = pDataObj.as_ref().map(paths_of).unwrap_or_default();
+            self.accepts
+                .set(!commands::apps::droppable(&paths).is_empty());
+            *self.paths.borrow_mut() = paths;
+            let (_, effect) = self.effect_at(pt);
+            unsafe { *pdwEffect = effect };
+            Ok(())
+        })
     }
 
     fn DragOver(
@@ -112,16 +114,20 @@ impl IDropTarget_Impl for DockDropTarget_Impl {
         pt: &POINTL,
         pdwEffect: *mut DROPEFFECT,
     ) -> windows::core::Result<()> {
-        let (_, effect) = self.effect_at(pt);
-        unsafe { *pdwEffect = effect };
-        Ok(())
+        crate::windows::panics::com_call(|| {
+            let (_, effect) = self.effect_at(pt);
+            unsafe { *pdwEffect = effect };
+            Ok(())
+        })
     }
 
     fn DragLeave(&self) -> windows::core::Result<()> {
-        self.accepts.set(false);
-        self.paths.borrow_mut().clear();
-        super::native_dock::drop_over(self.hwnd, None);
-        Ok(())
+        crate::windows::panics::com_call(|| {
+            self.accepts.set(false);
+            self.paths.borrow_mut().clear();
+            super::native_dock::drop_over(self.hwnd, None);
+            Ok(())
+        })
     }
 
     fn Drop(
@@ -131,25 +137,27 @@ impl IDropTarget_Impl for DockDropTarget_Impl {
         pt: &POINTL,
         pdwEffect: *mut DROPEFFECT,
     ) -> windows::core::Result<()> {
-        let (program, effect) = self.effect_at(pt);
-        super::native_dock::drop_over(self.hwnd, None);
-        let paths = std::mem::take(&mut *self.paths.borrow_mut());
-        let accepts = self.accepts.replace(false);
-        if let Some(program) = program {
-            // On a program's tile: it opens them.
-            super::open_with::open_off_thread(program, paths);
-            unsafe { *pdwEffect = effect };
-            return Ok(());
-        }
-        if let (true, Some(data)) = (accepts, pDataObj.as_ref()) {
-            commands::apps::pin_dropped(
-                &self.app,
-                paths_of(data),
-                super::native_dock::monitor_of(self.hwnd),
-            );
-        }
-        unsafe { *pdwEffect = effect_for(accepts) };
-        Ok(())
+        crate::windows::panics::com_call(|| {
+            let (program, effect) = self.effect_at(pt);
+            super::native_dock::drop_over(self.hwnd, None);
+            let paths = std::mem::take(&mut *self.paths.borrow_mut());
+            let accepts = self.accepts.replace(false);
+            if let Some(program) = program {
+                // On a program's tile: it opens them.
+                super::open_with::open_off_thread(program, paths);
+                unsafe { *pdwEffect = effect };
+                return Ok(());
+            }
+            if let (true, Some(data)) = (accepts, pDataObj.as_ref()) {
+                commands::apps::pin_dropped(
+                    &self.app,
+                    paths_of(data),
+                    super::native_dock::monitor_of(self.hwnd),
+                );
+            }
+            unsafe { *pdwEffect = effect_for(accepts) };
+            Ok(())
+        })
     }
 }
 
