@@ -250,7 +250,8 @@ impl Look {
                 skin: true,
                 border: false,
                 separator: Some(Color::rgb(0x5c, 0x61, 0x78)),
-                ink: Some(Color::rgb(0xff, 0xd2, 0x3f)),
+                // White, not the yellow of the marks: the date crosses the stripes.
+                ink: Some(Color::rgb(0xf2, 0xf2, 0xf7)),
                 indicator: Some(Color::rgb(0xff, 0xd2, 0x3f)),
                 ..base
             },
