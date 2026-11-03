@@ -61,6 +61,9 @@ describe("ThemeGallery", () => {
       "Tático",
       "Medieval 8-bit",
       "Caçador",
+      "Cyberpunk",
+      "Fliperama",
+      "Espacial",
     ]);
     expect(card("Padrão")).toHaveAttribute("aria-checked", "true");
     expect(screen.queryByText(text.themeCustom)).toBeNull();

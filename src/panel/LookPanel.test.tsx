@@ -156,6 +156,9 @@ describe("LookPanel", () => {
       "Tático",
       "Medieval 8-bit",
       "Caçador",
+      "Cyberpunk",
+      "Fliperama",
+      "Espacial",
     ]);
     expect(chosen(text.style)).toEqual(["Neon"]);
   });
