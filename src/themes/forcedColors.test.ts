@@ -38,13 +38,15 @@ function forcedBlocks(css: string): string {
 /** The rules of `css` as [selectors, declarations], comments dropped. */
 function rules(css: string): [string[], string][] {
   const plain = css.replace(/\/\*[\s\S]*?\*\//g, "");
-  return [...plain.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((rule) => [
-    rule[1]
-      .split(",")
-      .map((selector) => selector.trim())
-      .filter(Boolean),
-    rule[2],
-  ]);
+  return [...plain.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(
+    ([, selectors = "", body = ""]) => [
+      selectors
+        .split(",")
+        .map((selector) => selector.trim())
+        .filter(Boolean),
+      body,
+    ],
+  );
 }
 
 /** The focus selectors of `css` that take the outline off. */
@@ -83,7 +85,7 @@ describe("Windows' contrast mode", () => {
   it("marks the chosen card with the selection's color, not a shadow", () => {
     const css = sheets["../panel/parts/ChoiceCards.css"];
     expect(css).toBeDefined();
-    const forced = forcedBlocks(css);
+    const forced = forcedBlocks(css ?? "");
     expect(forced).toMatch(/\[aria-checked="true"\]::after/);
     expect(forced).toMatch(/border:\s*3px solid Highlight/);
   });
