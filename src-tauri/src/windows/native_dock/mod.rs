@@ -40,7 +40,7 @@ use menus::*;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
-use std::sync::{Mutex, PoisonError};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, Manager};
@@ -254,6 +254,10 @@ struct Data {
     workspaces: Vec<Workspace>,
     /// The icons of the notification area (while the dock holds it).
     tray: Vec<crate::commands::tray::TrayIcon>,
+    /// The folder skin of the Custom style (spec 0020, Q14), read here so
+    /// the paint never touches a file; `None` for any other style, or while
+    /// it can't be read (the bar is then Nativo's).
+    custom_skin: Option<Arc<crate::domain::skin::CachedSkin>>,
 }
 
 /// A program's icon: being read, or read (`None` when it has none).
@@ -633,7 +637,9 @@ fn read_data(app: &AppHandle, monitor: &str) -> Data {
             }
             None => (None, None, None, Vec::new()),
         };
+    let custom_skin = crate::commands::skins::chosen(app, &settings.dock);
     Data {
+        custom_skin,
         settings,
         widgets,
         apps,
@@ -1207,7 +1213,7 @@ impl Dock {
         let pack = self.data.settings.dock.icon_pack.clone();
         // A pack's dark images while the dock is dark; Windows' icons are
         // the same in both themes.
-        let dark = pack.is_some() && self.data.settings.dock.style.bar_dark(self.dark_now());
+        let dark = pack.is_some() && self.bar_dark();
         let hwnd = self.hwnd.0 as isize;
         let shown: HashSet<_> = self
             .items
@@ -1653,6 +1659,17 @@ impl Dock {
         }
     }
 
+    /// Whether the bar is dark, for an icon pack's dark images: see
+    /// [`DockStyle::bar_dark`](crate::domain::settings::DockStyle::bar_dark).
+    fn bar_dark(&self) -> bool {
+        let custom = self.data.custom_skin.as_ref();
+        self.data
+            .settings
+            .dock
+            .style
+            .bar_dark(self.dark_now(), custom.map(|custom| custom.skin.meta.dark))
+    }
+
     fn palette(&self) -> Palette {
         match self.contrast {
             Some(colors) => Palette::contrast(colors),
@@ -1672,7 +1689,13 @@ impl Dock {
         let look = if self.contrast.is_some() {
             look::contrast()
         } else {
-            look::Look::of(&settings)
+            look::Look::of(
+                &settings,
+                self.data
+                    .custom_skin
+                    .as_ref()
+                    .map(|custom| &custom.skin.meta),
+            )
         };
         let attention = dock_items::needs_attention(self.data.widgets.as_ref());
         let clock = local_now();
@@ -1867,6 +1890,7 @@ impl Dock {
             indicator: settings.indicator,
             indicator_color,
             focus: self.focus_ring(&palette),
+            custom_skin: self.data.custom_skin.clone(),
         }
     }
 
@@ -1881,7 +1905,7 @@ impl Dock {
         clock: &windows::Win32::Foundation::SYSTEMTIME,
     ) -> Face {
         let pack = settings.icon_pack.clone();
-        let dark = pack.is_some() && self.data.settings.dock.style.bar_dark(self.dark_now());
+        let dark = pack.is_some() && self.bar_dark();
         let program = |app_id: &str, badge: Option<&str>| {
             let icon = match self.icons.get(&(pack.clone(), app_id.to_string(), dark)) {
                 Some(Loaded::Ready(Some(icon))) => Some(icon.clone()),

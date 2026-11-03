@@ -72,6 +72,10 @@ struct DockSettingsInput {
     icon_shape: IconShape,
     /// Like `indicator_color`: always sent, `null` for the Windows icons.
     icon_pack: Option<String>,
+    /// Left out of the settings while `None`, so the interface may leave it
+    /// out.
+    #[serde(default)]
+    custom_skin: Option<String>,
     open_animation: OpenAnimation,
     show_open_apps: bool,
     show_badges: bool,
@@ -136,6 +140,7 @@ impl From<SettingsInput> for Settings {
                 indicator_color: dock.indicator_color,
                 icon_shape: dock.icon_shape,
                 icon_pack: dock.icon_pack,
+                custom_skin: dock.custom_skin,
                 open_animation: dock.open_animation,
                 show_open_apps: dock.show_open_apps,
                 show_badges: dock.show_badges,
@@ -257,11 +262,16 @@ pub fn dark_now(app: &AppHandle) -> bool {
 }
 
 /// Whether an icon pack's dark images go on the bar of `style` (the dock's
-/// own when `None`): see [`DockStyle::bar_dark`].
+/// own when `None`): see [`DockStyle::bar_dark`]. The Custom style's is the
+/// folder skin the settings name.
 pub fn icons_dark(app: &AppHandle, style: Option<DockStyle>) -> bool {
-    style
-        .unwrap_or_else(|| current(app).dock.style)
-        .bar_dark(dark_now(app))
+    let dock = current(app).dock;
+    let style = style.unwrap_or(dock.style);
+    let custom = match style {
+        DockStyle::Custom => super::skins::named(app, dock.custom_skin.as_deref()),
+        _ => None,
+    };
+    style.bar_dark(dark_now(app), custom.map(|custom| custom.skin.meta.dark))
 }
 
 /// Called by both windows at startup.
@@ -533,6 +543,7 @@ mod tests {
                     indicator_color: Some("#0A84FF".into()),
                     icon_shape: IconShape::Uniform,
                     icon_pack: Some("pixel-system".into()),
+                    custom_skin: None,
                     open_animation: OpenAnimation::Pulse,
                     show_open_apps: false,
                     show_badges: false,
@@ -552,6 +563,17 @@ mod tests {
                 },
             }
         );
+    }
+
+    #[test]
+    fn the_folder_skin_goes_through_the_update_payload() {
+        let with_skin = full().replace(
+            r#""style":"neon""#,
+            r#""style":"custom","customSkin":"Minha skin""#,
+        );
+        let settings = Settings::from(input(&with_skin).unwrap());
+        assert_eq!(settings.dock.style, DockStyle::Custom);
+        assert_eq!(settings.dock.custom_skin.as_deref(), Some("Minha skin"));
     }
 
     #[test]

@@ -10,7 +10,7 @@ Extensão da fase G ([spec 0019](0019-fase-g-extras.md)): **temas** que vestem o
 5. Medieval 8-bit (#116);
 6. Caçador (#117).
 
-Também entrou o "experimentar e voltar" (#115). A segunda leva gamer, com Cyberpunk, Fliperama e Espacial, entrou em 2026-11-03 (§4). Os widgets no tom do tema (Q9) entraram em 2026-11-03 (§6). Fica para depois uma pasta `Skins` para barras de terceiros (Q14).
+Também entrou o "experimentar e voltar" (#115). A segunda leva gamer, com Cyberpunk, Fliperama e Espacial, entrou em 2026-11-03 (§4). Os widgets no tom do tema (Q9) e a pasta `Skins` para barras de terceiros (Q14) entraram em 2026-11-03 (§5 e §6).
 
 **Verificação final** (2026-10-30, build e2e da `main` com os seis passos, cópia dos dados do autor):
 - **Os 11 temas:** aplicados pelos cartões, um a um. Cada um perguntou "Manter este tema?", foi mantido e gravou estilo e pacote, e o dock desenhou a barra e os ícones dele. Fotos em [`docs/fotos/g7-11-temas-ao-vivo.png`](../fotos/g7-11-temas-ao-vivo.png).
@@ -118,6 +118,31 @@ Tomadas numa sessão de perguntas (Q1–Q22), todas na recomendação:
     - **Pacote** `espacial` (`fonte/espacial.txt`, estilo de camadas `espacial`): escotilha com aro de metal (`#7A879C` → `#3A4458`), anel ciano, vidro azul-marinho (`#13234A` → `#070E22`) e o glifo branco com brilho ciano. Cobre os 55 glifos. A reserva é um planeta com anel (`apps/planeta.png`).
   - **Temas** `cyberpunk`, `arcade` e `scifi`: cada um com a skin e o pacote dele e o indicador do estilo. Aparecem na galeria depois do Caçador, e as skins e os pacotes aparecem também avulsos (Q19).
   - **A verificar ao vivo**: os três cartões e o dock com cada um, como nos temas da primeira leva.
+
+## 5. A pasta `Skins` (Q14)
+
+Decisão do autor (2026-11-03): **pasta + aviso**. Barras de terceiros entram por uma pasta, sem instalar nada e sem reiniciar.
+
+- **Onde:** `Skins`, dentro da pasta de dados do app (`%APPDATA%\dev.maxsueleinstein.dockmax\Skins`). Em Configurações › Aparência do dock, embaixo da galeria de estilos, o botão **"Abrir pasta Skins"** abre a pasta no Explorador e a cria se ela não existir.
+- **Formato:** uma subpasta por skin, com `skin.json` e `skin.png`, no mesmo formato das skins embutidas (§3). O `skin.json` aceita três campos opcionais, que as embutidas não usam:
+  - `dark` (`true` ou `false`): se a barra é escura, para os ícones escuros de um pacote. Sem o campo, a barra conta como escura.
+  - `ink` (`#rrggbb`): a tinta do relógio. Os separadores ficam nela, a 35%.
+  - `indicator` (`#rrggbb`): a cor da marca embaixo de um app aberto.
+  
+  Uma cor ausente ou que não seja `#rrggbb` fica a do dock.
+- **Validação** (`domain::skin::read_folder`), só nas subpastas diretas:
+  - o nome da pasta tem de 1 a 40 caracteres entre letras, números, espaço, `_`, `.` e `-`, e não começa com ponto;
+  - o `skin.json` existe, tem até 64 KB e segue o formato;
+  - `image` é exatamente `skin.png`;
+  - largura e altura vão de 1 a 4096 px, e as pontas (`left` + `right`) são mais estreitas que a imagem;
+  - o `skin.png` existe dentro da pasta (um atalho que leve para fora não vale), tem até 2 MB, é um PNG, e o cabeçalho dele tem o tamanho que o `skin.json` diz.
+  
+  Uma pasta que falha em alguma regra não vira cartão: um aviso embaixo da galeria diz qual pasta e por quê. Uma pasta `Skins` que não existe é só vazia.
+- **Na galeria:** cada skin válida é um cartão depois dos estilos embutidos, em ordem de nome da pasta, com a miniatura e o `name` do `skin.json`. A pasta é lida quando Configurações (ou a Aparência no painel) abre. Escolher uma skin grava `style: "custom"` e `customSkin` com o nome da pasta. Uma skin escolhida que sumiu continua como cartão "Indisponível".
+- **No dock:** o estilo `Custom` desenha a skin da pasta como as embutidas (`skin_bar`). O dock lê a skin fora da pintura (`read_data`) e a guarda em cache; só relê o PNG quando o tamanho ou a data de um dos dois arquivos muda, e então refaz o bitmap. Se a skin escolhida sumir ou ficar inválida, o dock pinta a barra como o Nativo e registra uma vez no log, sem o nome da pasta.
+- **Ajustes:** como nas embutidas, "Borda" e "Cantos" somem.
+- **Testes:** `domain::skin` (cada motivo de recusa, uma skin válida, pasta ausente, ordem por nome, cabeçalho do PNG, BOM, cache relido quando o arquivo muda, campos opcionais), `settings` (`customSkin` no JSON e na validação, barra escura do `Custom`), `look` (cores da skin e volta ao Nativo), `commands::skins` (o cartão vai como `data:` URL), `StyleGallery` (cartões depois dos estilos, escolha, indisponível) e `LookPanel` (grava `custom` e `customSkin`, aviso das pastas recusadas, botão da pasta).
+- **Verificado ao vivo** (2026-11-03, build de lançamento, cópia dos dados do autor): com uma skin válida ("Teste de pasta", a imagem do Cyberpunk com tinta `#FFE45E`) e uma quebrada na pasta, Configurações › Aparência do dock mostrou o cartão da skin (um botão de opção da galeria), o aviso "Pasta quebrada: o skin.json não é válido" e o botão "Abrir pasta Skins"; escolher o cartão gravou `style: "custom"` e `customSkin: "Teste de pasta"`, e o dock passou a usar a imagem, com o relógio na tinta do `skin.json`. A barra do Windows ficou igual. Falta ver ao vivo a volta ao Nativo ao apagar a pasta.
 
 ## 6. Os widgets no tom do tema (Q9)
 

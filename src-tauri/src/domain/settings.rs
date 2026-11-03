@@ -13,6 +13,7 @@ use thiserror::Error;
 use super::hotkey;
 use super::icon_pack::is_valid_pack_id;
 use super::launcher_web::{self, WebKeyword};
+use super::skin::is_valid_skin_id;
 
 /// Format version written by this build. Files with any other version are
 /// rejected.
@@ -170,6 +171,13 @@ impl DockSettings {
         {
             return Err(SettingsError::LookOutOfRange);
         }
+        if self
+            .custom_skin
+            .as_deref()
+            .is_some_and(|id| !is_valid_skin_id(id))
+        {
+            return Err(SettingsError::LookOutOfRange);
+        }
         if self.tray_in_dock.len() > MAX_TRAY_IN_DOCK
             || self.tray_in_dock.iter().any(|key| !is_tray_key(key))
         {
@@ -253,6 +261,11 @@ pub struct DockSettings {
     /// The icon pack every pinned program wears (spec 0007): the id of a
     /// folder of `IconPacks`, or `None` for the icons Windows gives.
     pub icon_pack: Option<String>,
+    /// The skin of the `Skins` folder the bar wears with
+    /// [`DockStyle::Custom`] (spec 0020, Q14): the name of its folder. Left
+    /// out of the file while `None`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub custom_skin: Option<String>,
     /// What a program's icon does while it opens (spec 0006 B2).
     pub open_animation: OpenAnimation,
     /// Whether the open programs that are not pinned show on the dock, after
@@ -316,6 +329,7 @@ impl Default for DockSettings {
             indicator_color: None,
             icon_shape: IconShape::default(),
             icon_pack: None,
+            custom_skin: None,
             open_animation: OpenAnimation::default(),
             show_open_apps: true,
             show_badges: true,
@@ -403,14 +417,23 @@ pub enum DockStyle {
     Arcade,
     /// The Espacial theme's skin (spec 0020 §4).
     Scifi,
+    /// A skin of the user's `Skins` folder (spec 0020, Q14), the one
+    /// `custom_skin` names; while it can't be read, the bar is Nativo's.
+    /// Not in the gallery's list of styles: the gallery shows each skin of
+    /// the folder as its own card.
+    Custom,
 }
 
 impl DockStyle {
     /// Whether the bar is dark, so an icon pack's dark images go on it (spec
     /// 0020, Q8): the bars dark in both color modes (Meia-noite, Rocket,
     /// Neon), never the light one (Papel), and the others with the mode.
-    pub fn bar_dark(self, mode_dark: bool) -> bool {
+    /// `custom` is the folder skin's `dark` for [`DockStyle::Custom`] (a
+    /// skin that does not say is dark), or `None` while no folder skin is
+    /// read: the bar is then Nativo's, with the mode.
+    pub fn bar_dark(self, mode_dark: bool, custom: Option<Option<bool>>) -> bool {
         match self {
+            DockStyle::Custom => custom.map_or(mode_dark, |dark| dark.unwrap_or(true)),
             DockStyle::Midnight
             | DockStyle::Rocket
             | DockStyle::Neon
@@ -940,6 +963,7 @@ mod tests {
             (DockStyle::Cyberpunk, "cyberpunk"),
             (DockStyle::Arcade, "arcade"),
             (DockStyle::Scifi, "scifi"),
+            (DockStyle::Custom, "custom"),
         ];
         for (style, name) in styles {
             assert_eq!(serde_json::to_value(style).unwrap(), name);
@@ -1230,19 +1254,62 @@ mod tests {
     #[test]
     fn a_pack_s_dark_images_follow_the_bar_not_only_the_mode() {
         for style in [DockStyle::Midnight, DockStyle::Rocket, DockStyle::Neon] {
-            assert!(style.bar_dark(false), "{style:?}");
-            assert!(style.bar_dark(true), "{style:?}");
+            assert!(style.bar_dark(false, None), "{style:?}");
+            assert!(style.bar_dark(true, None), "{style:?}");
         }
-        assert!(!DockStyle::Paper.bar_dark(true));
-        assert!(!DockStyle::Paper.bar_dark(false));
+        assert!(!DockStyle::Paper.bar_dark(true, None));
+        assert!(!DockStyle::Paper.bar_dark(false, None));
         for style in [
             DockStyle::Native,
             DockStyle::LiquidGlass,
             DockStyle::AquaShelf,
             DockStyle::Floating,
         ] {
-            assert!(style.bar_dark(true), "{style:?}");
-            assert!(!style.bar_dark(false), "{style:?}");
+            assert!(style.bar_dark(true, None), "{style:?}");
+            assert!(!style.bar_dark(false, None), "{style:?}");
         }
+    }
+
+    #[test]
+    fn a_folder_skin_s_bar_is_dark_as_its_skin_json_says() {
+        let custom = DockStyle::Custom;
+        // Saying nothing is dark, whatever the mode.
+        assert!(custom.bar_dark(false, Some(None)));
+        assert!(custom.bar_dark(false, Some(Some(true))));
+        assert!(!custom.bar_dark(true, Some(Some(false))));
+        // No skin read: Nativo's bar, with the mode.
+        assert!(custom.bar_dark(true, None));
+        assert!(!custom.bar_dark(false, None));
+    }
+
+    #[test]
+    fn the_custom_skin_is_the_name_of_a_skin_folder_or_none() {
+        for id in ["Minha skin", "a", "pixel_bar-2.0"] {
+            assert_eq!(
+                with_dock(|dock| dock.custom_skin = Some(id.into())).validate(),
+                Ok(()),
+                "{id}"
+            );
+        }
+        for id in ["", ".hidden", "a/b", r"a\b", "..", r"C:\x", "á"] {
+            assert_eq!(
+                with_dock(|dock| dock.custom_skin = Some(id.into())).validate(),
+                Err(SettingsError::LookOutOfRange),
+                "{id:?}"
+            );
+        }
+        let settings: Settings =
+            serde_json::from_str(r#"{"dock":{"style":"custom","customSkin":"Minha skin"}}"#)
+                .unwrap();
+        assert_eq!(settings.dock.style, DockStyle::Custom);
+        assert_eq!(settings.dock.custom_skin.as_deref(), Some("Minha skin"));
+        let json = serde_json::to_value(&settings).unwrap();
+        assert_eq!(json["dock"]["customSkin"], "Minha skin");
+        assert_eq!(json["dock"]["style"], "custom");
+        let again: Settings = serde_json::from_value(json).unwrap();
+        assert_eq!(again, settings);
+        // Left out of the file while `None`: older files read the same.
+        let json = serde_json::to_value(Settings::default()).unwrap();
+        assert!(json["dock"].get("customSkin").is_none());
     }
 }

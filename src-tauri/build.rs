@@ -75,6 +75,8 @@ fn main() {
             "icon_pack_preview",
             "reload_icon_packs",
             "open_icon_packs_folder",
+            "list_folder_skins",
+            "open_skins_folder",
             "launcher_status",
             "clear_launcher_history",
             "set_launcher_hotkey",

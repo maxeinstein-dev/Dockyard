@@ -24,6 +24,8 @@
     "allow-icon-pack-preview",
     "allow-reload-icon-packs",
     "allow-open-icon-packs-folder",
+    "allow-list-folder-skins",
+    "allow-open-skins-folder",
     "allow-list-tray",
     "allow-launcher-status",
     "allow-clear-launcher-history",
