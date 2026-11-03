@@ -81,11 +81,12 @@ impl Notices {
 }
 
 /// How long to wait before the next look, `since_last` after the last one
-/// (`None`: no look yet).
-pub fn wait(since_last: Option<Duration>) -> Duration {
+/// (`None`: no look yet), looking `every` so long ([`EVERY`], or longer
+/// saving the battery: `domain::power`).
+pub fn wait(since_last: Option<Duration>, every: Duration) -> Duration {
     match since_last {
         None => FIRST_CHECK,
-        Some(elapsed) => EVERY.saturating_sub(elapsed),
+        Some(elapsed) => every.saturating_sub(elapsed),
     }
 }
 
@@ -169,13 +170,30 @@ mod tests {
 
     #[test]
     fn the_first_look_comes_soon_then_every_six_hours() {
-        assert_eq!(wait(None), FIRST_CHECK);
+        assert_eq!(wait(None, EVERY), FIRST_CHECK);
         assert!(FIRST_CHECK <= Duration::from_secs(60));
-        assert_eq!(wait(Some(Duration::ZERO)), Duration::from_secs(6 * 3600));
         assert_eq!(
-            wait(Some(Duration::from_secs(3600))),
+            wait(Some(Duration::ZERO), EVERY),
+            Duration::from_secs(6 * 3600)
+        );
+        assert_eq!(
+            wait(Some(Duration::from_secs(3600)), EVERY),
             Duration::from_secs(5 * 3600)
         );
-        assert_eq!(wait(Some(Duration::from_secs(7 * 3600))), Duration::ZERO);
+        assert_eq!(
+            wait(Some(Duration::from_secs(7 * 3600)), EVERY),
+            Duration::ZERO
+        );
+    }
+
+    #[test]
+    fn saving_the_battery_the_next_look_waits_longer() {
+        let saving = crate::domain::power::every(crate::domain::power::Poll::Update, true);
+        // The first look still comes soon: it is once a run.
+        assert_eq!(wait(None, saving), FIRST_CHECK);
+        assert_eq!(
+            wait(Some(Duration::from_secs(7 * 3600)), saving),
+            Duration::from_secs(17 * 3600)
+        );
     }
 }

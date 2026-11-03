@@ -83,6 +83,18 @@ fn still_fresh(at: Instant, now: Instant) -> bool {
     now.saturating_duration_since(at) < SHARED_FOR
 }
 
+/// Whether the computer runs on its battery now (the battery saver, spec
+/// 0021): unplugged. A desktop, or a line Windows can't tell, is not.
+pub fn on_battery() -> bool {
+    let mut status = SYSTEM_POWER_STATUS::default();
+    unsafe { GetSystemPowerStatus(&mut status) }.is_ok() && unplugged(&status)
+}
+
+/// `ACLineStatus`: 0 offline, 1 online, 255 unknown.
+fn unplugged(status: &SYSTEM_POWER_STATUS) -> bool {
+    status.ACLineStatus == 0
+}
+
 fn battery() -> Option<Battery> {
     let mut status = SYSTEM_POWER_STATUS::default();
     unsafe { GetSystemPowerStatus(&mut status) }.ok()?;
@@ -190,6 +202,15 @@ mod tests {
     fn a_desktop_has_no_battery_to_show() {
         assert_eq!(battery_of(&power(128, 255, 1)), None);
         assert_eq!(battery_of(&power(255, 255, 255)), None);
+    }
+
+    #[test]
+    fn only_a_line_off_is_on_the_battery() {
+        assert!(unplugged(&power(1, 80, 0)));
+        assert!(!unplugged(&power(8, 40, 1)));
+        // A desktop, and a line Windows can't tell.
+        assert!(!unplugged(&power(128, 255, 1)));
+        assert!(!unplugged(&power(255, 255, 255)));
     }
 
     #[test]

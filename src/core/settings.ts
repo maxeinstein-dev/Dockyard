@@ -126,6 +126,17 @@ export type IconShape = "plate" | "uniform" | "original";
  * match `MiddleClick` in `src-tauri/src/domain/settings.rs`. */
 export type MiddleClick = "newInstance" | "none";
 
+/** When the dock saves battery (spec 0021): never, on the battery (the
+ * default) or always; must match `PowerSaver` in
+ * `src-tauri/src/domain/settings.rs`. */
+export type PowerSaver = "off" | "onBattery" | "always";
+
+export const POWER_SAVERS: readonly PowerSaver[] = [
+  "off",
+  "onBattery",
+  "always",
+];
+
 /** What a program's icon does while it opens; must match `OpenAnimation`. */
 export type OpenAnimation = "bounce" | "pulse" | "shake";
 
@@ -292,6 +303,9 @@ export interface Settings {
   language: Language;
   /** The welcome tour was shown (spec 0019 G2); Rust sets it. */
   tourShown: boolean;
+  /** When the dock saves battery (spec 0021): it stops what moves on its
+   * own and reads the system less often. */
+  powerSaver: PowerSaver;
 }
 
 /** A keyword of the launcher's web search; must match `WebKeyword` in

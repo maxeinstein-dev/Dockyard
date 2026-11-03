@@ -162,7 +162,9 @@ mod tests {
     use tempfile::{TempDir, tempdir};
 
     use super::*;
-    use crate::domain::settings::{DockEdge, DockOpacity, DockSettings, Language, Theme};
+    use crate::domain::settings::{
+        DockEdge, DockOpacity, DockSettings, Language, PowerSaver, Theme,
+    };
 
     fn settings_path(dir: &TempDir) -> PathBuf {
         dir.path().join(FILE_NAME)
@@ -179,6 +181,8 @@ mod tests {
             dock_hotkey: crate::domain::hotkey::DOCK_DEFAULT.to_owned(),
             language: Language::System,
             tour_shown: true,
+            // Left out of the files below: it saves on the battery.
+            power_saver: PowerSaver::OnBattery,
             dock: DockSettings {
                 edge: DockEdge::Top,
                 icon_size: 64,
@@ -403,7 +407,8 @@ mod tests {
               "launcherHotkey": "Alt+Space",
                 "dockHotkey": "Alt+Win+Z",
                 "language": "system",
-                "tourShown": false
+                "tourShown": false,
+                "powerSaver": "onBattery"
             })
         );
     }

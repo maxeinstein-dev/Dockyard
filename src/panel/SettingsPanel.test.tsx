@@ -19,6 +19,7 @@ const SETTINGS: Settings = {
   dockHotkey: "Alt+Win+Z",
   language: "system",
   tourShown: true,
+  powerSaver: "onBattery",
   dock: {
     edge: "bottom",
     iconSize: 48,
@@ -186,6 +187,28 @@ describe("SettingsPanel", () => {
         ...SETTINGS,
         dock: { ...SETTINGS.dock, middleClick: "none" },
       },
+    });
+  });
+
+  it.each([
+    ["the panel", false],
+    ["Configurações", true],
+  ])("chooses when the battery is saved, in %s (spec 0021)", (_, grouped) => {
+    invoke.mockReturnValue(new Promise(() => {}));
+    render(<SettingsPanel settings={SETTINGS} grouped={grouped} />);
+    // Literal on purpose: the three options and the default.
+    expect(
+      options("Economia de bateria").map((button) => button.textContent),
+    ).toEqual(["Desligada", "Na bateria", "Sempre"]);
+    expect(chosen(text.groups.powerSaver)).toEqual([text.powerSaver.onBattery]);
+    expect(group(text.groups.powerSaver)).toHaveAccessibleDescription(
+      text.powerSaverHint,
+    );
+
+    fireEvent.click(option(text.groups.powerSaver, text.powerSaver.always));
+
+    expect(invoke).toHaveBeenLastCalledWith("update_settings", {
+      settings: { ...SETTINGS, powerSaver: "always" },
     });
   });
 

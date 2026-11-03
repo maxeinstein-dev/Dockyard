@@ -3,6 +3,7 @@ import {
   MAX_AUTO_HIDE_DELAY,
   MAX_PREVIEW_DELAY,
   MAX_AUTO_HIDE_REVEAL,
+  POWER_SAVERS,
   SIZE_PRESETS,
   type DockEdge,
   type DockOpacity,
@@ -341,6 +342,15 @@ function SettingsPanel({
       }
     />
   );
+  const powerSaverField = (
+    <OptionGroup
+      label={t.settings.groups.powerSaver}
+      options={options(POWER_SAVERS, t.settings.powerSaver)}
+      selected={shown?.powerSaver ?? null}
+      onSelect={(value) => change((s) => ({ ...s, powerSaver: value }))}
+      hint={t.settings.powerSaverHint}
+    />
+  );
   const dockHotkeyField =
     withLauncher && shown !== null ? (
       <HotkeyField of="dock" hotkey={shown.dockHotkey} />
@@ -453,6 +463,7 @@ function SettingsPanel({
           {showOpenAppsField}
           {showBadgesField}
           {middleClickField}
+          {powerSaverField}
           {dockHotkeyField}
         </SettingsGroup>
         {withLauncher ? (
@@ -500,6 +511,7 @@ function SettingsPanel({
       {launcherField}
       {webKeywordsField}
       {middleClickField}
+      {powerSaverField}
       {dockHotkeyField}
       {ending}
     </>
