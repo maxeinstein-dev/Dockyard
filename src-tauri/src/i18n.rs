@@ -199,6 +199,10 @@ pub struct DockMessages {
     /// The notice when the dock kept failing and the app closed (M4).
     pub crash_notice_title: &'static str,
     pub crash_notice_line: &'static str,
+    /// When the window of a panel or of Configurações can't be made
+    /// (WebView2 can't start, most often a full disk), once per run.
+    pub panel_failed: &'static str,
+    pub settings_failed: &'static str,
     /// The notice of a new version (spec 0019 G3), once per version;
     /// `{version}` is replaced.
     pub update_notice_title: &'static str,
@@ -269,6 +273,11 @@ pub struct TrayMessages {
     /// The Lançador's menu: opens Configurações › Geral, where the
     /// launcher's hotkey is (spec 0012).
     pub set_hotkey: &'static str,
+    /// A program's own menu, native, when its panel can't open: opens it,
+    /// closes its window (or windows).
+    pub open_app: &'static str,
+    pub close_window: &'static str,
+    pub close_windows: &'static str,
 }
 
 const PT_BR: Messages = Messages {
@@ -285,6 +294,9 @@ const PT_BR: Messages = Messages {
         icons: "{n} ícones",
         remove_widget: "Remover do dock",
         set_hotkey: "Configurar atalho…",
+        open_app: "Abrir",
+        close_window: "Fechar janela",
+        close_windows: "Fechar janelas",
     },
     settings: SettingsMessages {
         window_title: "Configurações do Dockyard",
@@ -345,6 +357,8 @@ const PT_BR: Messages = Messages {
         cycle_notice_line: "Abra o Ciclo no Dockyard para ver.",
         crash_notice_title: "O Dockyard fechou",
         crash_notice_line: "O dock falhou várias vezes seguidas. A barra do Windows voltou; abra o Dockyard de novo quando quiser.",
+        panel_failed: "Não foi possível abrir o painel. Verifique o espaço em disco.",
+        settings_failed: "Não foi possível abrir Configurações. Verifique o espaço em disco.",
         update_notice_title: "Dockyard {version} disponível",
         update_notice_line: "Para atualizar, abra Sobre no dock.",
         calendar_busy: "Ocupado",
@@ -492,6 +506,9 @@ const EN: Messages = Messages {
         icons: "{n} icons",
         remove_widget: "Remove from dock",
         set_hotkey: "Set shortcut…",
+        open_app: "Open",
+        close_window: "Close window",
+        close_windows: "Close windows",
     },
     settings: SettingsMessages {
         window_title: "Dockyard Settings",
@@ -552,6 +569,8 @@ const EN: Messages = Messages {
         cycle_notice_line: "Open Cycle in Dockyard to see it.",
         crash_notice_title: "Dockyard closed",
         crash_notice_line: "The dock failed several times in a row. The Windows taskbar is back; open Dockyard again whenever you like.",
+        panel_failed: "The panel could not be opened. Check the free disk space.",
+        settings_failed: "Settings could not be opened. Check the free disk space.",
         update_notice_title: "Dockyard {version} available",
         update_notice_line: "To update, open About in the dock.",
         calendar_busy: "Busy",
