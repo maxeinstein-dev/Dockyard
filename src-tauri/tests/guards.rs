@@ -195,6 +195,7 @@ const EXPECTED_CAPABILITIES: &[(&str, &str, &[&str], &[&str])] = &[
         &[
             "allow-e2e-dock-view",
             "allow-e2e-press-dock",
+            "allow-e2e-dock-panic",
             "allow-e2e-launcher-view",
             "allow-e2e-launcher-toggle",
             "allow-e2e-launcher-type",
@@ -757,6 +758,7 @@ fn every_declared_command_is_registered_and_vice_versa() {
     assert_eq!(
         added,
         [
+            "e2e_dock_panic",
             "e2e_dock_view",
             "e2e_launcher_key",
             "e2e_launcher_toggle",

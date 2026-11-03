@@ -79,7 +79,7 @@ pub fn want(dock: isize, wanted: bool) {
     WANTED.store(on, Ordering::Relaxed);
     if on {
         STARTED.call_once(|| {
-            let _ = std::thread::Builder::new().name("media".into()).spawn(run);
+            let _ = super::panics::lasting("media", run);
         });
     }
 }

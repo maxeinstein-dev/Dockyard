@@ -45,6 +45,7 @@ pub mod open_with;
 pub mod openwin;
 pub mod panel;
 pub mod panel_window;
+pub mod panics;
 #[cfg(windows)]
 pub mod pomodoro;
 #[cfg(windows)]

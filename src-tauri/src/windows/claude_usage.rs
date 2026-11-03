@@ -61,9 +61,7 @@ pub fn want(dock: isize, wanted: bool) {
     let was = WANTED.swap(on, Ordering::Relaxed);
     if on {
         STARTED.call_once(|| {
-            let _ = std::thread::Builder::new()
-                .name("claude-usage".into())
-                .spawn(run);
+            let _ = super::panics::lasting("claude-usage", run);
         });
         if !was {
             read_now();

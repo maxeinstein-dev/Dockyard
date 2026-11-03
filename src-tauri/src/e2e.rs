@@ -92,6 +92,12 @@ pub async fn e2e_press_dock(name: String) -> Result<(), String> {
     }
 }
 
+/// Makes the dock panic in its next paint (M4): it must come back.
+#[tauri::command]
+pub async fn e2e_dock_panic() {
+    crate::windows::native_dock::panic_once();
+}
+
 /// What the launcher shows now (spec 0012 L1).
 #[tauri::command]
 pub async fn e2e_launcher_view() -> Result<crate::windows::launcher::View, String> {

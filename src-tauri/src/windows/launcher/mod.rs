@@ -37,8 +37,6 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
 use std::sync::{Mutex, PoisonError};
-#[cfg(feature = "e2e")]
-use std::time::Duration;
 
 use tauri::{AppHandle, Emitter, Manager};
 use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
@@ -903,9 +901,7 @@ pub fn try_hotkey(hotkey: Hotkey) -> Result<(), TryError> {
         }
         let _ = sent.send(result);
     });
-    received
-        .recv_timeout(std::time::Duration::from_secs(5))
-        .unwrap_or(Err(TryError::NotReady))
+    super::panics::answer(&received, "launcher").unwrap_or(Err(TryError::NotReady))
 }
 
 /// Keeps whether another program holds the hotkey, and tells the windows
@@ -2895,12 +2891,19 @@ fn point(lparam: LPARAM) -> (i32, i32) {
     (x, y)
 }
 
+// Each window procedure runs its message through `panics::window_message`:
+// after a panic it answers as Windows would, and the launcher goes on (M4).
 extern "system" fn frame_procedure(
     hwnd: HWND,
     message: u32,
     wparam: WPARAM,
     lparam: LPARAM,
 ) -> LRESULT {
+    super::panics::window_message(|| frame_message(hwnd, message, wparam, lparam))
+        .unwrap_or_else(|| unsafe { DefWindowProcW(hwnd, message, wparam, lparam) })
+}
+
+fn frame_message(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     match message {
         WM_RUN => run_queue(),
         WM_ACTION_MENU => open_action_menu(),
@@ -2981,6 +2984,11 @@ extern "system" fn list_procedure(
     wparam: WPARAM,
     lparam: LPARAM,
 ) -> LRESULT {
+    super::panics::window_message(|| list_message(hwnd, message, wparam, lparam))
+        .unwrap_or_else(|| unsafe { DefWindowProcW(hwnd, message, wparam, lparam) })
+}
+
+fn list_message(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     match message {
         WM_ERASEBKGND => return LRESULT(1),
         WM_PAINT => {
@@ -3027,6 +3035,11 @@ unsafe extern "system" fn edit_procedure(
     _id: usize,
     _data: usize,
 ) -> LRESULT {
+    super::panics::window_message(|| edit_message(hwnd, message, wparam, lparam))
+        .unwrap_or_else(|| unsafe { DefSubclassProc(hwnd, message, wparam, lparam) })
+}
+
+fn edit_message(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     let key = wparam.0 as u16;
     match message {
         WM_KEYDOWN if key == VK_UP.0 => {
@@ -3172,7 +3185,7 @@ pub fn view() -> Option<View> {
             },
         });
     });
-    received.recv_timeout(Duration::from_secs(5)).ok()
+    super::panics::answer(&received, "launcher")
 }
 
 /// Types `text` into the open launcher's box, as the keyboard would (test

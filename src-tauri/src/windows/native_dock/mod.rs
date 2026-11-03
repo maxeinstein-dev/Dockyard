@@ -555,6 +555,8 @@ fn sync(docks: &mut Vec<Dock>) {
 fn with_docks(change: impl FnOnce(&mut Vec<Dock>)) {
     let effects = DOCKS.with(|slot| {
         let Ok(mut docks) = slot.try_borrow_mut() else {
+            // A message inside another (a modal menu): this one is lost.
+            log::debug!("dock: busy; a message was dropped");
             return Vec::new();
         };
         change(&mut docks);
@@ -1692,6 +1694,10 @@ impl Dock {
     fn paint(&mut self) {
         if !self.visible {
             return;
+        }
+        #[cfg(feature = "e2e")]
+        if PANIC_ON_PAINT.swap(false, Ordering::SeqCst) {
+            panic!("e2e: a panic in the dock's paint, on purpose");
         }
         let scene = self.scene();
         // Hiding on its own: drawn that far past the screen edge.
@@ -3407,6 +3413,52 @@ fn local_now() -> windows::Win32::Foundation::SYSTEMTIME {
 }
 
 extern "system" fn procedure(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    super::panics::window_message(|| handle(hwnd, message, wparam, lparam)).unwrap_or_else(|| {
+        recover(hwnd);
+        match message {
+            // Never closed for a panic: Alt+F4 only hides the dock.
+            WM_CLOSE => LRESULT(0),
+            _ => unsafe { DefWindowProcW(hwnd, message, wparam, lparam) },
+        }
+    })
+}
+
+/// When the docks were last made again after a panic.
+static RECOVERIES: Mutex<Vec<Instant>> = Mutex::new(Vec::new());
+/// After a panic in a message of the window `hwnd`: the state may be half
+/// changed, so its dock is thrown away and made again from scratch, as for
+/// a monitor plugged in. Every dock, when `hwnd` is the window that runs the
+/// work of other threads, which may have touched any. Queued, outside the
+/// message.
+fn recover(hwnd: HWND) {
+    let now = Instant::now();
+    if !super::panics::may_retry(
+        &mut RECOVERIES.lock().unwrap_or_else(PoisonError::into_inner),
+        now,
+    ) {
+        log::error!(
+            "dock: it panicked {} times within a minute; not made again",
+            super::panics::MAX_RETRIES
+        );
+        return;
+    }
+    log::warn!("dock: made again after a panic");
+    let gone = hwnd.0 as isize;
+    queue(Box::new(move |docks| {
+        let one = docks.iter().any(|dock| dock.hwnd.0 as isize == gone);
+        docks.retain_mut(|dock| {
+            let keep = one && dock.hwnd.0 as isize != gone;
+            if !keep {
+                dock.destroy();
+            }
+            keep
+        });
+        sync(docks);
+    }));
+}
+
+/// The work of the window procedure for one message.
+fn handle(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     let mut handled = true;
     match message {
         WM_RUN => run_queue(),
@@ -3717,7 +3769,7 @@ pub fn view() -> Option<View> {
             dark: dock.palette().dark,
         });
     });
-    received.recv_timeout(Duration::from_secs(5)).ok()
+    super::panics::answer(&received, "dock")
 }
 
 /// Presses the item named `name` on the primary monitor's dock, as a click
@@ -3749,9 +3801,7 @@ pub fn press_named(name: String) -> bool {
         }
         let _ = sent.send(key.is_some() || menu);
     });
-    received
-        .recv_timeout(Duration::from_secs(5))
-        .unwrap_or(false)
+    super::panics::answer(&received, "dock").unwrap_or(false)
 }
 
 /// Where a tray icon dragged out of the tray panel and let go at `(x, y)`
@@ -3765,7 +3815,19 @@ pub fn tray_drop_index(x: i32, y: i32) -> Option<Option<String>> {
         let found = docks.iter().find_map(|dock| dock.tray_drop_index(x, y));
         let _ = sent.send(found);
     }));
-    received.recv_timeout(Duration::from_secs(5)).ok().flatten()
+    super::panics::answer(&received, "dock").flatten()
+}
+
+/// Whether the next paint panics (test build only, M4).
+#[cfg(feature = "e2e")]
+static PANIC_ON_PAINT: AtomicBool = AtomicBool::new(false);
+
+/// Makes the primary monitor's dock panic in its next paint (test build
+/// only): it must be made again, and the app go on.
+#[cfg(feature = "e2e")]
+pub fn panic_once() {
+    PANIC_ON_PAINT.store(true, Ordering::SeqCst);
+    post_primary(Dock::paint);
 }
 
 /// The monitors or the bands changed under the docks: they are placed again

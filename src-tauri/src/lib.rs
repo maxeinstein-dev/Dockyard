@@ -272,6 +272,7 @@ macro_rules! handler {
             commands::update::install_update,
             e2e::e2e_dock_view,
             e2e::e2e_press_dock,
+            e2e::e2e_dock_panic,
             e2e::e2e_launcher_view,
             e2e::e2e_launcher_toggle,
             e2e::e2e_launcher_type,
@@ -323,14 +324,22 @@ pub(crate) fn released() -> bool {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // A panic gives the taskbar back before the process aborts (release
-    // builds abort on panic, so nothing is dropped).
+    // A panic goes to the log. One caught in a window message (M4) leaves
+    // the dock going, and one off the main thread ends only that thread: the
+    // taskbar stays hidden. Any other ends the app, so the taskbar comes
+    // back first.
     #[cfg(windows)]
     {
         let previous = std::panic::take_hook();
         std::panic::set_hook(Box::new(move |info| {
-            windows::taskbar::release();
-            windows::window_spaces::release_all();
+            let caught = windows::panics::caught();
+            // Where, not what: the message may carry a path (`logging`).
+            let place = info.location().map(ToString::to_string).unwrap_or_default();
+            log::error!("panic at {place}{}", if caught { " (caught)" } else { "" });
+            if !caught && std::thread::current().name() == Some("main") {
+                windows::taskbar::release();
+                windows::window_spaces::release_all();
+            }
             previous(info);
         }));
     }

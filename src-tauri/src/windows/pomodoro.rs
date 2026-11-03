@@ -167,52 +167,50 @@ fn watch() {
     if WATCHING.swap(true, Ordering::AcqRel) {
         return;
     }
-    let spawned = std::thread::Builder::new()
-        .name("pomodoro".into())
-        .spawn(|| {
-            // The minutes each running timer showed, to paint the tile
-            // again when they change.
-            let mut shown: Vec<(String, i64)> = Vec::new();
-            loop {
-                std::thread::sleep(EVERY);
-                let now = now();
-                let (ended, running, minutes) = {
-                    let mut timers = TIMERS
-                        .lock()
-                        .unwrap_or_else(|poisoned| poisoned.into_inner());
-                    let mut ended = Vec::new();
-                    let mut minutes = Vec::new();
-                    for (id, timer, config) in timers.iter_mut() {
-                        if let Some(stage) = timer.tick(config, now) {
-                            ended.push((id.clone(), stage, config.windows));
-                        }
-                        if timer.running() {
-                            minutes.push((id.clone(), (timer.left_at(now) + 59_999) / 60_000));
-                        }
+    let spawned = super::panics::lasting("pomodoro", || {
+        // The minutes each running timer showed, to paint the tile
+        // again when they change.
+        let mut shown: Vec<(String, i64)> = Vec::new();
+        loop {
+            std::thread::sleep(EVERY);
+            let now = now();
+            let (ended, running, minutes) = {
+                let mut timers = TIMERS
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner());
+                let mut ended = Vec::new();
+                let mut minutes = Vec::new();
+                for (id, timer, config) in timers.iter_mut() {
+                    if let Some(stage) = timer.tick(config, now) {
+                        ended.push((id.clone(), stage, config.windows));
                     }
-                    let running = timers.iter().any(|(_, timer, _)| timer.running());
-                    (ended, running, minutes)
-                };
-                if !ended.is_empty() {
-                    ended_stages(&ended);
-                } else if minutes != shown {
-                    super::native_dock::calendar_changed();
+                    if timer.running() {
+                        minutes.push((id.clone(), (timer.left_at(now) + 59_999) / 60_000));
+                    }
                 }
-                shown = minutes;
-                if !running {
-                    WATCHING.store(false, Ordering::Release);
-                    // A timer started meanwhile found the flag still on.
-                    let again = TIMERS
-                        .lock()
-                        .unwrap_or_else(|poisoned| poisoned.into_inner())
-                        .iter()
-                        .any(|(_, timer, _)| timer.running());
-                    if !again || WATCHING.swap(true, Ordering::AcqRel) {
-                        return;
-                    }
+                let running = timers.iter().any(|(_, timer, _)| timer.running());
+                (ended, running, minutes)
+            };
+            if !ended.is_empty() {
+                ended_stages(&ended);
+            } else if minutes != shown {
+                super::native_dock::calendar_changed();
+            }
+            shown = minutes;
+            if !running {
+                WATCHING.store(false, Ordering::Release);
+                // A timer started meanwhile found the flag still on.
+                let again = TIMERS
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
+                    .iter()
+                    .any(|(_, timer, _)| timer.running());
+                if !again || WATCHING.swap(true, Ordering::AcqRel) {
+                    return;
                 }
             }
-        });
+        }
+    });
     if let Err(error) = spawned {
         WATCHING.store(false, Ordering::Release);
         log::warn!("pomodoro: no thread: {error}");

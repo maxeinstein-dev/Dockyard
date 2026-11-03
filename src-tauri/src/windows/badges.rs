@@ -90,13 +90,11 @@ fn spawn() {
     if STARTED.swap(true, Ordering::SeqCst) {
         return;
     }
-    let spawned = std::thread::Builder::new()
-        .name("taskbar-badges".into())
-        .spawn(|| {
-            if let Err(error) = run() {
-                log::warn!("badges: the taskbar can not be read: {error}");
-            }
-        });
+    let spawned = super::panics::lasting("taskbar-badges", || {
+        if let Err(error) = run() {
+            log::warn!("badges: the taskbar can not be read: {error}");
+        }
+    });
     if let Err(error) = spawned {
         log::warn!("badges: the reader did not start: {error}");
     }

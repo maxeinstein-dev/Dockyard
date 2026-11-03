@@ -601,9 +601,7 @@ fn now_ms() -> u64 {
 /// Starts listening. Called once, at startup.
 pub fn start(app: &AppHandle) {
     let handle = app.clone();
-    let spawned = std::thread::Builder::new()
-        .name("open-windows".into())
-        .spawn(move || imp::run(&handle));
+    let spawned = super::panics::lasting("open-windows", move || imp::run(&handle));
     if let Err(error) = spawned {
         log::warn!("windows: the open programs can not be followed: {error}");
         return;

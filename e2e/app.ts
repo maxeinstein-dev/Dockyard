@@ -48,6 +48,11 @@ export function dockView(): Promise<DockView> {
   return invoke<DockView>("e2e_dock_view");
 }
 
+/** Makes the dock panic in its next paint (M4, test build only). */
+export async function dockPanic() {
+  await invoke("e2e_dock_panic");
+}
+
 /** Presses the dock's item named `name`, as a click would. */
 export async function pressDockItem(name: string) {
   await invoke("e2e_press_dock", { name });
