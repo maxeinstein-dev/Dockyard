@@ -101,8 +101,9 @@ pub fn pin(
 
 /// Pins the program `app_id` as `pin` does, then puts it before the item
 /// `before` (its key) of the workspace, where the user dropped it; at the
-/// end with no such item there. The dock's order of the workspace, as its
-/// own drag keeps it.
+/// end with no such item there. A program the workspace already shows is
+/// moved there instead: dropping it again says where the user wants it.
+/// The dock's order of the workspace, as its own drag keeps it.
 pub fn pin_before(
     storage: &mut Storage,
     app_id: &str,
@@ -111,11 +112,19 @@ pub fn pin_before(
     before: Option<&str>,
 ) -> Result<PinnedApp, AppError> {
     let workspace = crate::commands::widgets::workspace_of(storage, workspace)?;
-    let app = pin(storage, app_id, name, Some(&workspace))?;
-    let Some(before) = before else {
-        return Ok(app);
+    let app = match pin(storage, app_id, name, Some(&workspace)) {
+        Err(AppError::AlreadyPinned) => storage
+            .apps_snapshot()?
+            .apps
+            .into_iter()
+            .find(|app| app.app_id.eq_ignore_ascii_case(app_id))
+            .ok_or(AppError::AlreadyPinned)?,
+        other => other?,
     };
     let key = key_of(&app.id);
+    if before == Some(key.as_str()) {
+        return Ok(app);
+    }
     let Some(found) = storage
         .workspaces()?
         .into_iter()
@@ -125,10 +134,11 @@ pub fn pin_before(
     };
     let mut keys = found.items;
     keys.retain(|item| *item != key);
-    if let Some(at) = keys.iter().position(|item| item == before) {
-        keys.insert(at, key);
-        storage.reorder_workspace(&workspace, &keys)?;
-    }
+    let at = before
+        .and_then(|before| keys.iter().position(|item| item == before))
+        .unwrap_or(keys.len());
+    keys.insert(at, key);
+    storage.reorder_workspace(&workspace, &keys)?;
     Ok(app)
 }
 
@@ -541,7 +551,8 @@ pub fn place_app(
 
 /// Pins what was dropped on the dock, in the workspace its monitor
 /// (`monitor`, its device name) shows: before the item `before` (its key)
-/// where the pointer let go, in the order dropped, or at the end. Comes from
+/// where the pointer let go, in the order dropped, or at the end; one it
+/// already shows moves there (`pin_before`). Comes from
 /// the dock's own drop target (`windows::drop_target`), not from the page,
 /// so only what the user really dropped can be pinned. Reading the names
 /// takes the shell's time: off the event loop.
@@ -1014,6 +1025,38 @@ mod tests {
             .map(|app| key_of(&app.id))
             .collect();
         assert_eq!(items, keys);
+    }
+
+    #[test]
+    fn programs_already_pinned_dropped_again_move_where_the_pointer_let_go() {
+        let (_dir, mut storage) = open();
+        let a = pin(&mut storage, "a!App", "A", None).unwrap();
+        let b = pin(&mut storage, "b!App", "B", None).unwrap();
+        let c = pin(&mut storage, "c!App", "C", None).unwrap();
+        let d = pin(&mut storage, "d!App", "D", None).unwrap();
+        let apps = |storage: &mut Storage| -> Vec<String> {
+            let mut items = storage.in_use().unwrap().items;
+            items.retain(|item| item.starts_with("app:"));
+            items
+        };
+        let keys = |list: &[&PinnedApp]| -> Vec<String> {
+            list.iter().map(|app| key_of(&app.id)).collect()
+        };
+
+        // Two dropped together, both pinned: they go in order before A.
+        let first = key_of(&a.id);
+        let moved = pin_before(&mut storage, "C!App", "C", None, Some(&first)).unwrap();
+        pin_before(&mut storage, "d!App", "D", None, Some(&first)).unwrap();
+        assert_eq!(moved, c);
+        assert_eq!(apps(&mut storage), keys(&[&c, &d, &a, &b]));
+
+        // Past the last one: to the end. Before itself: it stays.
+        pin_before(&mut storage, "c!App", "C", None, None).unwrap();
+        assert_eq!(apps(&mut storage), keys(&[&d, &a, &b, &c]));
+        let itself = key_of(&a.id);
+        pin_before(&mut storage, "a!App", "A", None, Some(&itself)).unwrap();
+        assert_eq!(apps(&mut storage), keys(&[&d, &a, &b, &c]));
+        assert_eq!(snapshot(&storage).unwrap().apps.len(), 4);
     }
 
     #[test]
