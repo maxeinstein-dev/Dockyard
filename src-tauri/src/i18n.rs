@@ -182,6 +182,7 @@ pub struct DockMessages {
     pub calendar_free: &'static str,
     pub calendar_now: &'static str,
     pub calendar_in: &'static str,
+    pub calendar_minutes: &'static str,
     pub calendar_tomorrow: &'static str,
     /// The Calendário's card (F2a-4): the days, a task late, the all-day
     /// events, the tasks' heading and an empty span. Weekdays, Sunday first.
@@ -331,6 +332,7 @@ const PT_BR: Messages = Messages {
         calendar_free: "Livre",
         calendar_now: "agora",
         calendar_in: "em {n} min",
+        calendar_minutes: "{n} min",
         calendar_tomorrow: "amanhã",
         calendar_today: "Hoje",
         calendar_tomorrow_title: "Amanhã",
@@ -537,6 +539,7 @@ const EN: Messages = Messages {
         calendar_free: "Free",
         calendar_now: "now",
         calendar_in: "in {n} min",
+        calendar_minutes: "{n} min",
         calendar_tomorrow: "tomorrow",
         calendar_today: "Today",
         calendar_tomorrow_title: "Tomorrow",

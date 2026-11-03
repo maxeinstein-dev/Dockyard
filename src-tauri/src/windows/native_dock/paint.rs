@@ -70,6 +70,11 @@ pub const SETTINGS_GLYPH: &[&str] = &[
     "M13.5 7.5a2 2 0 1 0 4 0a2 2 0 1 0 -4 0",
     "M7.5 16.5a2 2 0 1 0 4 0a2 2 0 1 0 -4 0",
 ];
+
+/// The Calendário's glyph on a square tile with nothing ahead (as
+/// `CalendarTile.tsx`'s).
+pub const CALENDAR_GLYPH: &[&str] = &["M5 6.5h14v13H5z", "M5 10.5h14", "M9 4v4", "M15 4v4"];
+
 pub const NOTE_GLYPH: &[&str] = &[
     "M7.5 3.5h9a2.5 2.5 0 0 1 2.5 2.5v12a2.5 2.5 0 0 1-2.5 2.5h-9a2.5 2.5 0 0 1-2.5-2.5v-12a2.5 2.5 0 0 1 2.5-2.5z",
     "M8.5 8.5h7M8.5 12h7M8.5 15.5h4",
@@ -177,13 +182,10 @@ pub enum Face {
         lines: Vec<AgendaLine>,
     },
     /// The Calendário (spec 0017 F2a), as Google's agenda widget: on a
-    /// neutral ground, light or dark as the theme, the date on the left
-    /// and the next meetings as blocks in their calendars' colors; on a
-    /// square tile, the date over a strip in the next one's color.
+    /// neutral ground, light or dark as the theme, the next meetings as
+    /// blocks in their calendars' colors; on a square tile, the next one's
+    /// block saying when. No date: the dock's clock has it.
     Calendar {
-        /// `seg.`, and the day of the month.
-        weekday: String,
-        day: String,
         blocks: Vec<AgendaBlock>,
         /// Where there is no block: "Livre", "Conectar" or "–".
         note: Option<String>,
@@ -1428,14 +1430,7 @@ impl Painter {
                     glaze: *glaze,
                     lines: lines.clone(),
                 },
-                Face::Calendar {
-                    weekday,
-                    day,
-                    blocks,
-                    note,
-                } => Face::Calendar {
-                    weekday: weekday.clone(),
-                    day: day.clone(),
+                Face::Calendar { blocks, note } => Face::Calendar {
                     blocks: blocks.clone(),
                     note: note.clone(),
                 },
@@ -1616,19 +1611,14 @@ impl Painter {
                 self.glaze(area, *glaze, tile.pressed);
                 self.agenda(area, lines);
             }
-            Face::Calendar {
-                weekday,
-                day,
-                blocks,
-                note,
-            } => {
+            Face::Calendar { blocks, note } => {
                 let ground = if scene.palette.dark {
                     Glaze::NEUTRAL_DARK
                 } else {
                     Glaze::NEUTRAL_LIGHT
                 };
                 self.glaze(area, ground, tile.pressed);
-                self.calendar(scene, area, (weekday, day), blocks, note.as_deref());
+                self.calendar(scene, area, blocks, note.as_deref());
             }
             Face::Rates {
                 glaze,
@@ -2151,19 +2141,12 @@ impl Painter {
         self.text(&text, Area { width, ..area }, size, weight, true, ink);
     }
 
-    /// The Calendário: the date, and the blocks beside it on a wide tile;
-    /// on a square one, the date over a strip in the next meeting's color.
-    fn calendar(
-        &mut self,
-        scene: &Scene,
-        area: Area,
-        (weekday, day): (&str, &str),
-        blocks: &[AgendaBlock],
-        note: Option<&str>,
-    ) {
+    /// The Calendário: the blocks across a wide tile, one under the other;
+    /// on a square one, the next meeting's block saying when, or the
+    /// calendar glyph with nothing ahead.
+    fn calendar(&mut self, scene: &Scene, area: Area, blocks: &[AgendaBlock], note: Option<&str>) {
         let u = area.height;
         let ink = scene.palette.ink;
-        let faint = ink.with_alpha(0.72);
         let byte = |v: f32| (v * 255.0).round() as u8;
         let accent = scene.palette.accent;
         let accent = (byte(accent.r), byte(accent.g), byte(accent.b));
@@ -2172,56 +2155,37 @@ impl Painter {
             let ((r, g, b), (ir, ig, ib)) = (block.fill, block.ink());
             (Color::rgb(r, g, b), Color::rgb(ir, ig, ib))
         };
-        let wide = area.width > u * 1.2;
-        let date = Area {
-            width: if wide { u * 0.8 } else { area.width },
-            ..area
+        let inset = u * 0.13;
+        let room = Area {
+            x: area.x + inset,
+            y: area.y + inset,
+            width: (area.width - 2.0 * inset).max(0.0),
+            height: u - 2.0 * inset,
         };
-        // The weekday small over the day, the pair centered; a little higher
-        // over a strip.
-        let (small, large) = (u * 0.15, u * 0.36);
-        let strip = !wide && !blocks.is_empty();
-        let top = area.y + u * if strip { 0.1 } else { 0.16 };
-        let weekday_area = Area {
-            y: top,
-            height: small * 1.3,
-            ..date
-        };
-        self.text(weekday, weekday_area, small, 600, true, faint);
-        let day_area = Area {
-            y: top + small * 1.2,
-            height: large * 1.3,
-            ..date
-        };
-        self.text(day, day_area, large, 650, true, ink);
-        if !wide {
-            if let Some(next) = blocks.first().filter(|_| strip) {
-                let bar = Area {
-                    x: area.x + area.width * 0.22,
-                    y: area.y + u * 0.75,
-                    width: area.width * 0.56,
-                    height: u * 0.1,
-                };
-                self.fill_round(bar, bar.height / 2.0, colors(next).0);
-            }
+        if area.width <= u * 1.2 {
+            let Some(next) = blocks.first() else {
+                self.strokes(area, 0.5, CALENDAR_GLYPH, ink.with_alpha(0.8), 1.75);
+                return;
+            };
+            let (fill, text_ink) = colors(next);
+            self.fill_round(room, u * 0.16, fill);
+            let size = u * 0.2;
+            let text = self.fit(&next.when, room.width - u * 0.08, size, 650);
+            self.text(&text, room, size, 650, true, text_ink);
             return;
         }
-        let x = date.x + date.width;
-        let room = Area {
-            x,
-            y: area.y + u * 0.13,
-            width: (area.x + area.width - u * 0.13 - x).max(0.0),
-            height: u * 0.74,
-        };
         if blocks.is_empty() {
-            self.text_left(note.unwrap_or_default(), room, u * 0.17, 600, faint);
+            let text = note.unwrap_or_default();
+            let size = u * 0.18;
+            let text = self.fit(text, room.width, size, 600);
+            self.text(&text, room, size, 600, true, ink.with_alpha(0.72));
             return;
         }
         // One block: when over the title; two: one line each.
         let gap = u * 0.06;
         let count = blocks.len() as f64;
         let tall = (room.height - gap * (count - 1.0)) / count;
-        let inset = u * 0.09;
+        let pad = u * 0.1;
         for (index, block) in blocks.iter().enumerate() {
             let (fill, text_ink) = colors(block);
             let place = Area {
@@ -2229,15 +2193,15 @@ impl Painter {
                 height: tall,
                 ..room
             };
-            self.fill_round(place, u * 0.12, fill);
+            self.fill_round(place, u * 0.14, fill);
             let line = |y: f64, height: f64| Area {
-                x: place.x + inset,
+                x: place.x + pad,
                 y,
-                width: (place.width - 2.0 * inset).max(0.0),
+                width: (place.width - 2.0 * pad).max(0.0),
                 height,
             };
             if blocks.len() == 1 {
-                let (when, title) = (u * 0.15, u * 0.165);
+                let (when, title) = (u * 0.16, u * 0.18);
                 let mid = place.y + place.height / 2.0;
                 let above = line(mid - when * 1.3, when * 1.3);
                 self.text_left(&block.when, above, when, 600, text_ink);
@@ -2245,7 +2209,7 @@ impl Painter {
                 self.text_left(&block.title, below, title, 500, text_ink);
             } else {
                 let text = format!("{} {}", block.when, block.title);
-                self.text_left(&text, line(place.y, place.height), u * 0.14, 600, text_ink);
+                self.text_left(&text, line(place.y, place.height), u * 0.15, 600, text_ink);
             }
         }
     }

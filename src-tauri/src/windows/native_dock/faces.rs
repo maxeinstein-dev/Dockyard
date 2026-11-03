@@ -131,9 +131,9 @@ pub fn rates(width: u8, reading: Option<&Reading>) -> Face {
 }
 
 /// The Calendário's face (spec 0017 F2a, as Google's agenda widget): the
-/// date, even with nothing ahead, and the next meeting of the calendars it
-/// shows in a block of its calendar's color; one icon wide, only a strip in
-/// that color; `opened`, grown under the pointer, the one after it too.
+/// next meeting of the calendars it shows in a block of its calendar's
+/// color; one icon wide, the block says only when; `opened`, grown under
+/// the pointer, the one after it too. No date: the dock's clock has it.
 pub fn agenda(
     config: &CalendarConfig,
     snapshot: Option<&Snapshot>,
@@ -141,22 +141,7 @@ pub fn agenda(
     opened: bool,
 ) -> Face {
     let text = &crate::i18n::messages().dock;
-    let offset = snapshot.map_or_else(crate::windows::calendar::offset, |snapshot| snapshot.offset);
-    let date = jiff::Timestamp::from_second(now + offset)
-        .map(|at| at.to_zoned(jiff::tz::TimeZone::UTC).date())
-        .ok();
-    let (weekday, day) = date.map_or_else(
-        || (String::new(), text.no_value.to_owned()),
-        |date| {
-            (
-                text.weekdays[date.weekday().to_sunday_zero_offset() as usize].to_owned(),
-                date.day().to_string(),
-            )
-        },
-    );
     let calendar_face = |blocks: Vec<AgendaBlock>, note: Option<&str>| Face::Calendar {
-        weekday: weekday.clone(),
-        day: day.clone(),
         blocks,
         note: note.map(str::to_owned),
     };
@@ -180,11 +165,15 @@ pub fn agenda(
         .into_iter()
         .filter(|event| event.start < tomorrow_ends)
         .collect();
+    // One icon wide, the short words.
+    let long = opened || config.width > 1;
     let say = |when: When| match when {
         When::Now => text.calendar_now.to_owned(),
-        When::In(minutes) => text.calendar_in.replace("{n}", &minutes.to_string()),
+        When::In(minutes) if long => text.calendar_in.replace("{n}", &minutes.to_string()),
+        When::In(minutes) => text.calendar_minutes.replace("{n}", &minutes.to_string()),
         When::At(time) => time,
-        When::Tomorrow(time) => format!("{} · {time}", text.calendar_tomorrow),
+        When::Tomorrow(time) if long => format!("{} · {time}", text.calendar_tomorrow),
+        When::Tomorrow(_) => text.calendar_tomorrow.to_owned(),
     };
     let title = |event: &calendar::Event| {
         if !event.title.is_empty() {
@@ -521,6 +510,13 @@ mod tests {
     use super::*;
 
     #[test]
+    fn the_calendar_glyph_is_a_path() {
+        for path in paint::CALENDAR_GLYPH {
+            assert!(super::super::svg::parse(path).is_some(), "{path}");
+        }
+    }
+
+    #[test]
     fn every_sky_is_a_path() {
         use crate::domain::weather::Condition;
         for condition in [
@@ -574,13 +570,8 @@ mod tests {
         }
     }
 
-    /// The tile's date, and its blocks as `when · title` or its note.
-    fn face(
-        width: u8,
-        opened: bool,
-        hidden: &[&str],
-        snapshot: Option<&Snapshot>,
-    ) -> (String, Vec<String>) {
+    /// The tile's blocks as `when · title`, or its note.
+    fn face(width: u8, opened: bool, hidden: &[&str], snapshot: Option<&Snapshot>) -> Vec<String> {
         let config = CalendarConfig {
             width,
             hidden: hidden.iter().map(|id| id.to_string()).collect(),
@@ -589,39 +580,32 @@ mod tests {
             ..CalendarConfig::default()
         };
         match agenda(&config, snapshot, NOW, opened) {
-            Face::Calendar {
-                weekday,
-                day,
-                blocks,
-                note,
-            } => {
-                let shown = blocks
-                    .into_iter()
-                    .map(|block| format!("{} · {}", block.when, block.title))
-                    .chain(note)
-                    .collect();
-                (format!("{weekday} {day}"), shown)
-            }
+            Face::Calendar { blocks, note } => blocks
+                .into_iter()
+                .map(|block| format!("{} · {}", block.when, block.title))
+                .chain(note)
+                .collect(),
             _ => panic!("not the Calendário's face"),
         }
     }
 
     fn lines(width: u8, hidden: &[&str], snapshot: Option<&Snapshot>) -> Vec<String> {
-        face(width, false, hidden, snapshot).1
+        face(width, false, hidden, snapshot)
     }
 
     #[test]
-    fn the_calendar_tile_shows_the_date_and_the_next_meeting_grown_two() {
+    fn the_calendar_tile_shows_the_next_meeting_grown_two() {
         let day = snapshot(vec![
             event("Daily", "max", NOW + 9 * 60),
             event("Revisão", "max", NOW + 2 * 3600),
         ]);
-        assert_eq!(face(1, false, &[], Some(&day)).0, "qua. 28");
-        assert_eq!(lines(1, &[], Some(&day)), ["em 9 min · Daily"]);
+        // One icon wide: the short words.
+        assert_eq!(lines(1, &[], Some(&day)), ["9 min · Daily"]);
+        assert_eq!(lines(2, &[], Some(&day)), ["em 9 min · Daily"]);
         assert_eq!(lines(3, &[], Some(&day)), ["em 9 min · Daily"]);
         // Grown under the pointer: the one after too.
         assert_eq!(
-            face(2, true, &[], Some(&day)).1,
+            face(2, true, &[], Some(&day)),
             ["em 9 min · Daily", "11:00 · Revisão"]
         );
     }
@@ -645,9 +629,8 @@ mod tests {
     fn the_calendar_tile_leaves_hidden_calendars_out_and_says_when_free() {
         let day = snapshot(vec![event("Plantão", "noiva", NOW + 600)]);
         assert_eq!(lines(2, &["noiva"], Some(&day)), ["Livre"]);
-        // The date even so.
-        assert_eq!(face(2, false, &["noiva"], Some(&day)).0, "qua. 28");
         let tomorrow = snapshot(vec![event("Dentista", "max", NOW + 24 * 3600)]);
+        assert_eq!(lines(1, &[], Some(&tomorrow)), ["amanhã · Dentista"]);
         assert_eq!(
             lines(2, &[], Some(&tomorrow)),
             ["amanhã · 09:00 · Dentista"]
