@@ -14,8 +14,8 @@ use std::collections::BTreeMap;
 use crate::domain::launcher_web::WebKeyword;
 use crate::domain::settings::{
     DockEdge, DockOpacity, DockSettings, DockStyle, HoverEffect, IconShape, Indicator, Language,
-    MiddleClick, OpenAnimation, Settings, SettingsError, SettingsErrorCode, StyleTweaks,
-    TaskbarMode, Theme,
+    MiddleClick, OpenAnimation, PowerSaver, Settings, SettingsError, SettingsErrorCode,
+    StyleTweaks, TaskbarMode, Theme,
 };
 use crate::persistence::settings_file::{self, FILE_NAME};
 use crate::windows::dock;
@@ -42,6 +42,7 @@ pub struct SettingsInput {
     dock_hotkey: String,
     language: Language,
     tour_shown: bool,
+    power_saver: PowerSaver,
 }
 
 /// A keyword of [`SettingsInput`], as strict.
@@ -110,6 +111,7 @@ impl From<SettingsInput> for Settings {
             dock_hotkey,
             language,
             tour_shown,
+            power_saver,
         } = input;
         Settings {
             version,
@@ -128,6 +130,7 @@ impl From<SettingsInput> for Settings {
             dock_hotkey,
             language,
             tour_shown,
+            power_saver,
             dock: DockSettings {
                 edge: dock.edge,
                 icon_size: dock.icon_size,
@@ -501,7 +504,7 @@ mod tests {
 
     fn full() -> String {
         format!(
-            r#"{{"version":1,"theme":"dark","dock":{{"edge":"top","iconSize":64,"opacity":"solid",{LOOK}}},"launchAtLogin":true,"launcher":false,"launcherKeywords":[{{"keyword":"d","name":"Duck","template":"https://duckduckgo.com/?q=%s"}}],"launcherHotkey":"Ctrl+Shift+K","dockHotkey":"Ctrl+Alt+Z","language":"en","tourShown":true}}"#
+            r#"{{"version":1,"theme":"dark","dock":{{"edge":"top","iconSize":64,"opacity":"solid",{LOOK}}},"launchAtLogin":true,"launcher":false,"launcherKeywords":[{{"keyword":"d","name":"Duck","template":"https://duckduckgo.com/?q=%s"}}],"launcherHotkey":"Ctrl+Shift+K","dockHotkey":"Ctrl+Alt+Z","language":"en","tourShown":true,"powerSaver":"always"}}"#
         )
     }
 
@@ -525,6 +528,7 @@ mod tests {
                 dock_hotkey: "Ctrl+Alt+Z".into(),
                 language: Language::En,
                 tour_shown: true,
+                power_saver: PowerSaver::Always,
                 dock: DockSettings {
                     edge: DockEdge::Top,
                     icon_size: 64,

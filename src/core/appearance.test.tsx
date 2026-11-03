@@ -47,6 +47,7 @@ const DEFAULTS: Settings = {
   dockHotkey: "Alt+Win+Z",
   language: "system",
   tourShown: true,
+  powerSaver: "onBattery",
   dock: {
     edge: "bottom",
     iconSize: 48,

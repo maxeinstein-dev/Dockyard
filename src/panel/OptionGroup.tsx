@@ -14,6 +14,9 @@ type OptionGroupProps<V extends string> = {
   selected: V | null;
   /** Called when an option other than the chosen one is chosen. */
   onSelect: (value: V) => void;
+  /** A line under the options that says what the setting does; it also
+   * describes the group. */
+  hint?: string;
 };
 
 /**
@@ -29,8 +32,10 @@ function OptionGroup<V extends string>({
   options,
   selected,
   onSelect,
+  hint,
 }: OptionGroupProps<V>) {
   const labelId = useId();
+  const hintId = useId();
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
   /** Option holding the focus inside the group, if any. */
   const [focused, setFocused] = useState<number | null>(null);
@@ -83,6 +88,7 @@ function OptionGroup<V extends string>({
         className="segmented"
         role="group"
         aria-labelledby={labelId}
+        aria-describedby={hint ? hintId : undefined}
         onKeyDown={onKeyDown}
         onBlur={(event) => {
           // Leaving the group: the next Tab into it lands on the chosen
@@ -111,6 +117,11 @@ function OptionGroup<V extends string>({
           </button>
         ))}
       </div>
+      {hint ? (
+        <span id={hintId} className="option-hint">
+          {hint}
+        </span>
+      ) : null}
     </div>
   );
 }

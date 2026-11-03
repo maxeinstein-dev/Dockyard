@@ -54,6 +54,8 @@ pub mod pomodoro;
 #[cfg(windows)]
 pub mod popup_menu;
 #[cfg(windows)]
+pub mod power;
+#[cfg(windows)]
 pub mod previews;
 #[cfg(windows)]
 pub mod profiles;

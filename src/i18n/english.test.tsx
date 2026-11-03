@@ -124,6 +124,7 @@ const SETTINGS: Settings = {
   dockHotkey: "Alt+Win+Z",
   language: "en",
   tourShown: true,
+  powerSaver: "onBattery",
   dock: {
     edge: "bottom",
     iconSize: 48,

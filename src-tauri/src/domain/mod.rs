@@ -30,6 +30,7 @@ pub mod live_faces;
 pub mod menu;
 pub mod open_apps;
 pub mod pomodoro;
+pub mod power;
 pub mod previews;
 pub mod program_name;
 pub mod settings;
