@@ -205,6 +205,9 @@ export const STYLE_PAINTS: Readonly<Record<DockStyle, StylePaint>> = {
     indicator: [0x4f, 0xd8, 0xff, 1],
     skin: skinPaint(scifiPng, scifiJson),
   },
+  // A skin of the `Skins` folder: its card draws it with its own image
+  // (`folderSkinPaint`); without one, the bar is Nativo's.
+  custom: PLAIN,
 };
 
 /** The stops of the silver shelf, from the side away from the screen edge

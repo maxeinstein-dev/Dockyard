@@ -8,6 +8,7 @@ pub mod media;
 pub mod panel;
 pub mod pomodoro;
 pub mod settings;
+pub mod skins;
 pub mod system;
 pub mod tour;
 pub mod tray;

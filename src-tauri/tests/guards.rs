@@ -114,6 +114,8 @@ const EXPECTED_CAPABILITIES: &[(&str, &str, &[&str], &[&str])] = &[
             "allow-icon-pack-preview",
             "allow-reload-icon-packs",
             "allow-open-icon-packs-folder",
+            "allow-list-folder-skins",
+            "allow-open-skins-folder",
             "log:allow-log",
         ],
     ),
@@ -145,6 +147,8 @@ const EXPECTED_CAPABILITIES: &[(&str, &str, &[&str], &[&str])] = &[
             "allow-icon-pack-preview",
             "allow-reload-icon-packs",
             "allow-open-icon-packs-folder",
+            "allow-list-folder-skins",
+            "allow-open-skins-folder",
             // Which tray icons the dock shows itself: the list to choose from.
             "allow-list-tray",
             // The launcher (spec 0012): whether its hotkey is held by another

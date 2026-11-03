@@ -4,6 +4,7 @@ import {
   type DockSettings,
   type DockStyle,
 } from "../core/settings";
+import { folderSkinPaint, type FolderSkinInfo } from "../core/skins";
 import { styleLookOf } from "../dock/look";
 import {
   STYLE_PAINTS,
@@ -12,6 +13,7 @@ import {
   glowCss,
   outlineCss,
   shelfCss,
+  type StylePaint,
 } from "../dock/paints";
 import { useT } from "../i18n";
 import { MiniTile } from "./DockItems";
@@ -31,8 +33,17 @@ const MINI_HALF_HEIGHT = 14;
 
 export type GalleryDock = Pick<
   DockSettings,
-  "style" | "tweaks" | "indicator" | "indicatorColor" | "iconPack"
+  | "style"
+  | "tweaks"
+  | "indicator"
+  | "indicatorColor"
+  | "iconPack"
+  | "customSkin"
 >;
+
+/** The value of a folder skin's card: its folder's name after a prefix no
+ * style's name has. */
+const FOLDER_PREFIX = "folder:";
 
 type StyleGalleryProps = {
   /** The dock's settings shown, or null while they can't be read. */
@@ -43,6 +54,11 @@ type StyleGalleryProps = {
   label: string;
   disabled?: boolean;
   onSelect: (style: DockStyle) => void;
+  /** The skins of the `Skins` folder (spec 0020, Q14), each a card after
+   * the styles; null while the folder is being read. */
+  folderSkins?: readonly FolderSkinInfo[] | null;
+  /** A folder skin chosen, by the name of its folder. */
+  onSelectFolderSkin?: (id: string) => void;
 };
 
 /** A program's icon in a miniature, the letter-less plate while it loads. */
@@ -58,19 +74,21 @@ function MiniApp({ appId, variant }: { appId: string; variant: string }) {
 /** The dock in `style`, with the user's changes to that style, as a
  * picture: decorative, the card's name says which style it is. `icons`,
  * when given, are the pictures of the programs (an icon pack's), in place of
- * the ones the dock shows now. */
+ * the ones the dock shows now. `paint`, when given, is the bar's in place of
+ * the style's (a folder skin's). */
 export function MiniDock({
   of: style,
   dock,
   appIds,
   icons,
+  paint = STYLE_PAINTS[style],
 }: {
   of: DockStyle;
   dock: GalleryDock | null;
   appIds: readonly string[];
   icons?: readonly (string | null)[];
+  paint?: StylePaint;
 }) {
-  const paint = STYLE_PAINTS[style];
   const look = styleLookOf(style, dock?.tweaks[style]);
   const outline = look.border ? outlineCss(paint) : null;
   const indicator =
@@ -164,19 +182,72 @@ function StyleGallery({
   label,
   disabled = false,
   onSelect,
+  folderSkins = [],
+  onSelectFolderSkin,
 }: StyleGalleryProps) {
   const t = useT();
+  const text = t.settings.look;
+  const skins = new Map((folderSkins ?? []).map((skin) => [skin.id, skin]));
+  const chosenSkin =
+    dock?.style === "custom" ? (dock.customSkin ?? null) : null;
+  const choices: { value: string; label: string; hint?: string }[] = [
+    ...DOCK_STYLES.map((style) => ({
+      value: style as string,
+      label: text.styles[style],
+    })),
+    ...[...skins.values()].map((skin) => ({
+      value: FOLDER_PREFIX + skin.id,
+      label: skin.name,
+    })),
+  ];
+  // A skin chosen that is not in the folder (any more) stays, as
+  // unavailable: the dock wears Nativo's bar meanwhile.
+  if (chosenSkin !== null && !skins.has(chosenSkin)) {
+    choices.push({
+      value: FOLDER_PREFIX + chosenSkin,
+      label: chosenSkin,
+      hint: folderSkins === null ? undefined : text.skinMissing,
+    });
+  }
+  const selected =
+    dock === null
+      ? null
+      : dock.style === "custom"
+        ? FOLDER_PREFIX + (chosenSkin ?? "")
+        : dock.style;
   return (
     <ChoiceCards
       label={label}
-      choices={DOCK_STYLES.map((style) => ({
-        value: style,
-        label: t.settings.look.styles[style],
-      }))}
-      selected={dock?.style ?? null}
+      choices={choices}
+      selected={selected}
       disabled={disabled}
-      onSelect={onSelect}
-      thumb={(style) => <MiniDock of={style} dock={dock} appIds={appIds} />}
+      onSelect={(value) => {
+        if (value.startsWith(FOLDER_PREFIX)) {
+          onSelectFolderSkin?.(value.slice(FOLDER_PREFIX.length));
+        } else {
+          onSelect(value as DockStyle);
+        }
+      }}
+      thumb={(value) => {
+        if (!value.startsWith(FOLDER_PREFIX)) {
+          return (
+            <MiniDock of={value as DockStyle} dock={dock} appIds={appIds} />
+          );
+        }
+        const skin = skins.get(value.slice(FOLDER_PREFIX.length));
+        return (
+          <MiniDock
+            of="custom"
+            dock={dock}
+            appIds={appIds}
+            paint={
+              skin
+                ? { ...STYLE_PAINTS.custom, skin: folderSkinPaint(skin) }
+                : STYLE_PAINTS.custom
+            }
+          />
+        );
+      }}
       wide
     />
   );

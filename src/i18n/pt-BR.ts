@@ -1,6 +1,7 @@
 import type { AppErrorCode } from "../core/apps";
 import type { HotkeyErrorCode } from "../core/launcher";
 import type { PackErrorCode } from "../core/iconPacks";
+import type { SkinProblemKind } from "../core/skins";
 import type { ThemeId } from "../core/themes";
 import type {
   DockEdge,
@@ -332,7 +333,32 @@ const messages = {
         cyberpunk: "Cyberpunk",
         arcade: "Fliperama",
         scifi: "Espacial",
+        /** A skin of the `Skins` folder, by itself: its card shows the
+         * skin's own name. */
+        custom: "Skin da pasta",
       } satisfies Record<DockStyle, string>,
+      /** The `Skins` folder (spec 0020, Q14), under the styles: what it is,
+       * the button that opens it, a skin chosen that is gone, and each
+       * folder refused, `{folder}` by its name. */
+      skinsHint:
+        "Cada pasta com skin.json e skin.png na pasta Skins vira um estilo",
+      skinsFailed: "Não foi possível ler a pasta Skins",
+      skinMissing: "Indisponível",
+      openSkinsFolder: "Abrir pasta Skins",
+      skinProblem: "Pasta {folder}: {reason}",
+      skinProblems: {
+        badName:
+          "o nome da pasta deve ter até 40 letras, números, espaços, _ . ou -",
+        noJson: "falta o skin.json",
+        badJson: "o skin.json não é válido",
+        badImageName: 'o campo image do skin.json deve ser "skin.png"',
+        noImage: "falta o skin.png",
+        tooBig: "o skin.png passa de 2 MB",
+        notPng: "o skin.png não é um PNG",
+        sizeMismatch: "o skin.png não tem o tamanho que o skin.json diz",
+        badSlice:
+          "o tamanho passa de 4096 px ou as pontas são mais largas que a imagem",
+      } satisfies Record<SkinProblemKind, string>,
       /** Group of the changes that belong to the chosen style. */
       tweaks: "Personalizar este estilo",
       border: "Borda",

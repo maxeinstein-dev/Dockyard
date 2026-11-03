@@ -6,11 +6,23 @@
 //! A skin is `skin.json` and `skin.png` in `src-tauri/skins/<id>/`, made by
 //! `src-tauri/skins/fonte/gerar.py` from a drawing in text. They are in the
 //! binary; the miniatures of Configurações read the same files.
+//!
+//! The user's own skins live in the `Skins` folder of the app's data folder
+//! (spec 0020, Q14): one subfolder per skin, with the same two files. The
+//! folder is the user's and may hold what a download put there, so a skin is
+//! taken only after the checks of [`read_folder`]: its name, the size of its
+//! files, the PNG header against `skin.json`, and the slices. Nothing here
+//! logs a path or a name.
 
-use std::sync::OnceLock;
+use std::fs;
+use std::io::Read;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, OnceLock, PoisonError};
+use std::time::UNIX_EPOCH;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
+use super::icon_pack::png_size;
 use super::settings::DockStyle;
 
 /// What `skin.json` says.
@@ -24,6 +36,18 @@ pub struct SkinMeta {
     pub middle: Middle,
     /// Scaled up without smoothing (pixel art).
     pub pixelated: bool,
+    /// Whether the bar is dark, so an icon pack's dark images go on it;
+    /// `None` is dark. Only a folder skin says it: a bundled one's style
+    /// says it in [`DockStyle::bar_dark`].
+    #[serde(default)]
+    pub dark: Option<bool>,
+    /// `#rrggbb`: the clock's ink, and the mark under an open item, on a
+    /// folder skin; `None` (or anything else) for the dock's own. A bundled
+    /// skin's colors are its style's, in `look.rs`.
+    #[serde(default)]
+    pub ink: Option<String>,
+    #[serde(default)]
+    pub indicator: Option<String>,
 }
 
 /// The nine-slice cut, in pixels of the image.
@@ -186,6 +210,241 @@ pub fn pieces(meta: &SkinMeta, bar: Rect) -> Vec<Piece> {
     pieces
 }
 
+/// The folder of the user's skins, under the app's data folder.
+pub const FOLDER: &str = "Skins";
+
+/// The most skin folders looked at; the rest are left out.
+const MAX_SKINS: usize = 100;
+
+/// The longest name of a skin folder, in characters.
+const MAX_ID_CHARS: usize = 40;
+
+/// The biggest `skin.png` taken: 2 MiB.
+pub const MAX_PNG_BYTES: u64 = 2 * 1024 * 1024;
+
+/// The biggest `skin.json` read; a real one is a few hundred bytes.
+const MAX_JSON_BYTES: u64 = 64 * 1024;
+
+/// The widest and tallest image taken, in pixels.
+const MAX_SIDE: u32 = 4096;
+
+/// The skins folder inside `data_dir`.
+pub fn root(data_dir: &Path) -> PathBuf {
+    data_dir.join(FOLDER)
+}
+
+/// A skin of the folder that passed every check.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FolderSkin {
+    /// The name of its folder: what `dock.customSkin` holds.
+    pub id: String,
+    pub meta: SkinMeta,
+    pub png: Vec<u8>,
+}
+
+/// Why a folder of the skins folder is not a skin. Shown to the user, by the
+/// folder's name, in Configurações; carries no path.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ProblemKind {
+    /// The folder's name is not 1–40 letters, digits, spaces, `_`, `.` or
+    /// `-`, or it starts with a dot.
+    BadName,
+    NoJson,
+    /// `skin.json` is too big, or is not what the format says.
+    BadJson,
+    /// `image` is not exactly `skin.png`.
+    BadImageName,
+    NoImage,
+    /// `skin.png` is over [`MAX_PNG_BYTES`].
+    TooBig,
+    NotPng,
+    /// The PNG is not the size `skin.json` says.
+    SizeMismatch,
+    /// The size is out of 1–4096 px, or the ends are as wide as the image.
+    BadSlice,
+}
+
+/// A folder refused, and why.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkinProblem {
+    pub folder: String,
+    pub kind: ProblemKind,
+}
+
+/// Whether `id` can name a skin folder (and so `dock.customSkin`): 1–40
+/// letters, digits, spaces, `_`, `.` or `-`, not starting with a dot. No
+/// separator, so it never leads out of the skins folder.
+pub fn is_valid_skin_id(id: &str) -> bool {
+    let count = id.chars().count();
+    (1..=MAX_ID_CHARS).contains(&count)
+        && !id.starts_with('.')
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, ' ' | '_' | '.' | '-'))
+}
+
+/// Why a file could not be read whole.
+enum Unread {
+    Missing,
+    TooBig,
+}
+
+/// Reads the file `path`, if it is no bigger than `most` bytes.
+fn read_bounded(path: &Path, most: u64) -> Result<Vec<u8>, Unread> {
+    let file = fs::File::open(path).map_err(|_| Unread::Missing)?;
+    let meta = file.metadata().map_err(|_| Unread::Missing)?;
+    if !meta.is_file() {
+        return Err(Unread::Missing);
+    }
+    if meta.len() > most {
+        return Err(Unread::TooBig);
+    }
+    let mut bytes = Vec::new();
+    file.take(most + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| Unread::Missing)?;
+    // It may have grown since its length was read.
+    if bytes.len() as u64 > most {
+        return Err(Unread::TooBig);
+    }
+    Ok(bytes)
+}
+
+/// The real path of `name` inside `dir` (itself a real path), or `None` if
+/// it does not exist or leads outside it (a link or a junction).
+fn inside(dir: &Path, name: &str) -> Option<PathBuf> {
+    let real = dir.join(name).canonicalize().ok()?;
+    real.starts_with(dir).then_some(real)
+}
+
+/// The skin in the folder `dir`, named `id` (already checked), or why not.
+fn check(id: &str, dir: &Path) -> Result<FolderSkin, ProblemKind> {
+    let dir = dir.canonicalize().map_err(|_| ProblemKind::NoJson)?;
+    let json = inside(&dir, "skin.json").ok_or(ProblemKind::NoJson)?;
+    let bytes = read_bounded(&json, MAX_JSON_BYTES).map_err(|unread| match unread {
+        Unread::Missing => ProblemKind::NoJson,
+        Unread::TooBig => ProblemKind::BadJson,
+    })?;
+    let text = String::from_utf8(bytes).map_err(|_| ProblemKind::BadJson)?;
+    // A BOM is what some editors put in front of a JSON file.
+    let meta: SkinMeta = serde_json::from_str(text.trim_start_matches('\u{feff}'))
+        .map_err(|_| ProblemKind::BadJson)?;
+    if meta.image != "skin.png" {
+        return Err(ProblemKind::BadImageName);
+    }
+    let sides = 1..=MAX_SIDE;
+    if !sides.contains(&meta.width)
+        || !sides.contains(&meta.height)
+        || meta.slice.left.saturating_add(meta.slice.right) >= meta.width
+    {
+        return Err(ProblemKind::BadSlice);
+    }
+    let image = inside(&dir, "skin.png").ok_or(ProblemKind::NoImage)?;
+    let png = read_bounded(&image, MAX_PNG_BYTES).map_err(|unread| match unread {
+        Unread::Missing => ProblemKind::NoImage,
+        Unread::TooBig => ProblemKind::TooBig,
+    })?;
+    let size = png_size(&png).ok_or(ProblemKind::NotPng)?;
+    if size != (meta.width, meta.height) {
+        return Err(ProblemKind::SizeMismatch);
+    }
+    Ok(FolderSkin {
+        id: id.to_owned(),
+        meta,
+        png,
+    })
+}
+
+/// Every skin of the skins folder `dir`, and the folders refused, both by
+/// name. Only its direct subfolders are looked at (a file there is left
+/// out); a missing folder has no skins and no problems.
+pub fn read_folder(dir: &Path) -> (Vec<FolderSkin>, Vec<SkinProblem>) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return (Vec::new(), Vec::new());
+    };
+    let mut folders: Vec<(String, PathBuf)> = entries
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().is_dir())
+        .map(|entry| {
+            (
+                entry.file_name().to_string_lossy().into_owned(),
+                entry.path(),
+            )
+        })
+        .collect();
+    folders.sort_by(|a, b| a.0.cmp(&b.0));
+    folders.truncate(MAX_SKINS);
+    let (mut skins, mut problems) = (Vec::new(), Vec::new());
+    for (name, path) in folders {
+        let found = if is_valid_skin_id(&name) {
+            check(&name, &path)
+        } else {
+            Err(ProblemKind::BadName)
+        };
+        match found {
+            Ok(skin) => skins.push(skin),
+            Err(kind) => problems.push(SkinProblem { folder: name, kind }),
+        }
+    }
+    (skins, problems)
+}
+
+/// The skin `id` of the skins folder `dir`, if it passes every check.
+pub fn load(dir: &Path, id: &str) -> Option<FolderSkin> {
+    if !is_valid_skin_id(id) {
+        return None;
+    }
+    check(id, &dir.join(id)).ok()
+}
+
+/// A folder skin as the dock keeps it: `key` changes when either of its
+/// files does, so the dock makes its bitmap again for an edited skin.
+#[derive(Debug, PartialEq, Eq)]
+pub struct CachedSkin {
+    pub key: String,
+    pub skin: FolderSkin,
+}
+
+/// The length and the time of change of `path`, as text.
+fn stamp_of(path: &Path) -> Option<String> {
+    let meta = fs::metadata(path).ok()?;
+    let modified = meta
+        .modified()
+        .ok()
+        .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+        .map_or(0, |since| since.as_nanos());
+    Some(format!("{}-{modified}", meta.len()))
+}
+
+/// The skin last read, so the dock does not read the PNG again on every
+/// refresh: only the two files' lengths and times are looked at.
+static CACHE: Mutex<Option<Arc<CachedSkin>>> = Mutex::new(None);
+
+/// Like [`load`], read again only when `skin.json` or `skin.png` changed.
+pub fn cached(dir: &Path, id: &str) -> Option<Arc<CachedSkin>> {
+    if !is_valid_skin_id(id) {
+        return None;
+    }
+    let folder = dir.join(id);
+    let key = format!(
+        "folder/{id}/{}/{}",
+        stamp_of(&folder.join("skin.json"))?,
+        stamp_of(&folder.join("skin.png"))?
+    );
+    let kept = CACHE.lock().unwrap_or_else(PoisonError::into_inner).clone();
+    if let Some(kept) = kept.filter(|kept| kept.key == key) {
+        return Some(kept);
+    }
+    let fresh = Arc::new(CachedSkin {
+        key,
+        skin: load(dir, id)?,
+    });
+    *CACHE.lock().unwrap_or_else(PoisonError::into_inner) = Some(fresh.clone());
+    Some(fresh)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -204,6 +463,9 @@ mod tests {
             },
             middle,
             pixelated: true,
+            dark: None,
+            ink: None,
+            indicator: None,
         }
     }
 
@@ -325,5 +587,260 @@ mod tests {
             assert_eq!(skin_of(style).map(|skin| skin.id), Some(id));
         }
         assert!(skin_of(DockStyle::Native).is_none());
+        assert!(skin_of(DockStyle::Custom).is_none());
+    }
+
+    // ---- The Skins folder ----
+
+    fn png(width: u32, height: u32) -> Vec<u8> {
+        let mut bytes = vec![0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
+        bytes.extend_from_slice(&13u32.to_be_bytes());
+        bytes.extend_from_slice(b"IHDR");
+        bytes.extend_from_slice(&width.to_be_bytes());
+        bytes.extend_from_slice(&height.to_be_bytes());
+        bytes.extend_from_slice(&[0; 16]);
+        bytes
+    }
+
+    fn json(width: u32, height: u32, left: u32, right: u32, image: &str) -> String {
+        serde_json::json!({
+            "name": "Minha barra", "image": image, "width": width, "height": height,
+            "slice": {"top": 0, "right": right, "bottom": 0, "left": left},
+            "middle": "stretch", "pixelated": false,
+        })
+        .to_string()
+    }
+
+    /// A folder `name` in `root`, with these files (`None`: left out).
+    fn skin_dir(root: &Path, name: &str, json: Option<&str>, png: Option<&[u8]>) {
+        let dir = root.join(name);
+        fs::create_dir_all(&dir).unwrap();
+        if let Some(json) = json {
+            fs::write(dir.join("skin.json"), json).unwrap();
+        }
+        if let Some(png) = png {
+            fs::write(dir.join("skin.png"), png).unwrap();
+        }
+    }
+
+    fn problem_of(root: &Path, name: &str) -> Option<ProblemKind> {
+        read_folder(root)
+            .1
+            .into_iter()
+            .find(|problem| problem.folder == name)
+            .map(|problem| problem.kind)
+    }
+
+    #[test]
+    fn a_bundled_skin_json_reads_without_the_optional_fields() {
+        for skin in &SKINS {
+            let meta = skin.meta();
+            assert_eq!(
+                (&meta.dark, &meta.ink, &meta.indicator),
+                (&None, &None, &None),
+                "{}",
+                skin.id
+            );
+        }
+        let meta: SkinMeta = serde_json::from_str(
+            r##"{"name":"X","image":"skin.png","width":8,"height":8,
+                "slice":{"top":0,"right":2,"bottom":0,"left":2},"middle":"repeat",
+                "pixelated":true,"dark":false,"ink":"#ffffff","indicator":"#ff0000"}"##,
+        )
+        .unwrap();
+        assert_eq!(meta.dark, Some(false));
+        assert_eq!(meta.ink.as_deref(), Some("#ffffff"));
+        assert_eq!(meta.indicator.as_deref(), Some("#ff0000"));
+    }
+
+    #[test]
+    fn a_valid_folder_skin_is_read_with_its_image() {
+        let root = tempfile::tempdir().unwrap();
+        let image = png(12, 6);
+        skin_dir(
+            root.path(),
+            "Minha",
+            Some(&json(12, 6, 3, 3, "skin.png")),
+            Some(&image),
+        );
+
+        let (skins, problems) = read_folder(root.path());
+
+        assert!(problems.is_empty(), "{problems:?}");
+        assert_eq!(skins.len(), 1);
+        assert_eq!(skins[0].id, "Minha");
+        assert_eq!(skins[0].meta.name, "Minha barra");
+        assert_eq!(skins[0].png, image);
+        assert_eq!(load(root.path(), "Minha"), Some(skins[0].clone()));
+        assert_eq!(load(root.path(), "Outra"), None);
+        assert_eq!(load(root.path(), "../Minha"), None);
+    }
+
+    #[test]
+    fn a_missing_skins_folder_is_empty_and_has_no_problem() {
+        let root = tempfile::tempdir().unwrap();
+        let (skins, problems) = read_folder(&root.path().join(FOLDER));
+        assert!(skins.is_empty() && problems.is_empty());
+    }
+
+    #[test]
+    fn the_skins_and_the_problems_come_by_name_and_files_are_left_out() {
+        let root = tempfile::tempdir().unwrap();
+        let good = json(4, 4, 1, 1, "skin.png");
+        for name in ["c", "a", "b"] {
+            skin_dir(root.path(), name, Some(&good), Some(&png(4, 4)));
+        }
+        for name in ["z", "y"] {
+            skin_dir(root.path(), name, None, None);
+        }
+        fs::write(root.path().join("solto.png"), png(4, 4)).unwrap();
+
+        let (skins, problems) = read_folder(root.path());
+
+        let ids: Vec<_> = skins.iter().map(|skin| skin.id.as_str()).collect();
+        assert_eq!(ids, ["a", "b", "c"]);
+        let folders: Vec<_> = problems.iter().map(|p| p.folder.as_str()).collect();
+        assert_eq!(folders, ["y", "z"]);
+    }
+
+    #[test]
+    fn a_folder_name_must_be_short_and_plain() {
+        let longest = "a".repeat(40);
+        let too_long = "a".repeat(41);
+        for id in ["a", "Minha skin", "pixel_bar-2.0", longest.as_str()] {
+            assert!(is_valid_skin_id(id), "{id}");
+        }
+        for id in [
+            "",
+            ".oculta",
+            "..",
+            "a/b",
+            r"a\b",
+            "á",
+            "a:b",
+            too_long.as_str(),
+        ] {
+            assert!(!is_valid_skin_id(id), "{id:?}");
+        }
+        let root = tempfile::tempdir().unwrap();
+        let good = json(4, 4, 1, 1, "skin.png");
+        for name in [".oculta", "com#sinal"] {
+            skin_dir(root.path(), name, Some(&good), Some(&png(4, 4)));
+            assert_eq!(problem_of(root.path(), name), Some(ProblemKind::BadName));
+        }
+    }
+
+    #[test]
+    fn each_problem_of_a_folder_skin_is_named() {
+        let root = tempfile::tempdir().unwrap();
+        let r = root.path();
+        let good = json(8, 4, 2, 2, "skin.png");
+        skin_dir(r, "sem-json", None, Some(&png(8, 4)));
+        skin_dir(r, "json-ruim", Some("{ not json"), Some(&png(8, 4)));
+        skin_dir(
+            r,
+            "json-sem-campo",
+            Some(r#"{"name":"x"}"#),
+            Some(&png(8, 4)),
+        );
+        skin_dir(
+            r,
+            "json-enorme",
+            Some(&" ".repeat(70 * 1024)),
+            Some(&png(8, 4)),
+        );
+        skin_dir(
+            r,
+            "outra-imagem",
+            Some(&json(8, 4, 2, 2, "../x.png")),
+            Some(&png(8, 4)),
+        );
+        skin_dir(r, "sem-png", Some(&good), None);
+        let mut big = png(8, 4);
+        big.resize(MAX_PNG_BYTES as usize + 1, 0);
+        skin_dir(r, "png-enorme", Some(&good), Some(&big));
+        skin_dir(
+            r,
+            "nao-png",
+            Some(&good),
+            Some(b"GIF89a, long enough to have a header"),
+        );
+        skin_dir(r, "outro-tamanho", Some(&good), Some(&png(8, 5)));
+        skin_dir(
+            r,
+            "pontas-largas",
+            Some(&json(8, 4, 4, 4, "skin.png")),
+            Some(&png(8, 4)),
+        );
+        skin_dir(
+            r,
+            "sem-largura",
+            Some(&json(0, 4, 0, 0, "skin.png")),
+            Some(&png(0, 4)),
+        );
+        skin_dir(
+            r,
+            "alta-demais",
+            Some(&json(8, 5000, 2, 2, "skin.png")),
+            Some(&png(8, 5000)),
+        );
+
+        for (name, kind) in [
+            ("sem-json", ProblemKind::NoJson),
+            ("json-ruim", ProblemKind::BadJson),
+            ("json-sem-campo", ProblemKind::BadJson),
+            ("json-enorme", ProblemKind::BadJson),
+            ("outra-imagem", ProblemKind::BadImageName),
+            ("sem-png", ProblemKind::NoImage),
+            ("png-enorme", ProblemKind::TooBig),
+            ("nao-png", ProblemKind::NotPng),
+            ("outro-tamanho", ProblemKind::SizeMismatch),
+            ("pontas-largas", ProblemKind::BadSlice),
+            ("sem-largura", ProblemKind::BadSlice),
+            ("alta-demais", ProblemKind::BadSlice),
+        ] {
+            assert_eq!(problem_of(r, name), Some(kind), "{name}");
+        }
+        assert!(read_folder(r).0.is_empty());
+    }
+
+    #[test]
+    fn a_skin_json_with_a_bom_is_read() {
+        let root = tempfile::tempdir().unwrap();
+        let text = format!("\u{feff}{}", json(4, 4, 1, 1, "skin.png"));
+        skin_dir(root.path(), "bom", Some(&text), Some(&png(4, 4)));
+        assert_eq!(read_folder(root.path()).0.len(), 1);
+    }
+
+    #[test]
+    fn the_cached_skin_is_read_again_when_its_files_change() {
+        let root = tempfile::tempdir().unwrap();
+        skin_dir(
+            root.path(),
+            "Viva",
+            Some(&json(4, 4, 1, 1, "skin.png")),
+            Some(&png(4, 4)),
+        );
+
+        let first = cached(root.path(), "Viva").unwrap();
+        let again = cached(root.path(), "Viva").unwrap();
+        assert!(Arc::ptr_eq(&first, &again));
+
+        // A wider image, and so a longer file: another key, read again.
+        skin_dir(
+            root.path(),
+            "Viva",
+            Some(&json(6, 4, 1, 1, "skin.png")),
+            None,
+        );
+        let mut longer = png(6, 4);
+        longer.push(0);
+        fs::write(root.path().join("Viva").join("skin.png"), &longer).unwrap();
+        let edited = cached(root.path(), "Viva").unwrap();
+        assert_ne!(edited.key, first.key);
+        assert_eq!(edited.skin.meta.width, 6);
+
+        assert!(cached(root.path(), "Sumiu").is_none());
+        assert!(cached(root.path(), "../Viva").is_none());
     }
 }

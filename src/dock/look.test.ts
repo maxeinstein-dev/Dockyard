@@ -28,7 +28,10 @@ describe("styleLookOf", () => {
   });
 
   it("has a look for every style, with corners in 0–100", () => {
-    expect(Object.keys(STYLE_LOOKS).sort()).toEqual([...DOCK_STYLES].sort());
+    // The skins of the `Skins` folder share one look, `custom`.
+    expect(Object.keys(STYLE_LOOKS).sort()).toEqual(
+      [...DOCK_STYLES, "custom"].sort(),
+    );
     for (const { corners } of Object.values(STYLE_LOOKS)) {
       expect(corners).toBeGreaterThanOrEqual(0);
       expect(corners).toBeLessThanOrEqual(100);

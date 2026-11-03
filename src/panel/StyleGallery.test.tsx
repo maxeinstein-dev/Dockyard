@@ -163,6 +163,97 @@ describe("StyleGallery", () => {
     expect(onSelect).toHaveBeenCalledTimes(1);
   });
 
+  const SKIN = {
+    id: "Minha",
+    name: "Minha barra",
+    url: "data:image/png;base64,AAAA",
+    width: 12,
+    height: 8,
+    left: 4,
+    right: 2,
+    repeat: true,
+    pixelated: false,
+    dark: true,
+  };
+
+  it("puts the skins of the Skins folder after the styles, with their image", () => {
+    render(
+      <StyleGallery
+        label="Tema"
+        dock={DOCK}
+        appIds={[]}
+        onSelect={vi.fn()}
+        folderSkins={[SKIN]}
+        onSelectFolderSkin={vi.fn()}
+      />,
+    );
+
+    const cards = within(gallery()).getAllByRole("radio");
+    expect(cards).toHaveLength(18);
+    expect(cards[16]).toHaveTextContent("Espacial");
+    expect(cards[17]).toHaveTextContent("Minha barra");
+    const skin = bar("Minha barra");
+    expect(skin).toHaveAttribute("data-skin");
+    expect(skin.style.getPropertyValue("--mini-skin")).toBe(
+      'url("data:image/png;base64,AAAA")',
+    );
+    // 4 and 2 px ends of an 8 px image, on a 28 px bar.
+    expect(skin.style.getPropertyValue("--mini-skin-width")).toBe(
+      "0 7px 0 14px",
+    );
+  });
+
+  it("chooses a folder skin by its folder, and shows it chosen", () => {
+    const onSelect = vi.fn();
+    const onSelectFolderSkin = vi.fn();
+    const { rerender } = render(
+      <StyleGallery
+        label="Tema"
+        dock={DOCK}
+        appIds={[]}
+        onSelect={onSelect}
+        folderSkins={[SKIN]}
+        onSelectFolderSkin={onSelectFolderSkin}
+      />,
+    );
+
+    fireEvent.click(card("Minha barra"));
+    expect(onSelectFolderSkin).toHaveBeenCalledWith("Minha");
+    expect(onSelect).not.toHaveBeenCalled();
+
+    rerender(
+      <StyleGallery
+        label="Tema"
+        dock={{ ...DOCK, style: "custom", customSkin: "Minha" }}
+        appIds={[]}
+        onSelect={onSelect}
+        folderSkins={[SKIN]}
+        onSelectFolderSkin={onSelectFolderSkin}
+      />,
+    );
+    expect(card("Minha barra")).toHaveAttribute("aria-checked", "true");
+    expect(card("Nativo")).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("keeps a chosen folder skin that is gone, as unavailable", () => {
+    render(
+      <StyleGallery
+        label="Tema"
+        dock={{ ...DOCK, style: "custom", customSkin: "Sumiu" }}
+        appIds={[]}
+        onSelect={vi.fn()}
+        folderSkins={[]}
+      />,
+    );
+
+    const cards = within(gallery()).getAllByRole("radio");
+    const gone = cards[cards.length - 1];
+    expect(gone).toHaveTextContent("Sumiu");
+    expect(gone).toHaveTextContent("Indisponível");
+    expect(gone).toHaveAttribute("aria-checked", "true");
+    expect(gone?.querySelector(".mini-bar")).not.toHaveAttribute("data-skin");
+  });
+
   it("can't choose while the settings can't be read", () => {
     render(
       <StyleGallery

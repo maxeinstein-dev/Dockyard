@@ -30,9 +30,11 @@ import {
   ShapeThumb,
 } from "./ChoiceThumbs";
 import ToggleField from "./parts/ToggleField";
+import SkinsFolderNotice from "./SkinsFolder";
 import StyleGallery from "./StyleGallery";
 import ThemeGallery from "./ThemeGallery";
 import { useSettingsEditor } from "./useSettingsEditor";
+import { useSkinsFolder } from "./useSkinsFolder";
 import "./Look.css";
 
 const HOVERS: readonly HoverEffect[] = ["none", "scale", "magnify"];
@@ -177,6 +179,7 @@ function LookPanel({
   const disabled = shown === null;
   const dock = shown?.dock ?? null;
   const look = dock ? dockLookOf(dock) : null;
+  const skinsFolder = useSkinsFolder();
   const text = t.settings.look;
   const groups = t.settings.app.groups;
 
@@ -246,8 +249,11 @@ function LookPanel({
       </button>
     </div>,
   ];
-  // A skin's image is its border and its corners (spec 0020, Q21).
-  const skinned = dock !== null && STYLE_PAINTS[dock.style].skin !== null;
+  // A skin's image is its border and its corners (spec 0020, Q21); a skin
+  // of the `Skins` folder too.
+  const skinned =
+    dock !== null &&
+    (dock.style === "custom" || STYLE_PAINTS[dock.style].skin !== null);
   const tweaks = skinned
     ? allTweaks.filter((row) => row.key !== "border" && row.key !== "corners")
     : allTweaks;
@@ -274,6 +280,14 @@ function LookPanel({
           appIds={appIds}
           disabled={disabled}
           onSelect={(style) => update({ style })}
+          folderSkins={skinsFolder.skins}
+          onSelectFolderSkin={(customSkin) =>
+            update({ style: "custom", customSkin })
+          }
+        />
+        <SkinsFolderNotice
+          problems={skinsFolder.problems}
+          failed={skinsFolder.failed}
         />
       </SettingsGroup>
       {grouped ? (

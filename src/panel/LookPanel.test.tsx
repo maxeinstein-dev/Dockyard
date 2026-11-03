@@ -135,6 +135,83 @@ describe("LookPanel", () => {
     expect(sentSettings().dock.iconPack).toBe("cores");
   });
 
+  it("lists the skins of the Skins folder and saves the one chosen", async () => {
+    invoke.mockImplementation((command: string) =>
+      command === "list_folder_skins"
+        ? Promise.resolve({
+            skins: [
+              {
+                id: "Minha",
+                name: "Minha barra",
+                url: "data:image/png;base64,AAAA",
+                width: 8,
+                height: 8,
+                left: 2,
+                right: 2,
+                repeat: false,
+                pixelated: true,
+                dark: true,
+              },
+            ],
+            problems: [],
+          })
+        : new Promise(() => {}),
+    );
+    render(<LookPanel settings={SETTINGS} onBack={vi.fn()} />);
+    await flush();
+
+    fireEvent.click(
+      within(group(text.style)).getByRole("radio", { name: "Minha barra" }),
+    );
+
+    expect(sentSettings()).toEqual(
+      withDock({ style: "custom", customSkin: "Minha" }),
+    );
+  });
+
+  it("says which folders of the Skins folder are refused, and why", async () => {
+    invoke.mockImplementation((command: string) =>
+      command === "list_folder_skins"
+        ? Promise.resolve({
+            skins: [],
+            problems: [
+              { folder: "Quebrada", kind: "sizeMismatch" },
+              { folder: ".oculta", kind: "badName" },
+            ],
+          })
+        : new Promise(() => {}),
+    );
+    render(<LookPanel settings={SETTINGS} onBack={vi.fn()} />);
+    await flush();
+
+    expect(
+      screen.getByText(`Pasta Quebrada: ${text.skinProblems.sizeMismatch}`),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(`Pasta .oculta: ${text.skinProblems.badName}`),
+    ).toBeInTheDocument();
+  });
+
+  it("opens the Skins folder with its button", () => {
+    render(<LookPanel settings={SETTINGS} onBack={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: text.openSkinsFolder }));
+
+    expect(invoke).toHaveBeenCalledWith("open_skins_folder");
+  });
+
+  it("leaves the border and the corners out for a folder skin too", () => {
+    render(
+      <LookPanel
+        settings={withDock({ style: "custom", customSkin: "Minha" })}
+        onBack={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("switch", { name: text.border })).toBeNull();
+    expect(screen.queryByRole("slider", { name: text.corners })).toBeNull();
+  });
+
   it("lists the styles in order, with the one in use chosen", () => {
     render(
       <LookPanel settings={withDock({ style: "neon" })} onBack={vi.fn()} />,
