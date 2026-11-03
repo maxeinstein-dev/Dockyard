@@ -228,7 +228,11 @@ fn open_at(app: &AppHandle, section: Option<Section>) -> Result<(), Box<dyn Erro
             if let Some(start) = &start {
                 builder = builder.initialization_script(start);
             }
-            let built = builder.build();
+            let built = if super::webview_failure::fails_for_test("settings") {
+                Err("told to fail (DOCKYARD_FAIL_WEBVIEW)".to_string())
+            } else {
+                builder.build().map_err(|error| error.to_string())
+            };
             let ready = opening().finish();
             match built {
                 Ok(window) => {
@@ -261,7 +265,14 @@ fn open_at(app: &AppHandle, section: Option<Section>) -> Result<(), Box<dyn Erro
                         log::warn!("settings: the window setup was not scheduled: {error}");
                     }
                 }
-                Err(error) => log::warn!("settings: the window could not be made: {error}"),
+                Err(error) => {
+                    let failures = super::webview_failure::count("settings");
+                    log::warn!(
+                        "settings: the window could not be made ({failures} this run): {error}"
+                    );
+                    let text = &crate::i18n::messages().dock;
+                    super::webview_failure::tell_once("settings", text.settings_failed);
+                }
             }
         });
     if let Err(error) = spawned {

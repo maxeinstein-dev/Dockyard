@@ -2535,6 +2535,43 @@ impl Dock {
         }));
     }
 
+    /// The program's own menu, native, when its panel can't open (its
+    /// window never came up, `panel::fallback`): at the pointer, where the
+    /// right click was.
+    fn program_menu(&mut self, panel: &PanelId) {
+        let Some(item) = self.items.iter().find(|item| panel_of(item) == *panel) else {
+            return;
+        };
+        let (program, windows) = match item {
+            Item::App(app) => (
+                Program::Pinned(app.id.as_str().to_string()),
+                self.data
+                    .open
+                    .apps
+                    .iter()
+                    .find(|open| open.id == app.id.as_str())
+                    .map_or(0, |open| open.count),
+            ),
+            Item::Other(other) => (Program::Open(other.key.clone()), other.count),
+            _ => return,
+        };
+        let items = program_items(&program, windows);
+        self.hovered = None;
+        self.animate();
+        self.paint();
+        let hwnd = self.hwnd.0 as isize;
+        let edge = self.edge();
+        let workspace = self.workspace_id();
+        self.menu_open = true;
+        self.effects.push(Box::new(move |app| {
+            let chosen = show_dock_menu(app, edge, items, None);
+            post_to(hwnd, Dock::menu_closed);
+            if let Some(choice) = chosen {
+                act_on_program(app, choice, program, workspace);
+            }
+        }));
+    }
+
     // ---- What the app tells the dock ----
 
     fn set_open(&mut self, panel: Option<PanelId>) {
@@ -3084,6 +3121,28 @@ mod tests {
         let note = WidgetConfig::default_for(crate::domain::widgets::WidgetKind::Note);
         let items = widget_items(&note);
         assert_eq!(labels(&items), ["Remover do dock", "—"]);
+    }
+
+    #[test]
+    fn a_pinned_program_menu_opens_closes_and_unpins() {
+        let pinned = Program::Pinned("01a1a2d0-5d5d-70a1-be42-91ab4f4ea892".into());
+        let closed = program_items(&pinned, 0);
+        assert_eq!(labels(&closed), ["Abrir", "Remover do dock"]);
+        assert_eq!(closed[1].choice, Some(MenuChoice::Unpin));
+        let open = program_items(&pinned, 1);
+        assert_eq!(labels(&open), ["Abrir", "Fechar janela", "Remover do dock"]);
+        assert_eq!(open[0].choice, Some(MenuChoice::OpenProgram));
+        assert_eq!(open[1].choice, Some(MenuChoice::CloseWindows));
+        assert_eq!(labels(&program_items(&pinned, 3))[1], "Fechar janelas");
+    }
+
+    #[test]
+    fn an_open_program_menu_is_not_unpinned() {
+        let other = Program::Open("open-key".into());
+        assert_eq!(
+            labels(&program_items(&other, 2)),
+            ["Abrir", "Fechar janelas"]
+        );
     }
 
     #[test]
