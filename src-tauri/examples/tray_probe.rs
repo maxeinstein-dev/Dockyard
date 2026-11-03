@@ -14,6 +14,11 @@ mod tray_host;
 #[path = "../src/windows/popup_menu.rs"]
 mod popup_menu;
 
+// Their window procedures catch panics through it (M4).
+#[allow(dead_code, reason = "the probe uses only the catching of this module")]
+#[path = "../src/windows/panics.rs"]
+mod panics;
+
 fn main() {
     let mut args = std::env::args().skip(1);
     let seconds: u64 = args.next().and_then(|v| v.parse().ok()).unwrap_or(10);

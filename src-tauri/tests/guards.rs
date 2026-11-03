@@ -901,3 +901,58 @@ fn the_app_builder_registers_its_state_through_with_state() {
         "src/lib.rs: `with_state` must manage the PanelState state"
     );
 }
+
+/// Every `.rs` file under `dir`, relative to the crate root.
+fn rust_files(dir: &Path, found: &mut Vec<String>) {
+    let entries =
+        fs::read_dir(dir).unwrap_or_else(|e| panic!("cannot list {}: {e}", dir.display()));
+    for entry in entries {
+        let path = entry.expect("cannot read directory entry").path();
+        if path.is_dir() {
+            rust_files(&path, found);
+        } else if path.extension().is_some_and(|ext| ext == "rs") {
+            let relative = path.strip_prefix(manifest_dir()).unwrap_or(&path);
+            found.push(relative.to_string_lossy().replace('\\', "/"));
+        }
+    }
+}
+
+/// A panic cannot leave a function Windows calls (`extern "system"`): the
+/// process aborts there, whatever `panic` the profile says, and the dock,
+/// the tray and the taskbar's band go with it (M4). So every such function
+/// runs its body through `panics::window_message`, which catches the panic
+/// and answers the call as Windows would.
+#[test]
+fn every_function_windows_calls_catches_panics() {
+    let mut files = Vec::new();
+    rust_files(&manifest_dir().join("src"), &mut files);
+    let marker = "extern \"system\" fn ";
+    let mut checked = 0;
+    let mut missing = Vec::new();
+    for file in &files {
+        let code = rust_code(file);
+        for (index, _) in code.match_indices(marker) {
+            let rest = &code[index + marker.len()..];
+            // `extern "system" fn(` is a type (a pointer), not a function.
+            let Some(name) = rest.split('(').next().filter(|name| {
+                !name.is_empty() && name.chars().all(|c| c == '_' || c.is_alphanumeric())
+            }) else {
+                continue;
+            };
+            let body = block_after(rest, name, file);
+            checked += 1;
+            if !body.contains("window_message(") {
+                missing.push(format!("{file}: {name}"));
+            }
+        }
+    }
+    assert!(
+        checked >= 15,
+        "found only {checked} functions Windows calls"
+    );
+    assert!(
+        missing.is_empty(),
+        "these functions Windows calls must run their body through \
+         `panics::window_message`: {missing:?}"
+    );
+}

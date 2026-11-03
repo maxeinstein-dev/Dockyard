@@ -320,25 +320,30 @@ unsafe extern "system" fn subclass_proc(
     _id: usize,
     _data: usize,
 ) -> windows::Win32::Foundation::LRESULT {
-    use windows::Win32::Foundation::LRESULT;
-    use windows::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass};
-    use windows::Win32::UI::WindowsAndMessaging::{SC_KEYMENU, WM_NCDESTROY, WM_SYSCOMMAND};
-    // The window's menu by the keyboard: Alt+Space, its character a space.
-    let menu_by_space = message == WM_SYSCOMMAND
-        && (wparam.0 & 0xFFF0) == SC_KEYMENU as usize
-        && lparam.0 == isize::from(b' ');
-    if menu_by_space && super::launcher::capturing() {
-        if let Some(app) = APP.get()
-            && let Err(error) = app.emit_to(LABEL, HOTKEY_KEY_EVENT, alt_space_now())
-        {
-            log::warn!("settings: Alt+Space did not reach the capture: {error}");
+    crate::windows::panics::window_message(|| {
+        use windows::Win32::Foundation::LRESULT;
+        use windows::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass};
+        use windows::Win32::UI::WindowsAndMessaging::{SC_KEYMENU, WM_NCDESTROY, WM_SYSCOMMAND};
+        // The window's menu by the keyboard: Alt+Space, its character a space.
+        let menu_by_space = message == WM_SYSCOMMAND
+            && (wparam.0 & 0xFFF0) == SC_KEYMENU as usize
+            && lparam.0 == isize::from(b' ');
+        if menu_by_space && super::launcher::capturing() {
+            if let Some(app) = APP.get()
+                && let Err(error) = app.emit_to(LABEL, HOTKEY_KEY_EVENT, alt_space_now())
+            {
+                log::warn!("settings: Alt+Space did not reach the capture: {error}");
+            }
+            return LRESULT(0);
         }
-        return LRESULT(0);
-    }
-    if message == WM_NCDESTROY {
-        let _ = unsafe { RemoveWindowSubclass(hwnd, Some(subclass_proc), SUBCLASS_ID) };
-    }
-    unsafe { DefSubclassProc(hwnd, message, wparam, lparam) }
+        if message == WM_NCDESTROY {
+            let _ = unsafe { RemoveWindowSubclass(hwnd, Some(subclass_proc), SUBCLASS_ID) };
+        }
+        unsafe { DefSubclassProc(hwnd, message, wparam, lparam) }
+    })
+    .unwrap_or_else(|| unsafe {
+        ::windows::Win32::UI::Shell::DefSubclassProc(hwnd, message, wparam, lparam)
+    })
 }
 
 #[cfg(test)]

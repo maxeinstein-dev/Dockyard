@@ -1,7 +1,10 @@
 //! A panic must not take the dock down (M4). The release build unwinds:
-//! - the window procedures of the dock and of the launcher run each message
-//!   through [`window_message`], which catches the panic and lets the
-//!   procedure answer the message as Windows would;
+//! - every function Windows calls (`extern "system"`: the window procedures
+//!   of the dock, the launcher, the tray host, the app bar..., the hooks and
+//!   the enumerations) runs its body through [`window_message`], which
+//!   catches the panic and answers the call as Windows would. A panic that
+//!   left such a function would abort the process whatever the profile says;
+//!   a guard (`tests/guards.rs`) keeps every one of them caught;
 //! - the threads that keep reading for the dock (media, badges, weather...)
 //!   run through [`lasting`], which starts the work again after a panic, so
 //!   a part of the dock does not stop updating in silence.

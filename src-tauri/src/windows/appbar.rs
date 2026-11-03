@@ -361,64 +361,69 @@ unsafe extern "system" fn procedure(
     wparam: WPARAM,
     lparam: LPARAM,
 ) -> LRESULT {
-    let manager = window().is_some_and(|manager| manager == hwnd);
-    match msg {
-        WM_NEW_BAND if manager => {
-            let made = make_window(w!("Dockyard app bar band"));
-            return LRESULT(made.map_or(0, |band| band.0 as isize));
-        }
-        WM_APPLY => {
-            apply(hwnd, false);
-            return LRESULT(0);
-        }
-        WM_DROP_BAND => {
-            apply(hwnd, true);
-            let _ = unsafe { DestroyWindow(hwnd) };
-            return LRESULT(0);
-        }
-        WM_CALLBACK => {
-            if wparam.0 == ABN_POSCHANGED {
-                // Explorer moved its taskbar: it may have shown it again.
-                super::taskbar::keep();
+    crate::windows::panics::window_message(|| {
+        let manager = window().is_some_and(|manager| manager == hwnd);
+        match msg {
+            WM_NEW_BAND if manager => {
+                let made = make_window(w!("Dockyard app bar band"));
+                return LRESULT(made.map_or(0, |band| band.0 as isize));
+            }
+            WM_APPLY => {
                 apply(hwnd, false);
+                return LRESULT(0);
+            }
+            WM_DROP_BAND => {
+                apply(hwnd, true);
+                let _ = unsafe { DestroyWindow(hwnd) };
+                return LRESULT(0);
+            }
+            WM_CALLBACK => {
+                if wparam.0 == ABN_POSCHANGED {
+                    // Explorer moved its taskbar: it may have shown it again.
+                    super::taskbar::keep();
+                    apply(hwnd, false);
+                    changed();
+                }
+                return LRESULT(0);
+            }
+            WM_DISPLAYCHANGE if manager => {
+                super::taskbar::keep();
                 changed();
             }
-            return LRESULT(0);
-        }
-        WM_DISPLAYCHANGE if manager => {
-            super::taskbar::keep();
-            changed();
-        }
-        WM_SETTINGCHANGE if manager => super::taskbar::keep(),
-        // The session ends without `RunEvent::Exit`: the bands and the
-        // taskbar go back now.
-        WM_ENDSESSION if manager && wparam.0 != 0 => {
-            let windows: Vec<isize> =
-                with_shared(|shared| shared.bands.values().map(|band| band.hwnd).collect());
-            for band in windows {
-                apply(HWND(band as _), true);
+            WM_SETTINGCHANGE if manager => super::taskbar::keep(),
+            // The session ends without `RunEvent::Exit`: the bands and the
+            // taskbar go back now.
+            WM_ENDSESSION if manager && wparam.0 != 0 => {
+                let windows: Vec<isize> =
+                    with_shared(|shared| shared.bands.values().map(|band| band.hwnd).collect());
+                for band in windows {
+                    apply(HWND(band as _), true);
+                }
+                super::tray_host::stop();
+                super::taskbar::release();
+                super::window_spaces::release_all();
             }
-            super::tray_host::stop();
-            super::taskbar::release();
-            super::window_spaces::release_all();
+            // The tray host sends `TaskbarCreated` too, so that programs send
+            // their icons to it: only a new taskbar window means Explorer
+            // started again and forgot the bands. Asking for them lowers the
+            // host for an instant, and an icon put back meanwhile (the dock's
+            // own, on that very message) would miss it.
+            _ if manager
+                && msg == TASKBAR_CREATED.load(Ordering::Relaxed)
+                && msg != 0
+                && explorer_taskbar_changed() =>
+            {
+                super::taskbar::keep();
+                apply_all();
+                changed();
+            }
+            _ => {}
         }
-        // The tray host sends `TaskbarCreated` too, so that programs send
-        // their icons to it: only a new taskbar window means Explorer
-        // started again and forgot the bands. Asking for them lowers the
-        // host for an instant, and an icon put back meanwhile (the dock's
-        // own, on that very message) would miss it.
-        _ if manager
-            && msg == TASKBAR_CREATED.load(Ordering::Relaxed)
-            && msg != 0
-            && explorer_taskbar_changed() =>
-        {
-            super::taskbar::keep();
-            apply_all();
-            changed();
-        }
-        _ => {}
-    }
-    unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
+        unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
+    })
+    .unwrap_or_else(|| unsafe {
+        ::windows::Win32::UI::WindowsAndMessaging::DefWindowProcW(hwnd, msg, wparam, lparam)
+    })
 }
 
 /// The thread: a hidden window, the bands' windows and their message loop,

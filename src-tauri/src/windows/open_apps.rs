@@ -641,21 +641,25 @@ mod imp {
         _thread: u32,
         _time: u32,
     ) {
-        if object != OBJID_WINDOW.0 || child != 0 || hwnd.is_invalid() {
-            return;
-        }
-        // Windows of the program and its parts come by the thousand; only
-        // the top-level ones matter.
-        let top_level = unsafe { GetAncestor(hwnd, GA_PARENT) } == unsafe { GetDesktopWindow() };
-        if !top_level {
-            return;
-        }
-        GEOMETRY_DIRTY.store(true, Ordering::SeqCst);
-        // A move or a resize changes no program's windows.
-        if event != EVENT_OBJECT_LOCATIONCHANGE {
-            DIRTY.store(true, Ordering::SeqCst);
-        }
-        LAST_EVENT.store(now_ms(), Ordering::SeqCst);
+        // After a panic the event is dropped: nothing answers it.
+        let _ = crate::windows::panics::window_message(|| {
+            if object != OBJID_WINDOW.0 || child != 0 || hwnd.is_invalid() {
+                return;
+            }
+            // Windows of the program and its parts come by the thousand; only
+            // the top-level ones matter.
+            let top_level =
+                unsafe { GetAncestor(hwnd, GA_PARENT) } == unsafe { GetDesktopWindow() };
+            if !top_level {
+                return;
+            }
+            GEOMETRY_DIRTY.store(true, Ordering::SeqCst);
+            // A move or a resize changes no program's windows.
+            if event != EVENT_OBJECT_LOCATIONCHANGE {
+                DIRTY.store(true, Ordering::SeqCst);
+            }
+            LAST_EVENT.store(now_ms(), Ordering::SeqCst);
+        });
     }
 
     fn hook(min: u32, max: u32) -> HWINEVENTHOOK {
