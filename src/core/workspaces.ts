@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { errorKind, log } from "./log";
 import type { MoveDirection } from "./widgets";
+import { useTauriSnapshot, type SnapshotSource } from "./snapshot";
 
 /* The workspaces (spec 0013): each one is a dock of its own, with a name, a
  * color and the programs and widgets it shows, in order. Rust owns them;
@@ -177,42 +176,20 @@ export function inWorkspace<T extends { id: string }>(
   });
 }
 
+const WORKSPACES_SOURCE: SnapshotSource<WorkspacesSnapshot> = {
+  event: WORKSPACES_CHANGED_EVENT,
+  read: listWorkspaces,
+  accept: (value) =>
+    Array.isArray((value as WorkspacesSnapshot | null)?.workspaces)
+      ? (value as WorkspacesSnapshot)
+      : null,
+  readFailed: () => log.warn("workspaces: read failed"),
+  listenFailed: (error) =>
+    log.warn(`workspaces: listen failed: ${errorKind(error)}`),
+};
+
 /** The workspaces as they are, following `workspaces-changed`. null while
  * loading, and for good when they can't be read. */
 export function useWorkspaces(): WorkspacesSnapshot | null {
-  const [snapshot, setSnapshot] = useState<WorkspacesSnapshot | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    // A change may arrive before the first read answers; that read is older
-    // then, so it is dropped.
-    let changed = false;
-
-    const unlisten = listen<WorkspacesSnapshot>(
-      WORKSPACES_CHANGED_EVENT,
-      (event) => {
-        if (!active) return;
-        changed = true;
-        setSnapshot(event.payload);
-      },
-    );
-
-    listWorkspaces().then(
-      (current) => {
-        if (active && !changed && Array.isArray(current?.workspaces)) {
-          setSnapshot(current);
-        }
-      },
-      () => {
-        if (active) log.warn("workspaces: read failed");
-      },
-    );
-
-    return () => {
-      active = false;
-      void unlisten.then((stop) => stop());
-    };
-  }, []);
-
-  return snapshot;
+  return useTauriSnapshot(WORKSPACES_SOURCE);
 }
