@@ -325,6 +325,12 @@ function SettingsPanel({
     t.settings.showOpenAppsHint,
     true,
   );
+  const showBadgesField = dockToggle(
+    "showBadges",
+    t.settings.showBadges,
+    t.settings.showBadgesHint,
+    true,
+  );
   const middleClickField = (
     <OptionGroup
       label={t.settings.groups.middleClick}
@@ -438,6 +444,7 @@ function SettingsPanel({
           {autoHideFields}
           {previewFields}
           {showOpenAppsField}
+          {showBadgesField}
           {middleClickField}
           {dockHotkeyField}
         </SettingsGroup>
@@ -481,12 +488,7 @@ function SettingsPanel({
       {autoHideFields}
       {previewFields}
       {showOpenAppsField}
-      {dockToggle(
-        "showBadges",
-        t.settings.showBadges,
-        t.settings.showBadgesHint,
-        true,
-      )}
+      {showBadgesField}
       {launchAtLoginField}
       {launcherField}
       {webKeywordsField}
