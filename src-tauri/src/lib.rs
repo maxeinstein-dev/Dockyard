@@ -31,6 +31,9 @@ fn startup() -> TauriPlugin<Wry> {
             // After the settings: the dock and Settings work even when the
             // widget database can't be used.
             commands::widgets::setup(app);
+            // Before any WebView2 runs, which would hold the files.
+            #[cfg(windows)]
+            windows::components::drop_downloaded(app);
             Ok(())
         })
         .build()

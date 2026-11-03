@@ -11,6 +11,8 @@ pub mod calendar;
 #[cfg(windows)]
 pub mod claude_usage;
 #[cfg(windows)]
+pub mod components;
+#[cfg(windows)]
 pub mod credentials;
 pub mod dock;
 #[cfg(windows)]
@@ -37,6 +39,7 @@ pub mod monitors;
 mod native;
 #[cfg(windows)]
 pub mod native_dock;
+pub mod native_window;
 #[cfg(windows)]
 pub mod open_apps;
 #[cfg(windows)]
@@ -84,4 +87,4 @@ pub mod window_spaces;
 /// same in all of them, or the windows can't share the browser process):
 /// the panel's and the settings', both made on demand (ADR 0006, ADR 0010,
 /// spec 0011). The dock has no WebView2.
-pub const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --process-per-site --in-process-gpu";
+pub const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --process-per-site --in-process-gpu --disable-component-update";
