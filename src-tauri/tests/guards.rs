@@ -859,7 +859,7 @@ fn e2e_config_only_renames_the_app() {
                 "url": "e2e.html",
                 "visible": false,
                 "skipTaskbar": true,
-                "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --process-per-site --in-process-gpu"
+                "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --process-per-site --in-process-gpu --disable-component-update"
             }]
         }),
         "{file}: `app` may only add the hidden `e2e` window"
