@@ -7,6 +7,7 @@
 //! monitor's.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use windows::Win32::Foundation::{COLORREF, HWND, POINT, RECT, SIZE};
 use windows::Win32::Graphics::Direct2D::Common::{
@@ -56,7 +57,7 @@ use super::theme::{APP_INK, Color, Glaze, Palette};
 use crate::domain::badges::Badge;
 use crate::domain::calendar;
 use crate::domain::dock_layout::{self, Area};
-use crate::domain::settings::{DockEdge, IconShape, Indicator};
+use crate::domain::settings::{DockEdge, DockStyle, IconShape, Indicator};
 use crate::domain::system_activity::HISTORY;
 use crate::domain::widgets::system::ActivityStyle;
 
@@ -337,6 +338,9 @@ pub struct Scene {
     pub indicator_color: Color,
     /// The ring around the item the keyboard is on (M14).
     pub focus: Option<FocusRing>,
+    /// The folder skin the bar wears with the Custom style (spec 0020,
+    /// Q14), as read off the paint (`read_data`).
+    pub custom_skin: Option<Arc<crate::domain::skin::CachedSkin>>,
 }
 
 /// The ring around the item the keyboard is on: its box, the ring's color
@@ -491,8 +495,10 @@ pub struct Painter {
     round: ID2D1StrokeStyle,
     squircle: ID2D1PathGeometry,
     geometries: HashMap<&'static str, ID2D1PathGeometry>,
-    /// The bitmap of each skin drawn (spec 0020 §3), made once.
-    skins: HashMap<&'static str, ID2D1Bitmap>,
+    /// The bitmap of each skin drawn (spec 0020 §3), made once: a bundled
+    /// one by its id, a folder one by its `CachedSkin::key`, which changes
+    /// with its files.
+    skins: HashMap<String, ID2D1Bitmap>,
     formats: HashMap<TextKey, IDWriteTextFormat>,
     /// Windows' icon font, by size (hundredths of a pixel).
     icon_formats: HashMap<u32, IDWriteTextFormat>,
@@ -1119,19 +1125,33 @@ impl Painter {
     /// they are and the middle in tiles, at the bar's height, without
     /// smoothing for pixel art.
     fn skin_bar(&mut self, scene: &Scene) {
-        let Some(skin) = crate::domain::skin::skin_of(scene.look.style) else {
-            return;
+        let (key, png, meta) = match (scene.look.style, &scene.custom_skin) {
+            (DockStyle::Custom, Some(custom)) => (
+                custom.key.as_str(),
+                custom.skin.png.as_slice(),
+                &custom.skin.meta,
+            ),
+            (style, _) => {
+                let Some(skin) = crate::domain::skin::skin_of(style) else {
+                    return;
+                };
+                (skin.id, skin.png, skin.meta())
+            }
         };
-        if !self.skins.contains_key(skin.id) {
-            let Some(bitmap) = self.bitmap(skin.png) else {
+        if !self.skins.contains_key(key) {
+            let Some(bitmap) = self.bitmap(png) else {
                 return;
             };
-            self.skins.insert(skin.id, bitmap);
+            // One folder skin at a time: an edited or another one lets go
+            // of the bitmap before it.
+            if key.starts_with("folder/") {
+                self.skins.retain(|kept, _| !kept.starts_with("folder/"));
+            }
+            self.skins.insert(key.to_owned(), bitmap);
         }
-        let Some(bitmap) = self.skins.get(skin.id) else {
+        let Some(bitmap) = self.skins.get(key) else {
             return;
         };
-        let meta = skin.meta();
         let bar = scene.bar;
         let mode = if meta.pixelated {
             D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR
@@ -2940,6 +2960,14 @@ impl Painter {
     fn tip(&mut self, scene: &Scene, tip: &Tip) {
         let width = self.label_width(&tip.text);
         let (x, y) = tip.anchor;
+        // Moved in to stay whole inside the window, near its sides.
+        let x = match &self.surface {
+            Some(surface) => {
+                let window = f64::from(surface.width) * 96.0 / f64::from(self.dpi);
+                dock_layout::tip_center(x, width, window)
+            }
+            None => x,
+        };
         let top = match scene.edge {
             DockEdge::Bottom => y - 24.0,
             DockEdge::Top => y,

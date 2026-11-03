@@ -265,6 +265,26 @@ export const en: Messages = {
         cyberpunk: "Cyberpunk",
         arcade: "Arcade",
         scifi: "Sci-fi",
+        custom: "Folder skin",
+      },
+      skinsHint:
+        "Each folder with skin.json and skin.png in the Skins folder becomes a style",
+      skinsFailed: "The Skins folder couldn't be read",
+      skinMissing: "Unavailable",
+      openSkinsFolder: "Open Skins folder",
+      skinProblem: "Folder {folder}: {reason}",
+      skinProblems: {
+        badName:
+          "the folder name must be up to 40 letters, digits, spaces, _ . or -",
+        noJson: "skin.json is missing",
+        badJson: "skin.json isn't valid",
+        badImageName: 'the image field of skin.json must be "skin.png"',
+        noImage: "skin.png is missing",
+        tooBig: "skin.png is over 2 MB",
+        notPng: "skin.png isn't a PNG",
+        sizeMismatch: "skin.png isn't the size skin.json says",
+        badSlice:
+          "the size is over 4096 px or the ends are wider than the image",
       },
       tweaks: "Customize this style",
       border: "Border",
