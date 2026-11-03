@@ -137,3 +137,11 @@ span.mini-app {
 .mini-bar[data-skin]::before {
   display: none;
 }
+
+/* Windows' contrast mode (M6): the miniatures are pictures of each style,
+   kept as they are; the card around them follows the contrast colors. */
+@media (forced-colors: active) {
+  .mini-wall {
+    forced-color-adjust: none;
+  }
+}
