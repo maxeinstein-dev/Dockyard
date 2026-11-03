@@ -52,14 +52,14 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     CS_DBLCLKS, CreateWindowExW, DefWindowProcW, DestroyCursor, DestroyWindow, GetWindowRect,
-    HCURSOR, HWND_MESSAGE, HWND_TOPMOST, IDC_ARROW, KillTimer, LoadCursorW, PostMessageW,
-    RegisterClassW, SPI_GETCLIENTAREAANIMATION, SW_HIDE, SW_SHOWNOACTIVATE, SWP_NOACTIVATE,
-    SWP_NOMOVE, SWP_NOSIZE, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS, SetCursor, SetTimer, SetWindowPos,
-    ShowWindow, SystemParametersInfoW, WM_ACTIVATE, WM_APP, WM_CAPTURECHANGED, WM_CLOSE,
-    WM_DISPLAYCHANGE, WM_DPICHANGED, WM_GETOBJECT, WM_HOTKEY, WM_KEYDOWN, WM_KILLFOCUS,
-    WM_LBUTTONDBLCLK, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEMOVE,
-    WM_MOUSEWHEEL, WM_RBUTTONUP, WM_SETTINGCHANGE, WM_SYSKEYDOWN, WM_TIMER, WNDCLASSW,
-    WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
+    HCURSOR, HWND_MESSAGE, HWND_TOPMOST, IDC_ARROW, KillTimer, LoadCursorW, RegisterClassW,
+    SPI_GETCLIENTAREAANIMATION, SW_HIDE, SW_SHOWNOACTIVATE, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+    SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS, SetCursor, SetTimer, SetWindowPos, ShowWindow,
+    SystemParametersInfoW, WM_ACTIVATE, WM_APP, WM_CAPTURECHANGED, WM_CLOSE, WM_DISPLAYCHANGE,
+    WM_DPICHANGED, WM_GETOBJECT, WM_HOTKEY, WM_KEYDOWN, WM_KILLFOCUS, WM_LBUTTONDBLCLK,
+    WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEMOVE, WM_MOUSEWHEEL,
+    WM_RBUTTONUP, WM_SETTINGCHANGE, WM_SYSKEYDOWN, WM_TIMER, WNDCLASSW, WS_EX_LAYERED,
+    WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
 };
 use windows::core::{PCWSTR, w};
 
@@ -179,9 +179,10 @@ static SHOWN: AtomicBool = AtomicBool::new(false);
 
 static APP: std::sync::OnceLock<AppHandle> = std::sync::OnceLock::new();
 
-type Work = Box<dyn FnOnce(&mut Vec<Dock>) + Send>;
+type Work = super::native_window::Work<Vec<Dock>>;
 
-static QUEUE: Mutex<Vec<Work>> = Mutex::new(Vec::new());
+static QUEUE: super::native_window::WorkQueue<Vec<Dock>> =
+    super::native_window::WorkQueue::new(&WAKE, WM_RUN);
 
 thread_local! {
     /// One per monitor, the primary monitor's first.
@@ -355,14 +356,7 @@ pub struct Dock {
 
 /// Queues `work` for the docks, from any thread, and wakes them.
 fn queue(work: Work) {
-    QUEUE
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner)
-        .push(work);
-    let hwnd = WAKE.load(Ordering::SeqCst);
-    if hwnd != 0 {
-        let _ = unsafe { PostMessageW(Some(HWND(hwnd as _)), WM_RUN, WPARAM(0), LPARAM(0)) };
-    }
+    QUEUE.push(work);
 }
 
 /// Queues `work` for every dock.
@@ -615,16 +609,7 @@ fn with_dock(hwnd: HWND, change: impl FnOnce(&mut Dock)) {
 
 /// The work queued by other threads, in order.
 fn run_queue() {
-    loop {
-        let work: Vec<Work> =
-            std::mem::take(&mut *QUEUE.lock().unwrap_or_else(PoisonError::into_inner));
-        if work.is_empty() {
-            return;
-        }
-        for item in work {
-            with_docks(item);
-        }
-    }
+    QUEUE.drain(with_docks);
 }
 
 /// What the dock on the monitor `monitor` (its device name) shows.

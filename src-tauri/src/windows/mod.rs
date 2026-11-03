@@ -39,6 +39,7 @@ pub mod monitors;
 mod native;
 #[cfg(windows)]
 pub mod native_dock;
+pub mod native_window;
 #[cfg(windows)]
 pub mod open_apps;
 #[cfg(windows)]
