@@ -10,7 +10,7 @@ Extensão da fase G ([spec 0019](0019-fase-g-extras.md)): **temas** que vestem o
 5. Medieval 8-bit (#116);
 6. Caçador (#117).
 
-Também entrou o "experimentar e voltar" (#115). Ficam para depois: os temas Cyberpunk, Arcade e Sci-fi; os widgets do dock no tom do tema (Q9); e uma pasta `Skins` para barras de terceiros (Q14).
+Também entrou o "experimentar e voltar" (#115). A segunda leva gamer, com Cyberpunk, Fliperama e Espacial, entrou em 2026-11-03 (§4). Ficam para depois: os widgets do dock no tom do tema (Q9) e uma pasta `Skins` para barras de terceiros (Q14).
 
 **Verificação final** (2026-10-30, build e2e da `main` com os seis passos, cópia dos dados do autor):
 - **Os 11 temas:** aplicados pelos cartões, um a um. Cada um perguntou "Manter este tema?", foi mantido e gravou estilo e pacote, e o dock desenhou a barra e os ícones dele. Fotos em [`docs/fotos/g7-11-temas-ao-vivo.png`](../fotos/g7-11-temas-ao-vivo.png).
@@ -106,3 +106,15 @@ Tomadas numa sessão de perguntas (Q1–Q22), todas na recomendação:
   - **Pacote** `cacador` (`fonte/cacador.txt`, estilo de camadas `cacador`): medalhão com aro de osso (`#EDE4CC` → `#B9AB8C`) e couro dentro (`#7A4E2C` → `#4A2E18`), com vinco escuro. O glifo, de traço 2,2, é gravado em âmbar, com sombra embaixo e à direita e luz em cima e à esquerda. Cobre os 55 glifos. A reserva é uma pegada de garra (`apps/garra.png`). O `disco` das camadas passa a aceitar `recuo`, como o octógono.
   - **Tema** `hunter`: skin Caçador, pacote Caçador e indicador do estilo.
   - **Verificado ao vivo** (2026-10-30, build e2e, cópia dos dados do autor): o cartão Caçador perguntou "Manter este tema?", gravou estilo `hunter` e pacote `cacador`, e o dock desenhou o couro com a costura, as pontas de osso, os medalhões gravados e as marcas âmbar, sem "Cantos". Memória: 298 MB em 7 processos com Configurações aberta. A barra do Windows ficou igual. Fotos em [`docs/fotos/g7-cacador-ao-vivo.png`](../fotos/g7-cacador-ao-vivo.png).
+- **Segunda leva** (2026-11-03, pedido do autor depois da primeira): a mesma receita, com desenho próprio e sem nome, logo ou arte de jogo.
+  - **Cyberpunk:**
+    - **Skin** `cyberpunk` (`skins/fonte/cyberpunk.py`, em vetor): 56×64 px, pontas de 26 px e meio esticado, suavizada. Asfalto quase preto em gradiente (`#1A1624` → `#0B0A10`), com dois cantos cortados em diagonal (em cima à esquerda e embaixo à direita). Fio ciano (`#2EF2FF`) a 6 px do topo e fio magenta (`#FF2BD6`) a 6 px da base, os dois com brilho, e pedaços deles deslocados nas pontas, como uma imagem que falha. Separador magenta a 35%, relógio ciano, indicador magenta. Barra escura nos dois modos.
+    - **Pacote** `cyberpunk` (`fonte/cyberpunk.txt`, estilo de camadas `cyberpunk`): placa hexagonal deitada (a forma nova `hexagono` das camadas), quase preta, com aro magenta e o glifo em néon ciano, com brilho e núcleo claro. Cobre os 55 glifos. A reserva é um chip (`apps/chip.png`).
+  - **Fliperama:**
+    - **Skin** `arcade` (`skins/fonte/arcade.txt`, pixel art 16×16): moldura de gabinete preta com friso cromado, painel azul-noite, as listras de corrida (vermelho `#FF3B3B`, laranja `#FF8A1F` e amarelo `#FFD23F`) e uma entrada de ficha acesa em cada ponta (4 px). O meio se repete (8 px). Separador cromado, relógio e indicador amarelo. Barra escura nos dois modos.
+    - **Pacote** `fliperama` (`fonte/fliperama.txt`, pixel art 32×32, `gerar.py`): cada app é um sprite na cor de fliperama mais perto da matiz dele (vermelho, laranja, amarelo, verde, ciano, azul, roxo ou rosa), com 1 px de sombra, numa tela escura com linhas de varredura e moldura. Os desenhos foram feitos uma vez por `fonte/pixelar.py` a partir de `glifos.txt` e se editam no texto, como os do Medieval. A reserva é um joystick (`apps/joystick.png`).
+  - **Espacial:**
+    - **Skin** `scifi` (`skins/fonte/scifi.py`, em vetor): 56×64 px, pontas de 26 px e meio esticado, suavizada. Casco de metal azul-acinzentado em gradiente (`#3A4458` → `#1C2230`) com os quatro cantos chanfrados, filete de luz no topo, faixa de luz ciano (`#4FD8FF`) perto da base, com brilho, e divisas que apontam para fora e rebites nas pontas. Separador ciano a 30%, relógio aço claro (`#9FB2CC`), indicador ciano. Barra escura nos dois modos.
+    - **Pacote** `espacial` (`fonte/espacial.txt`, estilo de camadas `espacial`): escotilha com aro de metal (`#7A879C` → `#3A4458`), anel ciano, vidro azul-marinho (`#13234A` → `#070E22`) e o glifo branco com brilho ciano. Cobre os 55 glifos. A reserva é um planeta com anel (`apps/planeta.png`).
+  - **Temas** `cyberpunk`, `arcade` e `scifi`: cada um com a skin e o pacote dele e o indicador do estilo. Aparecem na galeria depois do Caçador, e as skins e os pacotes aparecem também avulsos (Q19).
+  - **A verificar ao vivo**: os três cartões e o dock com cada um, como nos temas da primeira leva.

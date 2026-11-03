@@ -78,7 +78,10 @@ fn own(style: DockStyle) -> (bool, u8, bool) {
         | DockStyle::Phosphor
         | DockStyle::Tactical
         | DockStyle::Medieval
-        | DockStyle::Hunter => (false, 0, false),
+        | DockStyle::Hunter
+        | DockStyle::Cyberpunk
+        | DockStyle::Arcade
+        | DockStyle::Scifi => (false, 0, false),
     }
 }
 
@@ -233,6 +236,30 @@ impl Look {
                 separator: Some(Color::rgba(0xe8, 0xd2, 0xa6, 0.4)),
                 ink: Some(Color::rgb(0xe8, 0xd2, 0xa6)),
                 indicator: Some(Color::rgb(0xf2, 0xa3, 0x3a)),
+                ..base
+            },
+            DockStyle::Cyberpunk => Look {
+                skin: true,
+                border: false,
+                separator: Some(Color::rgba(0xff, 0x2b, 0xd6, 0.35)),
+                ink: Some(Color::rgb(0x2e, 0xf2, 0xff)),
+                indicator: Some(Color::rgb(0xff, 0x2b, 0xd6)),
+                ..base
+            },
+            DockStyle::Arcade => Look {
+                skin: true,
+                border: false,
+                separator: Some(Color::rgb(0x5c, 0x61, 0x78)),
+                ink: Some(Color::rgb(0xff, 0xd2, 0x3f)),
+                indicator: Some(Color::rgb(0xff, 0xd2, 0x3f)),
+                ..base
+            },
+            DockStyle::Scifi => Look {
+                skin: true,
+                border: false,
+                separator: Some(Color::rgba(0x4f, 0xd8, 0xff, 0.3)),
+                ink: Some(Color::rgb(0x9f, 0xb2, 0xcc)),
+                indicator: Some(Color::rgb(0x4f, 0xd8, 0xff)),
                 ..base
             },
         }
