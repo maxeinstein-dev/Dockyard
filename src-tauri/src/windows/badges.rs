@@ -50,8 +50,21 @@ const BUTTON_CLASS: &str = "Taskbar.TaskListButtonAutomationPeer";
 const QUIET: Duration = Duration::from_millis(250);
 /// The longest a read waits for a burst to end, when events keep coming.
 const AT_MOST: Duration = Duration::from_millis(1500);
-/// How often the buttons are read with no event.
-const HEARTBEAT: Duration = Duration::from_secs(10);
+/// How often the buttons are read with no event, while the taskbar's events
+/// come: only a safety net for one that got lost.
+const HEARTBEAT: Duration = Duration::from_secs(30);
+/// How often they are read with no events to wait for (the taskbar could
+/// not be followed): the reading is all there is.
+const HEARTBEAT_BLIND: Duration = Duration::from_secs(10);
+
+/// How long the thread waits for an event before reading anyway.
+fn heartbeat(following: bool) -> Duration {
+    if following {
+        HEARTBEAT
+    } else {
+        HEARTBEAT_BLIND
+    }
+}
 /// How deep under a button its texts are looked for.
 const DEPTH: usize = 6;
 
@@ -311,7 +324,7 @@ fn run() -> Result<()> {
             None => Vec::new(),
         };
         publish(buttons);
-        match woken.recv_timeout(HEARTBEAT) {
+        match woken.recv_timeout(heartbeat(attached.is_some())) {
             Ok(()) => settle(&woken),
             Err(RecvTimeoutError::Timeout) => {}
             Err(RecvTimeoutError::Disconnected) => return Ok(()),
@@ -401,5 +414,17 @@ mod probe {
                 println!("  {button:?}");
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_buttons_are_read_seldom_while_the_events_come() {
+        assert_eq!(heartbeat(true), Duration::from_secs(30));
+        // Without the taskbar's events, the reading is all there is.
+        assert_eq!(heartbeat(false), Duration::from_secs(10));
     }
 }
