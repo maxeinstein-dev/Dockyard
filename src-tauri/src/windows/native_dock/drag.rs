@@ -124,6 +124,32 @@ impl Dock {
         index.and_then(|index| self.program_id(index))
     }
 
+    /// Files dropped at the screen x `x` (physical pixels) that get pinned:
+    /// the key of the pinned program or widget they go before, `None` past
+    /// the last one (or with no such item).
+    pub(super) fn dropped_before(&self, x: i32) -> Option<String> {
+        let count = self.groups.first().copied().unwrap_or(0);
+        let group = self.items.get(..count)?;
+        if !group
+            .iter()
+            .all(|item| matches!(item, Item::App(_) | Item::Widget(_)))
+        {
+            return None;
+        }
+        let mut origin = POINT::default();
+        unsafe { windows::Win32::Graphics::Gdi::ClientToScreen(self.hwnd, &mut origin) }
+            .as_bool()
+            .then_some(())?;
+        let rest = self.rest();
+        let centers: Vec<f64> = rest
+            .items
+            .get(..count)?
+            .iter()
+            .map(Area::center_x)
+            .collect();
+        dock_items::dropped_before(group, &centers, x, origin.x, self.scale)
+    }
+
     /// The group an item can be dragged in, as its first index and its size:
     /// the pinned programs and the widgets, mixed, or the open programs. The
     /// system items stay where they are.
