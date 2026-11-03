@@ -180,9 +180,8 @@ static MENU_OPEN: AtomicBool = AtomicBool::new(false);
 
 static APP: std::sync::OnceLock<AppHandle> = std::sync::OnceLock::new();
 
-type Work = Box<dyn FnOnce(&mut Launcher) + Send>;
-
-static QUEUE: Mutex<Vec<Work>> = Mutex::new(Vec::new());
+static QUEUE: super::native_window::WorkQueue<Launcher> =
+    super::native_window::WorkQueue::new(&FRAME, WM_RUN);
 
 thread_local! {
     static LAUNCHER: RefCell<Option<Launcher>> = const { RefCell::new(None) };
@@ -611,14 +610,7 @@ type Elevated = Result<(), super::apps::Elevation>;
 
 /// Queues `work` for the launcher, from any thread, and wakes it.
 pub fn post(work: impl FnOnce(&mut Launcher) + Send + 'static) {
-    QUEUE
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner)
-        .push(Box::new(work));
-    let hwnd = FRAME.load(Ordering::SeqCst);
-    if hwnd != 0 {
-        let _ = unsafe { PostMessageW(Some(HWND(hwnd as _)), WM_RUN, WPARAM(0), LPARAM(0)) };
-    }
+    QUEUE.push(Box::new(work));
 }
 
 /// Runs `change` on the launcher; nothing while it is busy (a message sent
@@ -634,16 +626,7 @@ fn with(change: impl FnOnce(&mut Launcher)) {
 }
 
 fn run_queue() {
-    loop {
-        let work: Vec<Work> =
-            std::mem::take(&mut *QUEUE.lock().unwrap_or_else(PoisonError::into_inner));
-        if work.is_empty() {
-            return;
-        }
-        for item in work {
-            with(item);
-        }
-    }
+    QUEUE.drain(with);
 }
 
 /// Makes the launcher's windows, hidden, and takes Alt+Space when the
