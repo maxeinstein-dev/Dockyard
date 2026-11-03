@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { errorKind, log } from "./log";
+import { useTauriSnapshot, type SnapshotSource } from "./snapshot";
 
 /* The launcher (spec 0012): a native window Rust opens with its hotkey.
  * Configurações switches it, says when another program holds the hotkey,
@@ -137,38 +136,18 @@ export function clearLauncherHistory(): Promise<boolean> {
   );
 }
 
+const LAUNCHER_STATUS_SOURCE: SnapshotSource<LauncherStatus> = {
+  event: LAUNCHER_STATUS_EVENT,
+  read: () => invoke<LauncherStatus>(LAUNCHER_STATUS_COMMAND),
+  accept: (value) => (value as LauncherStatus | null) ?? null,
+  readFailed: (error) =>
+    log.warn(`launcher: status read failed: ${errorKind(error)}`),
+  listenFailed: (error) =>
+    log.warn(`launcher: status: listen failed: ${errorKind(error)}`),
+};
+
 /** The launcher's status, kept current by `launcher-status`; null while
  * loading, and for good if it can't be read. */
 export function useLauncherStatus(): LauncherStatus | null {
-  const [status, setStatus] = useState<LauncherStatus | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    // A change may arrive before the first read answers: the read is older
-    // then, and is dropped.
-    let changed = false;
-
-    const unlisten = listen<LauncherStatus>(LAUNCHER_STATUS_EVENT, (event) => {
-      if (!active) return;
-      changed = true;
-      setStatus(event.payload);
-    });
-
-    invoke<LauncherStatus>(LAUNCHER_STATUS_COMMAND).then(
-      (current) => {
-        if (active && !changed) setStatus(current);
-      },
-      (error: unknown) => {
-        if (active)
-          log.warn(`launcher: status read failed: ${errorKind(error)}`);
-      },
-    );
-
-    return () => {
-      active = false;
-      void unlisten.then((stop) => stop());
-    };
-  }, []);
-
-  return status;
+  return useTauriSnapshot(LAUNCHER_STATUS_SOURCE);
 }

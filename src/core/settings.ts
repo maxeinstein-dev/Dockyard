@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { errorKind, log } from "./log";
+import { useTauriSnapshot, type SnapshotSource } from "./snapshot";
 
 /* The user settings, `settings.json` v1 (spec 0002 §2.3 item 3). Must match
  * `Settings` in `src-tauri/src/domain/settings.rs`. Rust is the source of
@@ -439,38 +438,18 @@ export function updateSettings(settings: Settings): Promise<Settings> {
   );
 }
 
+const SETTINGS_SOURCE: SnapshotSource<Settings> = {
+  event: SETTINGS_CHANGED_EVENT,
+  read: getSettings,
+  accept: (value) => (value as Settings | null) ?? null,
+  readFailed: (error) => log.warn(`settings: read failed: ${errorKind(error)}`),
+  listenFailed: (error) =>
+    log.warn(`settings: listen failed: ${errorKind(error)}`),
+};
+
 /** The settings in use, kept current by `settings-changed`; null while
  * loading, and for good if they can't be read (the window then keeps its
  * defaults). */
 export function useSettings(): Settings | null {
-  const [settings, setSettings] = useState<Settings | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    // A change may arrive before the initial read answers; the read is
-    // older then, so it is dropped.
-    let changed = false;
-
-    const unlisten = listen<Settings>(SETTINGS_CHANGED_EVENT, (event) => {
-      if (!active) return;
-      changed = true;
-      setSettings(event.payload);
-    });
-
-    getSettings().then(
-      (current) => {
-        if (active && !changed) setSettings(current);
-      },
-      (error: unknown) => {
-        if (active) log.warn(`settings: read failed: ${errorKind(error)}`);
-      },
-    );
-
-    return () => {
-      active = false;
-      void unlisten.then((stop) => stop());
-    };
-  }, []);
-
-  return settings;
+  return useTauriSnapshot(SETTINGS_SOURCE);
 }
