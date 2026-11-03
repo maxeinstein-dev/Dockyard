@@ -20,7 +20,8 @@ class Forma:
     def __init__(self, tipo, lado, glifo=None, caixa=0.54, largura=1.75, nucleo=1.0, recuo=0.0):
         self.tipo, self.lado = tipo, lado
         self.glifo, self.caixa, self.largura, self.nucleo = glifo, caixa, largura, nucleo
-        # `octogono`: quanto a forma entra, em pixels, de cada lado.
+        # `octogono`, `hexagono` e `disco`: quanto a forma entra, em pixels,
+        # de cada lado.
         self.recuo = recuo
         self.t, self.x0, self.y0 = geometria_esmalte(lado)
 
@@ -38,6 +39,18 @@ class Forma:
             f"L{n(x + s - c)} {n(y + s)}H{n(x + c)}L{n(x)} {n(y + s - c)}V{n(y + c)}Z"
         )
 
+    def hexagono(self, dx=0.0, dy=0.0):
+        """O caminho do hexágono deitado: pontas à esquerda e à direita, os
+        lados de cima e de baixo retos, na largura da placa."""
+        s = self.t - 2 * self.recuo
+        x, y = self.x0 + self.recuo + dx, self.y0 + self.recuo + dy
+        a = s * 0.25
+        topo, base = y + s * 0.07, y + s * 0.93
+        return (
+            f"M{n(x + a)} {n(topo)}H{n(x + s - a)}L{n(x + s)} {n(y + s / 2)}"
+            f"L{n(x + s - a)} {n(base)}H{n(x + a)}L{n(x)} {n(y + s / 2)}Z"
+        )
+
     def caixa_glifo(self):
         """O lado da caixa de 24 do glifo e onde ela começa."""
         lado = self.t * self.caixa
@@ -49,6 +62,8 @@ class Forma:
             m.preencher(mover(achatar(SUPERELIPSE), self.t / 100, self.x0 + dx, self.y0 + dy))
         elif self.tipo == "octogono":
             m.preencher(achatar(self.octogono(dx, dy)))
+        elif self.tipo == "hexagono":
+            m.preencher(achatar(self.hexagono(dx, dy)))
         elif self.tipo == "disco":
             r = self.t / 2 - self.recuo
             cx, cy = self.x0 + self.t / 2 + dx, self.y0 + self.t / 2 + dy
@@ -66,6 +81,8 @@ class Forma:
             return f'<path d="{SUPERELIPSE}" transform="translate({n(self.x0 + dx)} {n(self.y0 + dy)}) scale({n(self.t / 100)})" {tinta}/>'
         if self.tipo == "octogono":
             return f'<path d="{self.octogono(dx, dy)}" {tinta}/>'
+        if self.tipo == "hexagono":
+            return f'<path d="{self.hexagono(dx, dy)}" {tinta}/>'
         if self.tipo == "disco":
             r = self.t / 2 - self.recuo
             return f'<circle cx="{n(self.x0 + self.t / 2 + dx)}" cy="{n(self.y0 + self.t / 2 + dy)}" r="{n(r)}" {tinta}/>'
@@ -353,4 +370,44 @@ def cacador(glifo, lado, estilo):
     ]
 
 
-ESTILOS = {"cacador": cacador, "tatico": tatico, "circulo": circulo, "tom": tom, "vidro": vidro, "neon": neon, "argila": argila}
+def cyberpunk(glifo, lado, estilo):
+    """Placa hexagonal quase preta com o aro magenta e o glifo ciano em néon,
+    com o brilho em volta e o núcleo claro (spec 0020 §4)."""
+    k = geometria_esmalte(lado)[0] / 48
+    placa = Forma("hexagono", lado)
+    dentro = Forma("hexagono", lado, recuo=1.6 * k)
+    traco = Forma("glifo", lado, glifo, caixa=numero(estilo, "caixa"))
+    nucleo = Forma("glifo", lado, glifo, caixa=numero(estilo, "caixa"), nucleo=0.45)
+    ciano, magenta = cor_hex(estilo["cor"]), cor_hex(estilo["aro"])
+    return [
+        Camada(placa, ("cor", PRETO), 0.35, dy=1.5 * k, borrao=2),
+        Camada(placa, ("vertical", cor_hex(estilo["placa"]), cor_hex(estilo["placa-base"]))),
+        Camada(placa, ("cor", magenta), 0.5, menos=(dentro, 0.0, 0.0), borrao=2),
+        Camada(placa, ("cor", magenta), 0.95, menos=(dentro, 0.0, 0.0)),
+        Camada(traco, ("cor", ciano), 0.75, borrao=4, recorte=placa),
+        Camada(traco, ("cor", ciano)),
+        Camada(nucleo, ("cor", BRANCO), 0.7),
+    ]
+
+
+def espacial(glifo, lado, estilo):
+    """Escotilha: aro de metal, o vidro azul-marinho, um anel ciano por
+    dentro e o glifo branco com brilho ciano (spec 0020 §4)."""
+    k = geometria_esmalte(lado)[0] / 48
+    aro = Forma("disco", lado)
+    anel = Forma("disco", lado, recuo=3.6 * k)
+    vidro_ = Forma("disco", lado, recuo=5.0 * k)
+    traco = Forma("glifo", lado, glifo, caixa=numero(estilo, "caixa"))
+    ciano = cor_hex(estilo["cor"])
+    return [
+        Camada(aro, ("cor", PRETO), 0.35, dy=1.5 * k, borrao=3),
+        Camada(aro, ("vertical", cor_hex(estilo["metal"]), cor_hex(estilo["metal-base"]))),
+        Camada(aro, ("cor", BRANCO), 0.25, menos=(aro, 0.0, 1.0 * k), recorte=aro),
+        Camada(anel, ("cor", ciano)),
+        Camada(vidro_, ("vertical", cor_hex(estilo["vidro"]), cor_hex(estilo["vidro-base"]))),
+        Camada(traco, ("cor", ciano), 0.6, borrao=3, recorte=vidro_),
+        Camada(traco, ("cor", BRANCO)),
+    ]
+
+
+ESTILOS = {"cyberpunk": cyberpunk, "espacial": espacial, "cacador": cacador, "tatico": tatico, "circulo": circulo, "tom": tom, "vidro": vidro, "neon": neon, "argila": argila}

@@ -17,7 +17,10 @@ export type ThemeId =
   | "phosphor"
   | "tactical"
   | "medieval"
-  | "hunter";
+  | "hunter"
+  | "cyberpunk"
+  | "arcade"
+  | "scifi";
 
 export interface Theme {
   id: ThemeId;
@@ -77,6 +80,24 @@ export const THEMES: readonly Theme[] = [
     id: "hunter",
     style: "hunter",
     iconPack: "cacador",
+    indicatorColor: null,
+  },
+  {
+    id: "cyberpunk",
+    style: "cyberpunk",
+    iconPack: "cyberpunk",
+    indicatorColor: null,
+  },
+  {
+    id: "arcade",
+    style: "arcade",
+    iconPack: "fliperama",
+    indicatorColor: null,
+  },
+  {
+    id: "scifi",
+    style: "scifi",
+    iconPack: "espacial",
     indicatorColor: null,
   },
 ];

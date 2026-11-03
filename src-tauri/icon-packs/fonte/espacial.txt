@@ -1,0 +1,22 @@
+# Pacote Espacial (spec 0020 §4): os glifos de glifos.txt em branco, com
+# brilho ciano, numa escotilha: aro de metal, um anel ciano e o vidro
+# azul-marinho. A reserva é um planeta com anel. A escotilha é escura nos
+# dois modos.
+# Para gerar de novo: python vetor.py espacial
+
+pack.name: Espacial
+pack.author: Dockyard
+pack.version: 1.0.0
+pack.description: Glifos brancos com brilho ciano em escotilhas de metal com vidro azul-marinho.
+pack.accent: #4FD8FF
+
+estilo: espacial
+lado: 128
+caixa: 0.46
+cor: #4FD8FF
+metal: #7A879C
+metal-base: #3A4458
+vidro: #13234A
+vidro-base: #070E22
+reserva-id: planeta
+reserva: M12 7a5 5 0 1 1 0 10a5 5 0 1 1 0-10 | M4 15c-1.6 1.7-1.2 2.8 1 2.8 2.9 0 7.7-1.8 11.4-4.4 3.7-2.6 5.3-5.3 3.6-6.3

@@ -1,0 +1,20 @@
+# Pacote Cyberpunk (spec 0020 §4): os glifos de glifos.txt em néon ciano,
+# sobre uma placa hexagonal quase preta com o aro magenta. A reserva é um
+# chip. A placa é escura nos dois modos.
+# Para gerar de novo: python vetor.py cyberpunk
+
+pack.name: Cyberpunk
+pack.author: Dockyard
+pack.version: 1.0.0
+pack.description: Glifos em néon ciano em placas hexagonais pretas com aro magenta.
+pack.accent: #FF2BD6
+
+estilo: cyberpunk
+lado: 128
+caixa: 0.5
+cor: #2EF2FF
+aro: #FF2BD6
+placa: #1A1626
+placa-base: #0B0A10
+reserva-id: chip
+reserva: M8 7h8a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z | M10 7V4M14 7V4M10 20v-3M14 20v-3M7 10H4M7 14H4M20 10h-3M20 14h-3
