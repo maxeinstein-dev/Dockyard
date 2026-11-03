@@ -192,35 +192,39 @@ fn open_at(app: &AppHandle, section: Option<Section>) -> Result<(), Box<dyn Erro
         .spawn(move || {
             let asked = std::time::Instant::now();
             let title = crate::i18n::messages().settings.window_title;
-            let mut builder =
-                WebviewWindowBuilder::new(&app, LABEL, WebviewUrl::App("settings.html".into()))
-                    .title(title)
-                    .inner_size(880.0, 640.0)
-                    .min_inner_size(720.0, 480.0)
-                    .center()
-                    .resizable(true)
-                    .background_color(Color(red, green, blue, 255))
-                    .additional_browser_args(super::BROWSER_ARGS)
-                    // A section asked for while the window was being made
-                    // reaches the page once it has loaded and listens.
-                    .on_page_load(|webview, payload| {
-                        if payload.event() != PageLoadEvent::Finished {
-                            return;
-                        }
-                        let Some(section) = PENDING_SECTION
-                            .lock()
-                            .unwrap_or_else(std::sync::PoisonError::into_inner)
-                            .take()
-                        else {
-                            return;
-                        };
-                        if let Err(error) = webview.emit_to(LABEL, SECTION_EVENT, section.as_str())
-                        {
-                            log::warn!(
-                                "settings: the section asked for did not reach the page: {error}"
-                            );
-                        }
-                    });
+            let mut builder = WebviewWindowBuilder::new(
+                &app,
+                LABEL,
+                WebviewUrl::App("settings.html".into()),
+            )
+            .title(title)
+            .inner_size(880.0, 640.0)
+            .min_inner_size(720.0, 480.0)
+            .center()
+            .resizable(true)
+            .background_color(Color(red, green, blue, 255))
+            .additional_browser_args(super::BROWSER_ARGS)
+            // A section asked for while the window was being made
+            // reaches the page once it has loaded and listens.
+            .on_page_load(|webview, payload| {
+                let _ = crate::windows::panics::window_message(|| {
+                    if payload.event() != PageLoadEvent::Finished {
+                        return;
+                    }
+                    let Some(section) = PENDING_SECTION
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
+                        .take()
+                    else {
+                        return;
+                    };
+                    if let Err(error) = webview.emit_to(LABEL, SECTION_EVENT, section.as_str()) {
+                        log::warn!(
+                            "settings: the section asked for did not reach the page: {error}"
+                        );
+                    }
+                });
+            });
             if let Some(start) = &start {
                 builder = builder.initialization_script(start);
             }

@@ -78,9 +78,11 @@ pub fn start(app: &AppHandle) {
     }
     let handle = app.clone();
     app.listen(SETTINGS_CHANGED_EVENT, move |_| {
-        if crate::commands::settings::current(&handle).dock.show_badges {
-            spawn();
-        }
+        let _ = crate::windows::panics::window_message(|| {
+            if crate::commands::settings::current(&handle).dock.show_badges {
+                spawn();
+            }
+        });
     });
 }
 

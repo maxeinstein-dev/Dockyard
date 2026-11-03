@@ -363,13 +363,15 @@ pub fn run() {
         .plugin(startup())
         // Each window is at rest once its page has settled (spec 0003 §2.12).
         .on_page_load(|webview, payload| {
-            if payload.event() == PageLoadEvent::Finished {
-                windows::memory::page_loaded(webview.app_handle(), webview.label());
-                #[cfg(windows)]
-                if let Some(window) = webview.app_handle().get_webview_window(webview.label()) {
-                    windows::recovery::watch(&window);
+            let _ = crate::windows::panics::window_message(|| {
+                if payload.event() == PageLoadEvent::Finished {
+                    windows::memory::page_loaded(webview.app_handle(), webview.label());
+                    #[cfg(windows)]
+                    if let Some(window) = webview.app_handle().get_webview_window(webview.label()) {
+                        windows::recovery::watch(&window);
+                    }
                 }
-            }
+            });
         })
         .setup(|app| {
             // The name of the Dockyard's Windows notices (spec 0017 F2b-2).
@@ -401,21 +403,23 @@ pub fn run() {
         .build(context)
         .expect("error while building tauri application")
         .run(|app, event| {
-            // The dock is not a Tauri window (spec 0011 H3): when the panel or
-            // the Configurações app, made on demand, closes and no Tauri window
-            // is left, Tauri asks to exit, with no code. The app stays; Sair
-            // in the tray asks with a code and is let through. The test build
-            // keeps Tauri's way: the suite quits it by closing its windows.
-            #[cfg(not(feature = "e2e"))]
-            if let RunEvent::ExitRequested {
-                code: None, api, ..
-            } = &event
-            {
-                api.prevent_exit();
-                return;
-            }
-            if let RunEvent::Exit = event {
-                release_on_exit(app);
-            }
+            let _ = crate::windows::panics::window_message(|| {
+                // The dock is not a Tauri window (spec 0011 H3): when the panel or
+                // the Configurações app, made on demand, closes and no Tauri window
+                // is left, Tauri asks to exit, with no code. The app stays; Sair
+                // in the tray asks with a code and is let through. The test build
+                // keeps Tauri's way: the suite quits it by closing its windows.
+                #[cfg(not(feature = "e2e"))]
+                if let RunEvent::ExitRequested {
+                    code: None, api, ..
+                } = &event
+                {
+                    api.prevent_exit();
+                    return;
+                }
+                if let RunEvent::Exit = event {
+                    release_on_exit(app);
+                }
+            });
         });
 }

@@ -608,10 +608,14 @@ pub fn start(app: &AppHandle) {
     }
     // The pinned programs changed: who is open may be another set.
     let woken = app.clone();
-    app.listen(APPS_CHANGED_EVENT, move |_| wake(&woken));
+    app.listen(APPS_CHANGED_EVENT, move |_| {
+        let _ = crate::windows::panics::window_message(|| wake(&woken));
+    });
     // "Show open programs" turned on or off.
     let woken = app.clone();
-    app.listen(SETTINGS_CHANGED_EVENT, move |_| wake(&woken));
+    app.listen(SETTINGS_CHANGED_EVENT, move |_| {
+        let _ = crate::windows::panics::window_message(|| wake(&woken));
+    });
 }
 
 mod imp {

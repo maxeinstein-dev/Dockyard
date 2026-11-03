@@ -1009,3 +1009,64 @@ fn every_method_of_our_com_objects_catches_panics() {
          `panics::com_call`: {missing:?}"
     );
 }
+
+/// The text of the call whose `(` is at `open` in `code`, parentheses
+/// included.
+fn call_at<'a>(code: &'a str, open: usize, file: &str) -> &'a str {
+    let mut depth = 0usize;
+    for (index, c) in code[open..].char_indices() {
+        match c {
+            '(' => depth += 1,
+            ')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return &code[open..=open + index];
+                }
+            }
+            _ => {}
+        }
+    }
+    panic!("{file}: a call is not closed");
+}
+
+/// Tauri runs the callbacks the app gives it (a page loaded, a window's
+/// event, the tray icon, an event between windows, the app's own) inside
+/// its window procedure, catches a panic there and raises it again on the
+/// main thread, which ends the app. So each runs its body through
+/// `panics::window_message`. Not `setup`: a panic while the app starts
+/// means it can not run, and ending is right.
+#[test]
+fn every_callback_tauri_runs_catches_panics() {
+    let mut files = Vec::new();
+    rust_files(&manifest_dir().join("src"), &mut files);
+    let markers = [
+        ".on_page_load(",
+        ".on_window_event(",
+        ".on_tray_icon_event(",
+        ".on_menu_event(",
+        ".listen(",
+        ".listen_any(",
+        ".run(|",
+    ];
+    let mut checked = 0;
+    let mut missing = Vec::new();
+    for file in &files {
+        let code = rust_code(file);
+        for marker in markers {
+            for (index, _) in code.match_indices(marker) {
+                let open = index + marker.find('(').unwrap_or_default();
+                checked += 1;
+                if !call_at(&code, open, file).contains("window_message(") {
+                    let line = code[..index].lines().count();
+                    missing.push(format!("{file}:{line}: {marker}"));
+                }
+            }
+        }
+    }
+    assert!(checked >= 8, "found only {checked} callbacks Tauri runs");
+    assert!(
+        missing.is_empty(),
+        "these callbacks Tauri runs must run their body through \
+         `panics::window_message`: {missing:?}"
+    );
+}

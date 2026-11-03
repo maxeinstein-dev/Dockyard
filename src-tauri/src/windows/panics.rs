@@ -5,8 +5,12 @@
 //!   catches the panic and answers the call as Windows would. A panic that
 //!   left such a function would abort the process whatever the profile says;
 //!   the methods of our COM objects (`#[implement]`), which Windows calls
-//!   through such functions too, run through [`com_call`]. A guard
-//!   (`tests/guards.rs`) keeps every one of them caught;
+//!   through such functions too, run through [`com_call`]; and the
+//!   callbacks Tauri runs on the main thread (a page loaded, a window's
+//!   event, the tray icon, events between windows, the app's own), whose
+//!   panic Tauri raises again there, ending the app, run through
+//!   [`window_message`] as well. Guards (`tests/guards.rs`) keep every one
+//!   of them caught;
 //! - the threads that keep reading for the dock (media, badges, weather...)
 //!   run through [`lasting`], which starts the work again after a panic, so
 //!   a part of the dock does not stop updating in silence.
