@@ -10,7 +10,7 @@ Extensão da fase G ([spec 0019](0019-fase-g-extras.md)): **temas** que vestem o
 5. Medieval 8-bit (#116);
 6. Caçador (#117).
 
-Também entrou o "experimentar e voltar" (#115). A segunda leva gamer, com Cyberpunk, Fliperama e Espacial, entrou em 2026-11-03 (§4). A pasta `Skins` para barras de terceiros (Q14) entrou em 2026-11-03 (§5). Fica para depois: os widgets do dock no tom do tema (Q9).
+Também entrou o "experimentar e voltar" (#115). A segunda leva gamer, com Cyberpunk, Fliperama e Espacial, entrou em 2026-11-03 (§4). Os widgets no tom do tema (Q9) e a pasta `Skins` para barras de terceiros (Q14) entraram em 2026-11-03 (§5 e §6).
 
 **Verificação final** (2026-10-30, build e2e da `main` com os seis passos, cópia dos dados do autor):
 - **Os 11 temas:** aplicados pelos cartões, um a um. Cada um perguntou "Manter este tema?", foi mantido e gravou estilo e pacote, e o dock desenhou a barra e os ícones dele. Fotos em [`docs/fotos/g7-11-temas-ao-vivo.png`](../fotos/g7-11-temas-ao-vivo.png).
@@ -143,3 +143,12 @@ Decisão do autor (2026-11-03): **pasta + aviso**. Barras de terceiros entram po
 - **Ajustes:** como nas embutidas, "Borda" e "Cantos" somem.
 - **Testes:** `domain::skin` (cada motivo de recusa, uma skin válida, pasta ausente, ordem por nome, cabeçalho do PNG, BOM, cache relido quando o arquivo muda, campos opcionais), `settings` (`customSkin` no JSON e na validação, barra escura do `Custom`), `look` (cores da skin e volta ao Nativo), `commands::skins` (o cartão vai como `data:` URL), `StyleGallery` (cartões depois dos estilos, escolha, indisponível) e `LookPanel` (grava `custom` e `customSkin`, aviso das pastas recusadas, botão da pasta).
 - **Verificado ao vivo** (2026-11-03, build de lançamento, cópia dos dados do autor): com uma skin válida ("Teste de pasta", a imagem do Cyberpunk com tinta `#FFE45E`) e uma quebrada na pasta, Configurações › Aparência do dock mostrou o cartão da skin (um botão de opção da galeria), o aviso "Pasta quebrada: o skin.json não é válido" e o botão "Abrir pasta Skins"; escolher o cartão gravou `style: "custom"` e `customSkin: "Teste de pasta"`, e o dock passou a usar a imagem, com o relógio na tinta do `skin.json`. A barra do Windows ficou igual. Falta ver ao vivo a volta ao Nativo ao apagar a pasta.
+
+## 6. Os widgets no tom do tema (Q9)
+
+Decidido pelo autor em 2026-11-03: os widgets seguem a **cor de destaque** do estilo em uso; o desenho e o vidro de cada widget ficam como estão.
+
+- O que enche o anel (Ciclo, Pomodoro, Água, Claude), a barra de um medidor (Atividade) e os ponteiros do relógio de ponteiros é a cor do indicador em uso: a escolhida pelo usuário, ou a do estilo, ou a de destaque do sistema.
+- A cor é clareada em direção ao branco só o quanto precisa para ter contraste de 3:1 (o mínimo da WCAG para gráficos) contra o topo do vidro do widget (`Glaze::mark`). Como as cores dos estilos são tão claras quanto os vidros, quase sempre fica um tom da cor, não ela pura.
+- Texto, números e glifos seguem brancos.
+- **Verificado ao vivo** (2026-11-03, build de lançamento, cópia dos dados do autor sem cor de indicador escolhida): Atividade e Ciclo em verde no Fósforo, laranja no Tático, rosa no Cyberpunk e amarelo no Fliperama; com o indicador branco escolhido pelo autor, tudo segue branco. Foto em [`docs/fotos/q9-widgets-ao-vivo.png`](../fotos/q9-widgets-ao-vivo.png) (antes à esquerda, depois à direita).

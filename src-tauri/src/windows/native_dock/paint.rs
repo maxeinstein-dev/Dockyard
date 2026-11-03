@@ -504,6 +504,13 @@ pub struct Painter {
     icon_formats: HashMap<u32, IDWriteTextFormat>,
     glazes: HashMap<(u32, u32, u32, bool), ID2D1LinearGradientBrush>,
     sheen: ID2D1RadialGradientBrush,
+    /// The mark of the style in use (`Scene::indicator_color`), for the
+    /// tile drawn now.
+    style_mark: Color,
+    /// What fills the rings, meters and hands of the tile drawn now: the
+    /// style's mark when it stands out on the tile's glaze, white otherwise
+    /// (spec 0020 Q9, `Glaze::mark`).
+    mark: Color,
     rim: ID2D1LinearGradientBrush,
     /// The DPI the target draws at: 96 × the monitor's scale.
     dpi: f32,
@@ -631,6 +638,8 @@ impl Painter {
             glazes: HashMap::new(),
             skins: HashMap::new(),
             sheen,
+            style_mark: Color::WHITE,
+            mark: Color::WHITE,
             rim,
             dpi: 96.0,
             base: IDENTITY,
@@ -1248,6 +1257,7 @@ impl Painter {
 
     /// The tile's shadow and glaze, cut to the superellipse.
     fn glaze(&mut self, area: Area, glaze: Glaze, pressed: bool) {
+        self.mark = glaze.mark(self.style_mark);
         if area.width > area.height * 1.05 {
             self.wide_glaze(area, glaze, pressed);
             return;
@@ -1514,6 +1524,8 @@ impl Painter {
 
     fn tile(&mut self, scene: &Scene, tile: &Tile) {
         let area = tile.area;
+        self.style_mark = scene.indicator_color;
+        self.mark = Color::WHITE;
         // Whatever the tile draws without a transform of its own goes through
         // the base too.
         self.transform(&IDENTITY);
@@ -1948,8 +1960,8 @@ impl Painter {
                 ..bar
             }
         };
-        let white = self.solid(Color::WHITE).clone();
-        unsafe { self.target.FillRoundedRectangle(&rounded(filled), &white) };
+        let mark = self.solid(self.mark).clone();
+        unsafe { self.target.FillRoundedRectangle(&rounded(filled), &mark) };
     }
 
     /// The Atividade's meters (spec 0017 F1), in a tile one or two icons
@@ -2562,7 +2574,7 @@ impl Painter {
                 )
             };
         }
-        let white = self.solid(Color::WHITE).clone();
+        let white = self.solid(self.mark).clone();
         let hand = |degrees: f64, length: f64| {
             let radians = degrees.to_radians();
             at(12.0 + length * radians.sin(), 12.0 - length * radians.cos())
@@ -2616,7 +2628,7 @@ impl Painter {
         let Some(fraction) = fraction.filter(|f| *f > 0.0) else {
             return;
         };
-        let white = self.solid(Color::WHITE).clone();
+        let white = self.solid(self.mark).clone();
         if fraction >= 1.0 {
             unsafe {
                 self.target.DrawEllipse(
