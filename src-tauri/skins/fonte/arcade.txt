@@ -1,0 +1,39 @@
+# Skin Fliperama (spec 0020 §4): a moldura de um gabinete de fliperama,
+# preta com o friso cromado, o painel azul-noite, as três listras de
+# corrida (vermelho, laranja e amarelo) e uma entrada de ficha acesa em
+# cada ponta. O meio se repete. As listras são um pouco apagadas: o relógio e a
+# data do fim da barra passam por cima delas.
+# Para gerar de novo: python gerar.py arcade
+
+skin.name: Fliperama
+skin.left: 4
+skin.right: 4
+skin.middle: repeat
+
+cor.0: #08080C
+cor.G: #9AA0B4
+cor.g: #5C6178
+cor.m: #23264A
+cor.n: #15172E
+cor.k: #050508
+cor.y: #FFD23F
+cor.Y: #B8962E
+cor.r: #B83030
+cor.o: #B8661C
+
+.00000000000000.
+0GGGGGGGGGGGGGG0
+0gmmmmmmmmmmmmg0
+0gnnnnnnnnnnnng0
+0gnnnnnnnnnnnng0
+0gyynnnnnnnnyyg0
+0gyknnnnnnnnkyg0
+0gyknnnnnnnnkyg0
+0gyknnnnnnnnkyg0
+0gyynnnnnnnnyyg0
+0grrrrrrrrrrrrg0
+0goooooooooooog0
+0gYYYYYYYYYYYYg0
+0gnnnnnnnnnnnng0
+0gggggggggggggg0
+.00000000000000.

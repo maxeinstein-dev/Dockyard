@@ -37,6 +37,9 @@ export const STYLE_LOOKS: Readonly<Record<DockStyle, StyleLook>> = {
   tactical: { border: false, corners: 0, reflections: false },
   medieval: { border: false, corners: 0, reflections: false },
   hunter: { border: false, corners: 0, reflections: false },
+  cyberpunk: { border: false, corners: 0, reflections: false },
+  arcade: { border: false, corners: 0, reflections: false },
+  scifi: { border: false, corners: 0, reflections: false },
 };
 
 /** The look a style has when `tweaks` is applied over its own. */
