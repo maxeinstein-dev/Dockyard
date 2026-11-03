@@ -396,4 +396,26 @@ describe("contrast (WCAG AA)", () => {
 
     expect(found).toEqual([]);
   });
+
+  // `--danger-ink` is the ink for text on a `--danger` fill (white on the
+  // light theme, near black on the dark one). Without that fill it vanishes on
+  // the panel: the calendar's "atrasada" was 1.07:1 and 1.12:1, and the error
+  // lines of Contas and of the widget catalog the same.
+  it("writes --danger-ink only on a --danger fill", () => {
+    const ink = /(?:^|;)\s*color\s*:\s*var\(--danger-ink\)\s*(?:;|$)/;
+    const fill =
+      /(?:^|;)\s*background(?:-color)?\s*:\s*var\(--danger\)\s*(?:;|$)/;
+    const found: string[] = [];
+    for (const [path, sheet] of Object.entries(readSources("src", /\.css$/))) {
+      const text = sheet.replace(/\/\*[\s\S]*?\*\//g, "");
+      for (const match of text.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+        const body = match[2] ?? "";
+        if (ink.test(body) && !fill.test(body)) {
+          found.push(`${path}: ${(match[1] ?? "").trim()}`);
+        }
+      }
+    }
+
+    expect(found).toEqual([]);
+  });
 });

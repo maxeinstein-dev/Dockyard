@@ -212,7 +212,7 @@
 
 .cal-late {
   flex: none;
-  color: var(--danger-ink);
+  color: var(--danger);
   font-size: var(--fs-kbd);
 }
 
