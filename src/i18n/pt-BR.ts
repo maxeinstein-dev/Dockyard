@@ -1,7 +1,7 @@
 import type { AppErrorCode } from "../core/apps";
 import type { HotkeyErrorCode } from "../core/launcher";
 import type { PackErrorCode } from "../core/iconPacks";
-import type { SkinProblemKind } from "../core/skins";
+import type { SkinProblemKind } from "../core/skinProblems";
 import type { ThemeId } from "../core/themes";
 import type {
   DockEdge,

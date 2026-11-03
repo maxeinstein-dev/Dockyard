@@ -7,30 +7,8 @@ import { errorKind, log } from "./log";
  * page only lists them, with their image as a `data:` URL, and opens the
  * folder, never a path. */
 
-/** Why a folder of the skins folder is not a skin; must match `ProblemKind`
- * in `src-tauri/src/domain/skin.rs`. */
-export type SkinProblemKind =
-  | "badName"
-  | "noJson"
-  | "badJson"
-  | "badImageName"
-  | "noImage"
-  | "tooBig"
-  | "notPng"
-  | "sizeMismatch"
-  | "badSlice";
-
-export const SKIN_PROBLEM_KINDS = Object.keys({
-  badName: 0,
-  noJson: 0,
-  badJson: 0,
-  badImageName: 0,
-  noImage: 0,
-  tooBig: 0,
-  notPng: 0,
-  sizeMismatch: 0,
-  badSlice: 0,
-} satisfies Record<SkinProblemKind, 0>) as SkinProblemKind[];
+export { SKIN_PROBLEM_KINDS, type SkinProblemKind } from "./skinProblems";
+import type { SkinProblemKind } from "./skinProblems";
 
 /** A skin of the folder (`SkinInfo` in `src-tauri/src/commands/skins.rs`):
  * what its card's miniature draws. */
