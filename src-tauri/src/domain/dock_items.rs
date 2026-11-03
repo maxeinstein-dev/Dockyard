@@ -227,6 +227,23 @@ pub fn moved(items: &[Item], from: usize, to: usize) -> Option<(Vec<String>, usi
     Some((keys, among))
 }
 
+/// Where files dropped on the dock at the screen x `screen_x` (physical
+/// pixels) are pinned, among `group`, the pinned programs and the widgets
+/// with the centers `centers` (logical pixels from the window's client
+/// left `left`, at `scale`): the key of the item they go before, `None`
+/// past the last one.
+pub fn dropped_before(
+    group: &[Item],
+    centers: &[f64],
+    screen_x: i32,
+    left: i32,
+    scale: f64,
+) -> Option<String> {
+    let x = f64::from(screen_x - left) / scale;
+    let index = centers.iter().filter(|&&center| center < x).count();
+    group.get(index).map(Item::key)
+}
+
 /// Whether Configurações wears the attention badge: while the database was
 /// recovered (until the notice is dismissed) or is unavailable (spec 0003
 /// §2.11).
@@ -501,5 +518,43 @@ mod tests {
         );
         assert_eq!(running(&open, &Item::System(SystemItem::Settings)), None);
         assert!(!needs_attention(None));
+    }
+
+    /// The pinned programs and the widgets: a program, a clock two icons
+    /// wide, a program; their centers at rest, in logical pixels.
+    fn dropped_on() -> (Vec<Item>, Vec<f64>) {
+        let group = vec![
+            Item::App(app(1, "Bloco")),
+            Item::Widget(widget(10, WidgetKind::Clock, None)),
+            Item::App(app(2, "Paint")),
+        ];
+        (group, vec![24.0, 96.0, 168.0])
+    }
+
+    #[test]
+    fn files_dropped_go_where_the_pointer_lets_them_go() {
+        let (group, centers) = dropped_on();
+        let key = |n: usize| Some(group[n].key());
+
+        // Before the first, between two, past the last.
+        assert_eq!(dropped_before(&group, &centers, 10, 0, 1.0), key(0));
+        assert_eq!(dropped_before(&group, &centers, 60, 0, 1.0), key(1));
+        assert_eq!(dropped_before(&group, &centers, 200, 0, 1.0), None);
+        // On a widget: its half says which side.
+        assert_eq!(dropped_before(&group, &centers, 90, 0, 1.0), key(1));
+        assert_eq!(dropped_before(&group, &centers, 110, 0, 1.0), key(2));
+    }
+
+    #[test]
+    fn files_dropped_on_a_second_monitor_go_where_its_dock_has_the_pointer() {
+        let (group, centers) = dropped_on();
+        let key = |n: usize| Some(group[n].key());
+
+        // Right of the main one, at 150%: 130 logical pixels in (195
+        // physical, past the last center).
+        assert_eq!(dropped_before(&group, &centers, 2115, 1920, 1.5), key(2));
+        // Left of it, at 100%.
+        assert_eq!(dropped_before(&group, &centers, -2500, -2560, 1.0), key(1));
+        assert_eq!(dropped_before(&group, &centers, -2340, -2560, 1.0), None);
     }
 }

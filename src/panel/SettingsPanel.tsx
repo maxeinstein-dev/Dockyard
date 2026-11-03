@@ -376,7 +376,14 @@ function SettingsPanel({
       {onOpenLook ? (
         <NavRow
           label={t.settings.look.title}
-          value={shown ? t.settings.look.styles[shown.dock.style] : ""}
+          value={
+            shown === null
+              ? ""
+              : shown.dock.style === "custom"
+                ? // A skin of the `Skins` folder, by the name of its folder.
+                  (shown.dock.customSkin ?? t.settings.look.styles.custom)
+                : t.settings.look.styles[shown.dock.style]
+          }
           onClick={onOpenLook}
           focusOnMount={focusLookRow}
         />

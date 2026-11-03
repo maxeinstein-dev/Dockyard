@@ -62,6 +62,8 @@
     "allow-icon-pack-preview",
     "allow-reload-icon-packs",
     "allow-open-icon-packs-folder",
+    "allow-list-folder-skins",
+    "allow-open-skins-folder",
     "log:allow-log"
   ]
 }

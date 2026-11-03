@@ -99,6 +99,39 @@ pub fn pin(
     Ok(app)
 }
 
+/// Pins the program `app_id` as `pin` does, then puts it before the item
+/// `before` (its key) of the workspace, where the user dropped it; at the
+/// end with no such item there. The dock's order of the workspace, as its
+/// own drag keeps it.
+pub fn pin_before(
+    storage: &mut Storage,
+    app_id: &str,
+    name: &str,
+    workspace: Option<&str>,
+    before: Option<&str>,
+) -> Result<PinnedApp, AppError> {
+    let workspace = crate::commands::widgets::workspace_of(storage, workspace)?;
+    let app = pin(storage, app_id, name, Some(&workspace))?;
+    let Some(before) = before else {
+        return Ok(app);
+    };
+    let key = key_of(&app.id);
+    let Some(found) = storage
+        .workspaces()?
+        .into_iter()
+        .find(|w| w.id == workspace)
+    else {
+        return Ok(app);
+    };
+    let mut keys = found.items;
+    keys.retain(|item| *item != key);
+    if let Some(at) = keys.iter().position(|item| item == before) {
+        keys.insert(at, key);
+        storage.reorder_workspace(&workspace, &keys)?;
+    }
+    Ok(app)
+}
+
 /// Takes the program `id` out of the workspace `workspace` (or the one in
 /// use); with no other workspace showing it, it is unpinned for good.
 pub fn unpin(storage: &mut Storage, id: &str, workspace: Option<&str>) -> Result<(), AppError> {
@@ -506,12 +539,18 @@ pub fn place_app(
     change(&app, &state, "place", |storage| place(storage, &id, index))
 }
 
-/// Pins what was dropped on the dock, at the end of the workspace its
-/// monitor (`monitor`, its device name) shows. Comes from the dock's own drop
-/// target (`windows::drop_target`), not from the page, so only what the user
-/// really dropped can be pinned. Reading the names takes the shell's time:
-/// off the event loop.
-pub fn pin_dropped(app: &AppHandle, paths: Vec<std::path::PathBuf>, monitor: Option<String>) {
+/// Pins what was dropped on the dock, in the workspace its monitor
+/// (`monitor`, its device name) shows: before the item `before` (its key)
+/// where the pointer let go, in the order dropped, or at the end. Comes from
+/// the dock's own drop target (`windows::drop_target`), not from the page,
+/// so only what the user really dropped can be pinned. Reading the names
+/// takes the shell's time: off the event loop.
+pub fn pin_dropped(
+    app: &AppHandle,
+    paths: Vec<std::path::PathBuf>,
+    monitor: Option<String>,
+    before: Option<String>,
+) {
     let wanted = droppable(&paths);
     if wanted.is_empty() {
         return;
@@ -532,7 +571,7 @@ pub fn pin_dropped(app: &AppHandle, paths: Vec<std::path::PathBuf>, monitor: Opt
                         Some(monitor) => Some(storage.shown_on(monitor)?.id),
                         None => None,
                     };
-                    pin(storage, &id, &name, workspace.as_deref())
+                    pin_before(storage, &id, &name, workspace.as_deref(), before.as_deref())
                 });
             }
         });
@@ -954,6 +993,27 @@ mod tests {
             .collect();
         assert_eq!(names, ["B", "C", "A"]);
         assert_eq!(place(&mut storage, "1", 0), Err(AppError::NotFound));
+    }
+
+    #[test]
+    fn programs_dropped_on_the_dock_go_in_order_where_the_pointer_let_go() {
+        let (_dir, mut storage) = open();
+        let a = pin(&mut storage, "a!App", "A", None).unwrap();
+        let b = pin(&mut storage, "b!App", "B", None).unwrap();
+        let before = key_of(&b.id);
+
+        let x = pin_before(&mut storage, "x!App", "X", None, Some(&before)).unwrap();
+        let y = pin_before(&mut storage, "y!App", "Y", None, Some(&before)).unwrap();
+        let z = pin_before(&mut storage, "z!App", "Z", None, None).unwrap();
+        let gone = pin_before(&mut storage, "w!App", "W", None, Some("app:gone")).unwrap();
+
+        let mut items = storage.in_use().unwrap().items;
+        items.retain(|item| item.starts_with("app:"));
+        let keys: Vec<String> = [&a, &x, &y, &b, &z, &gone]
+            .into_iter()
+            .map(|app| key_of(&app.id))
+            .collect();
+        assert_eq!(items, keys);
     }
 
     #[test]

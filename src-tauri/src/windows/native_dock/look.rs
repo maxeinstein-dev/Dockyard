@@ -4,6 +4,7 @@
 
 use super::theme::{Color, Palette};
 use crate::domain::settings::{DockSettings, DockStyle};
+use crate::domain::skin::SkinMeta;
 
 /// How the bar is filled: one color, or bands of a vertical gradient (from
 /// the top), drawn over a base color.
@@ -81,7 +82,8 @@ fn own(style: DockStyle) -> (bool, u8, bool) {
         | DockStyle::Hunter
         | DockStyle::Cyberpunk
         | DockStyle::Arcade
-        | DockStyle::Scifi => (false, 0, false),
+        | DockStyle::Scifi
+        | DockStyle::Custom => (false, 0, false),
     }
 }
 
@@ -110,8 +112,20 @@ pub fn contrast() -> Look {
 }
 
 impl Look {
-    pub fn of(settings: &DockSettings) -> Look {
-        let style = settings.style;
+    /// The look of the bar for `settings`. `custom` is the folder skin
+    /// `custom_skin` names, as read (spec 0020, Q14); with
+    /// [`DockStyle::Custom`] and none, the bar is Nativo's.
+    pub fn of(settings: &DockSettings, custom: Option<&SkinMeta>) -> Look {
+        let style = match (settings.style, custom) {
+            (DockStyle::Custom, None) => DockStyle::Native,
+            (style, _) => style,
+        };
+        // A folder skin's own colors, when its `skin.json` gives them.
+        let color_of = |pick: fn(&SkinMeta) -> Option<&String>| {
+            custom.and_then(pick).and_then(|hex| Color::hex(hex))
+        };
+        let custom_ink = color_of(|meta| meta.ink.as_ref());
+        let custom_indicator = color_of(|meta| meta.indicator.as_ref());
         let tweaks = settings.tweaks.get(&style);
         let (border, corners, reflections) = own(style);
         let base = Look {
@@ -285,6 +299,16 @@ impl Look {
                 indicator: Some(Color::rgb(0x4f, 0xd8, 0xff)),
                 ..base
             },
+            // The separators in the skin's ink, faint; the dock's own
+            // colors where the skin gives none.
+            DockStyle::Custom => Look {
+                skin: true,
+                border: false,
+                separator: custom_ink.map(|ink| ink.with_alpha(0.35)),
+                ink: custom_ink,
+                indicator: custom_indicator,
+                ..base
+            },
         }
     }
 
@@ -315,13 +339,13 @@ mod tests {
 
     #[test]
     fn each_style_has_its_own_look() {
-        let native = Look::of(&with_style(DockStyle::Native));
+        let native = Look::of(&with_style(DockStyle::Native), None);
         assert!(native.border);
         assert!((native.corners - 0.65).abs() < 1e-9);
         assert!(!native.reflections);
         assert_eq!(native.fill, None);
 
-        let shelf = Look::of(&with_style(DockStyle::AquaShelf));
+        let shelf = Look::of(&with_style(DockStyle::AquaShelf), None);
         assert!(!shelf.border && shelf.reflections && shelf.shelf && shelf.flat);
         assert!(
             shelf
@@ -329,7 +353,7 @@ mod tests {
                 .is_clear()
         );
 
-        let neon = Look::of(&with_style(DockStyle::Neon));
+        let neon = Look::of(&with_style(DockStyle::Neon), None);
         assert!(neon.outline.is_some());
         assert_eq!(neon.glows.len(), 2);
     }
@@ -346,11 +370,66 @@ mod tests {
             },
         );
 
-        let look = Look::of(&settings);
+        let look = Look::of(&settings, None);
 
         assert!(!look.border && look.reflections);
         assert!((look.corners - 0.1).abs() < 1e-9);
         // Without the border the gradient outline goes too.
         assert_eq!(look.outline, None);
+    }
+
+    fn folder_meta(ink: Option<&str>, indicator: Option<&str>) -> SkinMeta {
+        serde_json::from_value(serde_json::json!({
+            "name": "Minha", "image": "skin.png", "width": 8, "height": 8,
+            "slice": {"top": 0, "right": 2, "bottom": 0, "left": 2},
+            "middle": "repeat", "pixelated": false,
+            "ink": ink, "indicator": indicator,
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn a_folder_skin_is_the_bar_in_its_own_colors() {
+        let mut settings = with_style(DockStyle::Custom);
+        settings.custom_skin = Some("Minha".into());
+        // A tweak of the border can't put one on an image.
+        settings.tweaks.insert(
+            DockStyle::Custom,
+            StyleTweaks {
+                border: Some(true),
+                ..StyleTweaks::default()
+            },
+        );
+        let meta = folder_meta(Some("#102030"), Some("#ff8000"));
+
+        let look = Look::of(&settings, Some(&meta));
+
+        assert_eq!(look.style, DockStyle::Custom);
+        assert!(look.skin && !look.border && !look.reflections);
+        assert_eq!(look.ink, Some(Color::rgb(0x10, 0x20, 0x30)));
+        assert_eq!(look.indicator, Some(Color::rgb(0xff, 0x80, 0x00)));
+        assert_eq!(
+            look.separator,
+            Some(Color::rgb(0x10, 0x20, 0x30).with_alpha(0.35))
+        );
+
+        // Colors it does not give, or gives wrong, are the dock's own.
+        let plain = Look::of(&settings, Some(&folder_meta(None, Some("orange"))));
+        assert!(plain.skin);
+        assert_eq!(
+            (plain.ink, plain.indicator, plain.separator),
+            (None, None, None)
+        );
+    }
+
+    #[test]
+    fn a_folder_skin_that_can_t_be_read_paints_the_bar_as_nativo() {
+        let mut settings = with_style(DockStyle::Custom);
+        settings.custom_skin = Some("Sumiu".into());
+
+        let look = Look::of(&settings, None);
+
+        assert_eq!(look, Look::of(&with_style(DockStyle::Native), None));
+        assert!(!look.skin);
     }
 }

@@ -41,9 +41,14 @@ export type DockStyle =
   | "hunter"
   | "cyberpunk"
   | "arcade"
-  | "scifi";
+  | "scifi"
+  /* A skin of the user's `Skins` folder (spec 0020, Q14), the one
+   * `customSkin` names. Not in `DOCK_STYLES`: the gallery shows each skin of
+   * the folder as its own card. */
+  | "custom";
 
-/** Every style, in the order the Settings panel lists them. */
+/** Every style made with the app, in the order the Settings panel lists
+ * them; the skins of the `Skins` folder come after them. */
 export const DOCK_STYLES: readonly DockStyle[] = [
   "native",
   "liquidGlass",
@@ -218,6 +223,9 @@ export interface DockSettings {
   /** The icon pack every program wears (spec 0007): the id of a folder of
    * the packs folder, or null for the icons Windows gives. */
   iconPack: string | null;
+  /** The skin of the `Skins` folder the bar wears with the `custom` style:
+   * the name of its folder. Rust leaves the field out while there is none. */
+  customSkin?: string | null;
   openAnimation: OpenAnimation;
   /** Whether the open programs that are not pinned show on the dock, after
    * the widgets (spec 0009 D2). */

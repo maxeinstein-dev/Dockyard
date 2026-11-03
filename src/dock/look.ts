@@ -40,6 +40,8 @@ export const STYLE_LOOKS: Readonly<Record<DockStyle, StyleLook>> = {
   cyberpunk: { border: false, corners: 0, reflections: false },
   arcade: { border: false, corners: 0, reflections: false },
   scifi: { border: false, corners: 0, reflections: false },
+  // A skin of the `Skins` folder, as the skins above.
+  custom: { border: false, corners: 0, reflections: false },
 };
 
 /** The look a style has when `tweaks` is applied over its own. */
