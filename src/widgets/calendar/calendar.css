@@ -1,5 +1,6 @@
 /* The Calendário's panel (spec 0017 F2a). Tokens of tokens.css only, plus
-   `--dot`, a calendar's color, set through the CSSOM (strict CSP). */
+   `--dot` and `--block`, a calendar's color, and `--block-ink`, the text
+   that reads on it, set through the CSSOM (strict CSP). */
 
 .cal-day + .cal-day {
   margin-top: 12px;
@@ -23,7 +24,7 @@
 .cal-list {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 2px;
+  gap: 4px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -45,16 +46,21 @@
   padding: 6px 8px;
   border: 0;
   border-radius: var(--r-panel);
-  background: transparent;
-  color: inherit;
+  background: var(--block, var(--accent));
+  color: var(--block-ink, var(--on-accent));
   font: inherit;
   font-size: var(--fs-label);
   text-align: left;
   cursor: pointer;
 }
 
+/* A shade of its own ink, so the hover shows on any color. */
 .cal-event:hover {
-  background: var(--accent-soft);
+  background: color-mix(
+    in srgb,
+    var(--block, var(--accent)) 86%,
+    var(--block-ink, var(--on-accent))
+  );
 }
 
 .cal-event:focus-visible {
@@ -73,7 +79,7 @@
 .cal-time {
   flex: none;
   min-width: 40px;
-  color: var(--ink-2);
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -219,5 +225,9 @@
 @media (forced-colors: active) {
   .cal-dot {
     background: CanvasText;
+  }
+
+  .cal-event {
+    border: 1px solid ButtonText;
   }
 }

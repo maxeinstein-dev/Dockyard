@@ -182,3 +182,24 @@ export function sortTasks(
     .sort((a, b) => rank(a.task) - rank(b.task) || a.index - b.index)
     .map(({ task }) => task);
 }
+
+/** The relative luminance of `#rrggbb` (WCAG 2), 0–1. */
+function luminance(hex: string): number {
+  const linear = (at: number) => {
+    const c = Number.parseInt(hex.slice(at, at + 2), 16) / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * linear(1) + 0.7152 * linear(3) + 0.0722 * linear(5);
+}
+
+/** The text on an event's block in its calendar's color: white, or black
+ * where white reads worse; at 4.5:1 or more on any color. `null` for an
+ * event without a `#rrggbb` color: its block is the theme's accent, with
+ * `--on-accent`. Must match `Block::of` in `src-tauri/src/domain/calendar.rs`. */
+export function blockInk(color: string | null): "#ffffff" | "#000000" | null {
+  if (!color || !/^#[0-9a-f]{6}$/i.test(color)) return null;
+  const l = luminance(color);
+  const onWhite = 1.05 / (l + 0.05);
+  const onBlack = (l + 0.05) / 0.05;
+  return onWhite >= onBlack ? "#ffffff" : "#000000";
+}
