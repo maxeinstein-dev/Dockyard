@@ -54,6 +54,7 @@ use super::look::Look;
 use super::svg::{self, Segment};
 use super::theme::{APP_INK, Color, Glaze, Palette};
 use crate::domain::badges::Badge;
+use crate::domain::calendar;
 use crate::domain::dock_layout::{self, Area};
 use crate::domain::settings::{DockEdge, IconShape, Indicator};
 use crate::domain::system_activity::HISTORY;
@@ -69,6 +70,11 @@ pub const SETTINGS_GLYPH: &[&str] = &[
     "M13.5 7.5a2 2 0 1 0 4 0a2 2 0 1 0 -4 0",
     "M7.5 16.5a2 2 0 1 0 4 0a2 2 0 1 0 -4 0",
 ];
+
+/// The Calendário's glyph on a square tile with nothing ahead (as
+/// `CalendarTile.tsx`'s).
+pub const CALENDAR_GLYPH: &[&str] = &["M5 6.5h14v13H5z", "M5 10.5h14", "M9 4v4", "M15 4v4"];
+
 pub const NOTE_GLYPH: &[&str] = &[
     "M7.5 3.5h9a2.5 2.5 0 0 1 2.5 2.5v12a2.5 2.5 0 0 1-2.5 2.5h-9a2.5 2.5 0 0 1-2.5-2.5v-12a2.5 2.5 0 0 1 2.5-2.5z",
     "M8.5 8.5h7M8.5 12h7M8.5 15.5h4",
@@ -168,11 +174,21 @@ pub enum Face {
         meters: Vec<Meter>,
         graph: Option<Vec<f32>>,
     },
-    /// The Calendário (spec 0017 F2a): lines of text, the first one the
-    /// strongest, left-aligned on a wide tile and centered on a square one.
+    /// Lines of text (the Contagem regressiva's and the Lista de tarefas'),
+    /// the first one the strongest, left-aligned on a wide tile and
+    /// centered on a square one.
     Agenda {
         glaze: Glaze,
         lines: Vec<AgendaLine>,
+    },
+    /// The Calendário (spec 0017 F2a), as Google's agenda widget: on a
+    /// neutral ground, light or dark as the theme, the next meetings as
+    /// blocks in their calendars' colors; on a square tile, the next one's
+    /// block saying when. No date: the dock's clock has it.
+    Calendar {
+        blocks: Vec<AgendaBlock>,
+        /// Where there is no block: "Livre", "Conectar" or "–".
+        note: Option<String>,
     },
     /// The Tocando agora (spec 0017 F4): the cover (a note without one),
     /// dimmed while paused; on a wide tile, the title and the artist beside
@@ -231,6 +247,15 @@ pub struct AgendaLine {
     pub size: f64,
     /// White and bold; the others are fainter.
     pub strong: bool,
+}
+
+/// A meeting on the Calendário's tile: when and what, in a block of its
+/// calendar's color (`None`: the theme's accent).
+#[derive(Debug, Clone, PartialEq)]
+pub struct AgendaBlock {
+    pub when: String,
+    pub title: String,
+    pub color: Option<String>,
 }
 
 /// The network's last minute, each value 0–1 of the graph's height.
@@ -1405,6 +1430,10 @@ impl Painter {
                     glaze: *glaze,
                     lines: lines.clone(),
                 },
+                Face::Calendar { blocks, note } => Face::Calendar {
+                    blocks: blocks.clone(),
+                    note: note.clone(),
+                },
                 Face::Media {
                     glaze,
                     art,
@@ -1581,6 +1610,15 @@ impl Painter {
             Face::Agenda { glaze, lines } => {
                 self.glaze(area, *glaze, tile.pressed);
                 self.agenda(area, lines);
+            }
+            Face::Calendar { blocks, note } => {
+                let ground = if scene.palette.dark {
+                    Glaze::NEUTRAL_DARK
+                } else {
+                    Glaze::NEUTRAL_LIGHT
+                };
+                self.glaze(area, ground, tile.pressed);
+                self.calendar(scene, area, blocks, note.as_deref());
             }
             Face::Rates {
                 glaze,
@@ -2079,6 +2117,100 @@ impl Painter {
                 self.text(&text, place, size, weight, true, ink);
             }
             y += height;
+        }
+    }
+
+    fn fill_round(&mut self, area: Area, radius: f64, ink: Color) {
+        let brush = self.solid(ink).clone();
+        unsafe {
+            self.target.FillRoundedRectangle(
+                &D2D1_ROUNDED_RECT {
+                    rect: rect(area),
+                    radiusX: radius as f32,
+                    radiusY: radius as f32,
+                },
+                &brush,
+            )
+        };
+    }
+
+    /// `text` from the left of `area`, centered on its height, cut to fit.
+    fn text_left(&mut self, text: &str, area: Area, size: f64, weight: i32, ink: Color) {
+        let text = self.fit(text, area.width, size, weight);
+        let width = self.text_width(&text, size, weight, true);
+        self.text(&text, Area { width, ..area }, size, weight, true, ink);
+    }
+
+    /// The Calendário: the blocks across a wide tile, one under the other;
+    /// on a square one, the next meeting's block saying when, or the
+    /// calendar glyph with nothing ahead.
+    fn calendar(&mut self, scene: &Scene, area: Area, blocks: &[AgendaBlock], note: Option<&str>) {
+        let u = area.height;
+        let ink = scene.palette.ink;
+        let byte = |v: f32| (v * 255.0).round() as u8;
+        let accent = scene.palette.accent;
+        let accent = (byte(accent.r), byte(accent.g), byte(accent.b));
+        let colors = |block: &AgendaBlock| {
+            let block = calendar::Block::of(block.color.as_deref(), accent);
+            let ((r, g, b), (ir, ig, ib)) = (block.fill, block.ink());
+            (Color::rgb(r, g, b), Color::rgb(ir, ig, ib))
+        };
+        let inset = u * 0.13;
+        let room = Area {
+            x: area.x + inset,
+            y: area.y + inset,
+            width: (area.width - 2.0 * inset).max(0.0),
+            height: u - 2.0 * inset,
+        };
+        if area.width <= u * 1.2 {
+            let Some(next) = blocks.first() else {
+                self.strokes(area, 0.5, CALENDAR_GLYPH, ink.with_alpha(0.8), 1.75);
+                return;
+            };
+            let (fill, text_ink) = colors(next);
+            self.fill_round(room, u * 0.16, fill);
+            let size = u * 0.2;
+            let text = self.fit(&next.when, room.width - u * 0.08, size, 650);
+            self.text(&text, room, size, 650, true, text_ink);
+            return;
+        }
+        if blocks.is_empty() {
+            let text = note.unwrap_or_default();
+            let size = u * 0.18;
+            let text = self.fit(text, room.width, size, 600);
+            self.text(&text, room, size, 600, true, ink.with_alpha(0.72));
+            return;
+        }
+        // One block: when over the title; two: one line each.
+        let gap = u * 0.06;
+        let count = blocks.len() as f64;
+        let tall = (room.height - gap * (count - 1.0)) / count;
+        let pad = u * 0.1;
+        for (index, block) in blocks.iter().enumerate() {
+            let (fill, text_ink) = colors(block);
+            let place = Area {
+                y: room.y + index as f64 * (tall + gap),
+                height: tall,
+                ..room
+            };
+            self.fill_round(place, u * 0.14, fill);
+            let line = |y: f64, height: f64| Area {
+                x: place.x + pad,
+                y,
+                width: (place.width - 2.0 * pad).max(0.0),
+                height,
+            };
+            if blocks.len() == 1 {
+                let (when, title) = (u * 0.16, u * 0.18);
+                let mid = place.y + place.height / 2.0;
+                let above = line(mid - when * 1.3, when * 1.3);
+                self.text_left(&block.when, above, when, 600, text_ink);
+                let below = line(mid, title * 1.3);
+                self.text_left(&block.title, below, title, 500, text_ink);
+            } else {
+                let text = format!("{} {}", block.when, block.title);
+                self.text_left(&text, line(place.y, place.height), u * 0.15, 600, text_ink);
+            }
         }
     }
 

@@ -21,7 +21,7 @@ use windows::Win32::Graphics::Direct2D::Common::{
 };
 use windows::Win32::Graphics::Direct2D::{
     D2D1_ANTIALIAS_MODE_PER_PRIMITIVE, D2D1_DRAW_TEXT_OPTIONS_CLIP,
-    D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT, D2D1_ELLIPSE, D2D1_FACTORY_TYPE_SINGLE_THREADED,
+    D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT, D2D1_FACTORY_TYPE_SINGLE_THREADED,
     D2D1_FEATURE_LEVEL_DEFAULT, D2D1_HWND_RENDER_TARGET_PROPERTIES, D2D1_PRESENT_OPTIONS_NONE,
     D2D1_RENDER_TARGET_PROPERTIES, D2D1_RENDER_TARGET_TYPE_SOFTWARE, D2D1_RENDER_TARGET_USAGE_NONE,
     D2D1_ROUNDED_RECT, D2D1CreateFactory, ID2D1Factory, ID2D1HwndRenderTarget,
@@ -51,6 +51,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 use windows::core::{PCWSTR, w};
 
 use crate::domain::agenda::{self, Row};
+use crate::domain::calendar;
 use crate::domain::dock_layout::Area;
 use crate::domain::settings::DockEdge;
 use crate::domain::widgets::WidgetId;
@@ -396,7 +397,8 @@ struct Colors {
     dim: D2D1_COLOR_F,
     hover: D2D1_COLOR_F,
     late: D2D1_COLOR_F,
-    accent: D2D1_COLOR_F,
+    /// The blocks of events without a calendar color.
+    accent: calendar::Rgb,
 }
 
 const fn rgb(r: u8, g: u8, b: u8, a: f32) -> D2D1_COLOR_F {
@@ -416,7 +418,7 @@ fn colors(dark: bool) -> Colors {
             dim: rgb(0xA1, 0xA1, 0xA6, 1.0),
             hover: rgb(0xFF, 0xFF, 0xFF, 0.08),
             late: rgb(0xFF, 0x8A, 0x80, 1.0),
-            accent: rgb(0x7C, 0x9C, 0xFF, 1.0),
+            accent: (0x7C, 0x9C, 0xFF),
         }
     } else {
         Colors {
@@ -425,16 +427,14 @@ fn colors(dark: bool) -> Colors {
             dim: rgb(0x6E, 0x6E, 0x73, 1.0),
             hover: rgb(0x00, 0x00, 0x00, 0.06),
             late: rgb(0xB4, 0x23, 0x18, 1.0),
-            accent: rgb(0x2F, 0x5B, 0xD3, 1.0),
+            accent: (0x2F, 0x5B, 0xD3),
         }
     }
 }
 
-/// `#rrggbb` as a color.
-fn hex(text: &str) -> Option<D2D1_COLOR_F> {
-    let digits = text.strip_prefix('#').filter(|digits| digits.len() == 6)?;
-    let part = |at: usize| u8::from_str_radix(digits.get(at..at + 2)?, 16).ok();
-    Some(rgb(part(0)?, part(2)?, part(4)?, 1.0))
+/// A color's channels as Direct2D's.
+fn solid((r, g, b): calendar::Rgb) -> D2D1_COLOR_F {
+    rgb(r, g, b, 1.0)
 }
 
 fn rect(area: Area) -> D2D_RECT_F {
@@ -612,26 +612,6 @@ impl Painter {
         }
     }
 
-    fn dot(&self, target: &ID2D1HwndRenderTarget, x: f64, y: f64, radius: f64, ink: D2D1_COLOR_F) {
-        let Some(brush) = &self.brush else {
-            return;
-        };
-        unsafe {
-            brush.SetColor(&ink);
-            target.FillEllipse(
-                &D2D1_ELLIPSE {
-                    point: windows_numerics::Vector2 {
-                        X: x as f32,
-                        Y: y as f32,
-                    },
-                    radiusX: radius as f32,
-                    radiusY: radius as f32,
-                },
-                brush,
-            );
-        }
-    }
-
     /// Draws the card; false when Direct2D lost the device (the target is
     /// made again at the next paint).
     fn paint(&mut self, shown: &Shown) -> bool {
@@ -663,7 +643,8 @@ impl Painter {
                 width: width - 2.0 * inset,
                 height: tall,
             };
-            if shown.hovered == Some(index) {
+            let event = matches!(row, Row::Event { .. });
+            if shown.hovered == Some(index) && !event {
                 let back = Area {
                     x: 6.0 * s,
                     width: width - 12.0 * s,
@@ -701,21 +682,33 @@ impl Painter {
                 Row::Event {
                     color, when, title, ..
                 } => {
-                    let ink = color.as_deref().and_then(hex).unwrap_or(c.accent);
-                    self.dot(&target, inset + 4.0 * s, y + tall / 2.0, 4.0 * s, ink);
+                    // A block in the calendar's color (Google's agenda), the
+                    // text white or dark as it reads best.
+                    let block = calendar::Block::of(color.as_deref(), c.accent);
+                    let ink = solid(block.ink());
+                    let back = Area {
+                        x: 8.0 * s,
+                        y: y + 2.0 * s,
+                        width: width - 16.0 * s,
+                        height: tall - 4.0 * s,
+                    };
+                    self.fill(&target, back, 6.0 * s, solid(block.fill));
+                    if shown.hovered == Some(index) {
+                        self.fill(&target, back, 6.0 * s, D2D1_COLOR_F { a: 0.14, ..ink });
+                    }
                     let time = 74.0 * s;
                     self.text(
                         &target,
                         when,
                         Area {
-                            x: inset + 14.0 * s,
-                            width: time - 14.0 * s,
+                            x: inset + 2.0 * s,
+                            width: time - 6.0 * s,
                             ..line
                         },
                         12.0 * s,
-                        DWRITE_FONT_WEIGHT_NORMAL,
+                        DWRITE_FONT_WEIGHT_SEMI_BOLD,
                         DWRITE_TEXT_ALIGNMENT_LEADING,
-                        c.dim,
+                        ink,
                     );
                     self.text(
                         &target,
@@ -728,7 +721,7 @@ impl Painter {
                         12.5 * s,
                         DWRITE_FONT_WEIGHT_NORMAL,
                         DWRITE_TEXT_ALIGNMENT_LEADING,
-                        c.text,
+                        ink,
                     );
                 }
                 Row::Task { title, late } => {
@@ -831,12 +824,5 @@ mod tests {
         );
         assert_eq!(top.y, 84.0 + GAP * 1.5);
         assert_eq!(top.height, 300.0);
-    }
-
-    #[test]
-    fn a_calendars_color_reads_from_hex() {
-        assert_eq!(hex("#ff0000").map(|c| c.r), Some(1.0));
-        assert_eq!(hex("red"), None);
-        assert_eq!(hex("#fff"), None);
     }
 }

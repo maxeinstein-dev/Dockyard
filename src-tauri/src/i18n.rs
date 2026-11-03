@@ -206,8 +206,6 @@ pub struct DockMessages {
     /// A meeting with no title: from a free/busy calendar, or untitled.
     pub calendar_busy: &'static str,
     pub calendar_untitled: &'static str,
-    /// Before the meeting after the next one: `Depois 15:00 Daily`.
-    pub calendar_then: &'static str,
     /// The periods' names on a wide progress tile, in the order of
     /// `Period::ALL`.
     pub periods: [&'static str; 5],
@@ -351,7 +349,6 @@ const PT_BR: Messages = Messages {
         update_notice_line: "Para atualizar, abra Sobre no dock.",
         calendar_busy: "Ocupado",
         calendar_untitled: "(sem título)",
-        calendar_then: "Depois",
         periods: ["Dia", "Semana", "Mês", "Ano", "Expediente"],
         with_notice: "{name} (com aviso)",
         workspace: "Espaço {name}",
@@ -559,7 +556,6 @@ const EN: Messages = Messages {
         update_notice_line: "To update, open About in the dock.",
         calendar_busy: "Busy",
         calendar_untitled: "(no title)",
-        calendar_then: "Then",
         periods: ["Day", "Week", "Month", "Year", "Workday"],
         with_notice: "{name} (with notice)",
         workspace: "Workspace {name}",

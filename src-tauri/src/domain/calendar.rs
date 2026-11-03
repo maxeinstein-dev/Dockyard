@@ -12,6 +12,10 @@ pub const CYCLE_SYMBOL: &str = "🌸";
 /// Minutes before a meeting that the tile's middle click joins it.
 pub const JOIN_AHEAD: i64 = 10 * 60;
 
+/// Seconds before a meeting that the tile stops saying its time and counts
+/// the minutes to it ("em 30 min").
+pub const COUNTDOWN_AHEAD: i64 = 30 * 60;
+
 /// A calendar the events come from, as the accounts list it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -331,7 +335,7 @@ pub fn clock(at: i64, offset: i64) -> String {
 pub enum When {
     /// It started.
     Now,
-    /// It starts within the hour: in this many minutes.
+    /// It starts within [`COUNTDOWN_AHEAD`]: in this many minutes.
     In(i64),
     /// Later today, at this time (`14:30`).
     At(String),
@@ -344,7 +348,7 @@ pub fn when(event: &Event, now: i64, offset: i64) -> When {
     let day = |at: i64| (at + offset).div_euclid(24 * 3600);
     if event.start <= now {
         When::Now
-    } else if event.start - now < 3600 {
+    } else if event.start - now <= COUNTDOWN_AHEAD {
         When::In((event.start - now + 59) / 60)
     } else if day(event.start) > day(now) {
         When::Tomorrow(clock(event.start, offset))
@@ -359,6 +363,72 @@ pub fn joinable(events: &[Event], now: i64) -> Option<&Event> {
     upcoming(events, now)
         .into_iter()
         .find(|event| event.join.is_some() && event.start - now <= JOIN_AHEAD)
+}
+
+/// A color's channels, 0–255.
+pub type Rgb = (u8, u8, u8);
+
+/// The dark ink of an event's block: black, the only one that reads at
+/// 4.5:1 on every color white doesn't.
+pub const DARK_INK: Rgb = (0, 0, 0);
+
+/// `#rrggbb` (a calendar's color, as Google sends it) as its channels.
+pub fn rgb(text: &str) -> Option<Rgb> {
+    let digits = text.strip_prefix('#').filter(|digits| digits.len() == 6)?;
+    if !digits.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return None;
+    }
+    let part = |at: usize| u8::from_str_radix(&digits[at..at + 2], 16).ok();
+    Some((part(0)?, part(2)?, part(4)?))
+}
+
+/// The relative luminance of a color (WCAG 2), 0–1.
+pub fn luminance((r, g, b): Rgb) -> f64 {
+    let linear = |channel: u8| {
+        let c = f64::from(channel) / 255.0;
+        if c <= 0.04045 {
+            c / 12.92
+        } else {
+            ((c + 0.055) / 1.055).powf(2.4)
+        }
+    };
+    0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
+}
+
+/// The contrast between two colors (WCAG 2), 1–21.
+pub fn contrast(a: Rgb, b: Rgb) -> f64 {
+    let (a, b) = (luminance(a), luminance(b));
+    (a.max(b) + 0.05) / (a.min(b) + 0.05)
+}
+
+/// An event's block on the tile, the panel and the card: filled with its
+/// calendar's color, the text in white or in [`DARK_INK`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Block {
+    pub fill: Rgb,
+    /// White text; dark otherwise.
+    pub light_ink: bool,
+}
+
+impl Block {
+    /// The block of a calendar's color; an event without one (or with one
+    /// that isn't `#rrggbb`) in the theme's `accent`. The ink is the one
+    /// with more contrast, so it always reads at 4.5:1 or more.
+    pub fn of(color: Option<&str>, accent: Rgb) -> Block {
+        let fill = color.and_then(rgb).unwrap_or(accent);
+        Block {
+            fill,
+            light_ink: contrast(fill, (255, 255, 255)) >= contrast(fill, DARK_INK),
+        }
+    }
+
+    pub fn ink(&self) -> Rgb {
+        if self.light_ink {
+            (255, 255, 255)
+        } else {
+            DARK_INK
+        }
+    }
 }
 
 #[cfg(test)]
@@ -545,6 +615,9 @@ mod tests {
         assert_eq!(when(&at(now - 60), now, BRT), When::Now);
         assert_eq!(when(&at(now + 9 * 60), now, BRT), When::In(9));
         assert_eq!(when(&at(now + 61), now, BRT), When::In(2));
+        // The time until half an hour before; then the minutes.
+        assert_eq!(when(&at(now + 31 * 60), now, BRT), When::At("09:31".into()));
+        assert_eq!(when(&at(now + 30 * 60), now, BRT), When::In(30));
         assert_eq!(
             when(&at(now + 5 * 3600), now, BRT),
             When::At("14:00".into())
@@ -561,5 +634,49 @@ mod tests {
             Some(now + 5 * 60)
         );
         assert_eq!(joinable(&merged[1..], now), None);
+    }
+
+    #[test]
+    fn a_light_color_gets_dark_ink_and_a_dark_one_white() {
+        // Google's "Mirtilo claro" and "Tomate".
+        let light = Block::of(Some("#9fc6e7"), (0x2f, 0x5b, 0xd3));
+        assert_eq!(light.fill, (0x9f, 0xc6, 0xe7));
+        assert!(!light.light_ink);
+        assert_eq!(light.ink(), DARK_INK);
+        let dark = Block::of(Some("#4a1d8c"), (0x2f, 0x5b, 0xd3));
+        assert!(dark.light_ink);
+        assert_eq!(dark.ink(), (255, 255, 255));
+    }
+
+    #[test]
+    fn an_event_without_a_color_takes_the_accent() {
+        let accent = (0x2f, 0x5b, 0xd3);
+        assert_eq!(Block::of(None, accent).fill, accent);
+        assert!(Block::of(None, accent).light_ink);
+        assert_eq!(Block::of(Some("red"), accent).fill, accent);
+        // The dark theme's accent is light: dark ink.
+        assert!(!Block::of(None, (0x7c, 0x9c, 0xff)).light_ink);
+    }
+
+    #[test]
+    fn every_block_reads_at_four_and_a_half_to_one() {
+        for r in (0..=255).step_by(15) {
+            for g in (0..=255).step_by(15) {
+                for b in (0..=255).step_by(15) {
+                    let block = Block::of(None, (r, g, b));
+                    let ratio = contrast(block.fill, block.ink());
+                    assert!(ratio >= 4.5, "{:?}: {ratio}", block.fill);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_color_reads_only_from_six_hex_digits() {
+        assert_eq!(rgb("#9fC6e7"), Some((0x9f, 0xc6, 0xe7)));
+        assert_eq!(rgb("9fc6e7"), None);
+        assert_eq!(rgb("#fff"), None);
+        assert_eq!(rgb("#gggggg"), None);
+        assert_eq!(rgb("#ééé"), None);
     }
 }
