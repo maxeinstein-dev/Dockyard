@@ -16,7 +16,7 @@
 }
 
 .claude-limit-percent {
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   font-variant-numeric: tabular-nums;
 }
 
@@ -39,5 +39,5 @@
 .claude-note {
   margin: 0;
   color: var(--ink-2);
-  font-size: 12px;
+  font-size: var(--fs-caption);
 }
