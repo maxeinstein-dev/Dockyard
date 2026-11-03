@@ -5,7 +5,7 @@
 //! cover once per track.
 
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, Once};
+use std::sync::{Arc, Mutex, Once, OnceLock};
 use std::time::Duration;
 
 use windows::Media::Control::{
@@ -50,6 +50,8 @@ static STATE: Mutex<Option<Snapshot>> = Mutex::new(None);
 static WANTERS: Mutex<Vec<isize>> = Mutex::new(Vec::new());
 static WANTED: AtomicBool = AtomicBool::new(false);
 static STARTED: Once = Once::new();
+/// The reading thread, woken when a dock wants it again.
+static READER: OnceLock<std::thread::Thread> = OnceLock::new();
 
 const EVERY: Duration = Duration::from_secs(1);
 /// The largest cover kept: 2 MB.
@@ -79,8 +81,13 @@ pub fn want(dock: isize, wanted: bool) {
     WANTED.store(on, Ordering::Relaxed);
     if on {
         STARTED.call_once(|| {
-            let _ = std::thread::Builder::new().name("media".into()).spawn(run);
+            if let Ok(reader) = std::thread::Builder::new().name("media".into()).spawn(run) {
+                let _ = READER.set(reader.thread().clone());
+            }
         });
+        if let Some(reader) = READER.get() {
+            reader.unpark();
+        }
     }
 }
 
@@ -262,6 +269,8 @@ fn run() {
     loop {
         std::thread::sleep(EVERY);
         if !WANTED.load(Ordering::Relaxed) {
+            // Asleep until a dock wants it: `want` wakes it.
+            std::thread::park();
             continue;
         }
         if found.is_none() {

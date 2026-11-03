@@ -465,7 +465,7 @@ fn make_dock(app: &AppHandle, monitor: Monitor) -> Option<Dock> {
         switcher_hovered: None,
         strip: Vec::new(),
         strip_hovered: None,
-        system: Some(super::system_status::read()),
+        system: Some(super::system_status::read_shared()),
         activity: None,
         widen: Vec::new(),
         tray_images: HashMap::new(),
@@ -1064,7 +1064,7 @@ impl Dock {
     }
 
     fn read_system(&mut self) {
-        let now = Some(super::system_status::read());
+        let now = Some(super::system_status::read_shared());
         if now != self.system {
             self.system = now;
             self.rebuild();
@@ -1691,6 +1691,12 @@ impl Dock {
 
     fn paint(&mut self) {
         if !self.visible {
+            return;
+        }
+        // Tucked all the way out, the window is hidden: nothing to draw, and
+        // a rolling title does not wake it. Coming back up paints again.
+        if self.tucked >= 1.0 {
+            let _ = unsafe { KillTimer(Some(self.hwnd), MARQUEE_TIMER) };
             return;
         }
         let scene = self.scene();
