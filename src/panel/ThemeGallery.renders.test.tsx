@@ -41,10 +41,10 @@ describe("ThemeGallery's countdown", () => {
     vi.useFakeTimers();
     invoke.mockResolvedValue(undefined);
     render(<ThemeGallery dock={DOCK} appIds={APPS} onApply={vi.fn()} />);
-    const group = screen.getByRole("group", {
+    const group = screen.getByRole("radiogroup", {
       name: ptBR.settings.look.themes,
     });
-    fireEvent.click(within(group).getByRole("button", { name: "Neon" }));
+    fireEvent.click(within(group).getByRole("radio", { name: "Neon" }));
     drawn.mockClear();
 
     // One second at a time: each tick renders before the next is set.
