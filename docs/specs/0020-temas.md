@@ -10,7 +10,7 @@ Extensão da fase G ([spec 0019](0019-fase-g-extras.md)): **temas** que vestem o
 5. Medieval 8-bit (#116);
 6. Caçador (#117).
 
-Também entrou o "experimentar e voltar" (#115). A segunda leva gamer, com Cyberpunk, Fliperama e Espacial, entrou em 2026-11-03 (§4). Ficam para depois: os widgets do dock no tom do tema (Q9) e uma pasta `Skins` para barras de terceiros (Q14).
+Também entrou o "experimentar e voltar" (#115). A segunda leva gamer, com Cyberpunk, Fliperama e Espacial, entrou em 2026-11-03 (§4). Os widgets no tom do tema (Q9) entraram em 2026-11-03 (§6). Fica para depois uma pasta `Skins` para barras de terceiros (Q14).
 
 **Verificação final** (2026-10-30, build e2e da `main` com os seis passos, cópia dos dados do autor):
 - **Os 11 temas:** aplicados pelos cartões, um a um. Cada um perguntou "Manter este tema?", foi mantido e gravou estilo e pacote, e o dock desenhou a barra e os ícones dele. Fotos em [`docs/fotos/g7-11-temas-ao-vivo.png`](../fotos/g7-11-temas-ao-vivo.png).
@@ -118,3 +118,12 @@ Tomadas numa sessão de perguntas (Q1–Q22), todas na recomendação:
     - **Pacote** `espacial` (`fonte/espacial.txt`, estilo de camadas `espacial`): escotilha com aro de metal (`#7A879C` → `#3A4458`), anel ciano, vidro azul-marinho (`#13234A` → `#070E22`) e o glifo branco com brilho ciano. Cobre os 55 glifos. A reserva é um planeta com anel (`apps/planeta.png`).
   - **Temas** `cyberpunk`, `arcade` e `scifi`: cada um com a skin e o pacote dele e o indicador do estilo. Aparecem na galeria depois do Caçador, e as skins e os pacotes aparecem também avulsos (Q19).
   - **A verificar ao vivo**: os três cartões e o dock com cada um, como nos temas da primeira leva.
+
+## 6. Os widgets no tom do tema (Q9)
+
+Decidido pelo autor em 2026-11-03: os widgets seguem a **cor de destaque** do estilo em uso; o desenho e o vidro de cada widget ficam como estão.
+
+- O que enche o anel (Ciclo, Pomodoro, Água, Claude), a barra de um medidor (Atividade) e os ponteiros do relógio de ponteiros é a cor do indicador em uso: a escolhida pelo usuário, ou a do estilo, ou a de destaque do sistema.
+- A cor é clareada em direção ao branco só o quanto precisa para ter contraste de 3:1 (o mínimo da WCAG para gráficos) contra o topo do vidro do widget (`Glaze::mark`). Como as cores dos estilos são tão claras quanto os vidros, quase sempre fica um tom da cor, não ela pura.
+- Texto, números e glifos seguem brancos.
+- **Verificado ao vivo** (2026-11-03, build de lançamento, cópia dos dados do autor sem cor de indicador escolhida): Atividade e Ciclo em verde no Fósforo, laranja no Tático, rosa no Cyberpunk e amarelo no Fliperama; com o indicador branco escolhido pelo autor, tudo segue branco. Foto em [`docs/fotos/q9-widgets-ao-vivo.png`](../fotos/q9-widgets-ao-vivo.png) (antes à esquerda, depois à direita).
