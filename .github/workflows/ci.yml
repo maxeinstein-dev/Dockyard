@@ -166,7 +166,7 @@ jobs:
       # runs the whole suite, and clippy above checks every target with it.
       - name: cargo test (e2e)
         working-directory: src-tauri
-        run: cargo test --locked --features e2e --lib e2e::
+        run: "cargo test --locked --features e2e --lib e2e::"
 
       - name: Build test app
         run: pnpm test:e2e:build
