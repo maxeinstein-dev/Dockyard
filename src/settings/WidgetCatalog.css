@@ -126,7 +126,7 @@
 
 .catalog-error {
   margin: 0;
-  color: var(--danger-ink);
+  color: var(--danger);
   font-size: var(--fs-caption);
 }
 
