@@ -174,6 +174,80 @@ describe("HotkeyField", () => {
   });
 });
 
+describe("HotkeyField of the dock (M14)", () => {
+  const dock = ptBR.settings.dockHotkey;
+  const capturingDock = () => screen.getByRole("button", { name: dock.press });
+
+  beforeEach(() => {
+    invoke.mockReset();
+    invoke.mockResolvedValue(undefined);
+  });
+
+  it("captures and saves through the dock's own commands", async () => {
+    render(<HotkeyField of="dock" hotkey="Alt+Win+Z" />);
+
+    expect(
+      screen.getByRole("button", {
+        name: "Alterar o atalho do dock, hoje Alt+Win+Z",
+      }),
+    ).toBeInTheDocument();
+    // The default needs no way back to it.
+    expect(
+      screen.queryByRole("button", { name: dock.restore }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { pressed: false }));
+    expect(invoke).toHaveBeenCalledWith("capture_dock_hotkey", { on: true });
+    fireEvent.keyDown(capturingDock(), {
+      keyCode: 68,
+      key: "D",
+      ctrlKey: true,
+      shiftKey: true,
+    });
+    await act(async () => {});
+
+    expect(invoke).toHaveBeenCalledWith("set_dock_hotkey", {
+      hotkey: "Ctrl+Shift+D",
+    });
+    expect(invoke).not.toHaveBeenCalledWith(
+      "set_launcher_hotkey",
+      expect.anything(),
+    );
+  });
+
+  it("says when the combination is the launcher's", async () => {
+    invoke.mockImplementation((command: string) =>
+      command === "set_dock_hotkey"
+        ? Promise.reject({ code: "clash" })
+        : Promise.resolve(undefined),
+    );
+    render(<HotkeyField of="dock" hotkey="Alt+Win+Z" />);
+
+    fireEvent.click(screen.getByRole("button", { pressed: false }));
+    fireEvent.keyDown(capturingDock(), {
+      keyCode: 32,
+      key: " ",
+      altKey: true,
+    });
+    await act(async () => {});
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Essa combinação já abre o lançador.",
+    );
+  });
+
+  it("goes back to Alt+Win+Z", async () => {
+    render(<HotkeyField of="dock" hotkey="Ctrl+Shift+D" />);
+
+    fireEvent.click(screen.getByRole("button", { name: dock.restore }));
+    await act(async () => {});
+
+    expect(invoke).toHaveBeenCalledWith("set_dock_hotkey", {
+      hotkey: "Alt+Win+Z",
+    });
+  });
+});
+
 describe("hotkeyFromEvent", () => {
   const none = {
     ctrlKey: false,

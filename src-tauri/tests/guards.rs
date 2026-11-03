@@ -154,6 +154,10 @@ const EXPECTED_CAPABILITIES: &[(&str, &str, &[&str], &[&str])] = &[
             "allow-clear-launcher-history",
             "allow-set-launcher-hotkey",
             "allow-capture-launcher-hotkey",
+            // The dock's hotkey (M14), which takes the keyboard to it: captured
+            // and saved the same way.
+            "allow-set-dock-hotkey",
+            "allow-capture-dock-hotkey",
             // The workspaces (spec 0013): Configurações reads them and makes,
             // renames, recolors, moves and deletes them. Their programs and
             // widgets go through the apps and widgets commands above.

@@ -182,6 +182,8 @@ macro_rules! handler {
             commands::launcher::clear_launcher_history,
             commands::launcher::set_launcher_hotkey,
             commands::launcher::capture_launcher_hotkey,
+            commands::launcher::set_dock_hotkey,
+            commands::launcher::capture_dock_hotkey,
             commands::update::update_status,
             commands::update::check_for_update,
             commands::update::install_update
@@ -267,6 +269,8 @@ macro_rules! handler {
             commands::launcher::clear_launcher_history,
             commands::launcher::set_launcher_hotkey,
             commands::launcher::capture_launcher_hotkey,
+            commands::launcher::set_dock_hotkey,
+            commands::launcher::capture_dock_hotkey,
             commands::update::update_status,
             commands::update::check_for_update,
             commands::update::install_update,

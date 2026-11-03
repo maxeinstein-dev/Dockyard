@@ -2,7 +2,7 @@
 //! Direct2D, as the launcher, in place of Windows' menu (`TrackPopupMenu`),
 //! which can't have the look of the rest of the app.
 //!
-//! `show` works as `TrackPopupMenu` does: it opens the menu, runs a loop of
+//! `show_from` works as `TrackPopupMenu` does: it opens the menu, runs a loop of
 //! its own until something is chosen or the menu is let go (Esc, Alt, a
 //! click elsewhere), and returns what was chosen. The pointer, the keyboard
 //! (arrows, Home, End, Enter, Space, a letter) and UI Automation choose.
@@ -150,20 +150,15 @@ fn monitor_at(at: POINT) -> (Area, f64) {
     }
 }
 
-/// Opens a menu of `lines` at `at` (the pointer when `None`), above it when
-/// `up` (a dock at the bottom of the screen) and below it otherwise, and
-/// returns the index of the line chosen; `None` when it was let go.
-pub fn show(at: Option<POINT>, up: bool, lines: Vec<Line>) -> Option<usize> {
-    show_from(None, at, up, lines, false)
-}
-
-/// `show`, telling `on_hot` the index of each line the pointer or the
+/// `show_from`, telling `on_hot` the index of each line the pointer or the
 /// keyboard moves to (the dock warms Configurações on its line). `on_hot`
 /// runs on the main thread, outside the menu: it may not wait on it.
 pub fn show_hovering(
+    owner: Option<HWND>,
     at: Option<POINT>,
     up: bool,
     lines: Vec<Line>,
+    keyboard: bool,
     on_hot: impl Fn(usize) + 'static,
 ) -> Option<usize> {
     struct Forget;
@@ -174,13 +169,16 @@ pub fn show_hovering(
     }
     ON_HOT.with(|slot| *slot.borrow_mut() = Some(Box::new(on_hot)));
     let _forget = Forget;
-    show(at, up, lines)
+    show_from(owner, at, up, lines, keyboard)
 }
 
-/// `show`, for a menu of the window `owner` (the launcher's, spec 0012 L6):
-/// it stays above it, and the owner takes the keyboard back when the menu
-/// closes. Opened by the keyboard (`keyboard`), its first item is lit, as
-/// in Windows' menus.
+/// Opens a menu of `lines` at `at` (the pointer when `None`), above it when
+/// `up` (a dock at the bottom of the screen) and below it otherwise, and
+/// returns the index of the line chosen; `None` when it was let go. For a
+/// menu of the window `owner` (the launcher's, spec 0012 L6; the dock's by
+/// the keyboard, M14), it stays above it, and the owner takes the keyboard
+/// back when the menu closes. Opened by the keyboard (`keyboard`), its first
+/// item is lit, as in Windows' menus.
 pub fn show_from(
     owner: Option<HWND>,
     at: Option<POINT>,

@@ -35,6 +35,7 @@ const SETTINGS: Settings = {
   launcher: true,
   launcherKeywords: [],
   launcherHotkey: "Alt+Space",
+  dockHotkey: "Alt+Win+Z",
   language: "system",
   tourShown: true,
   dock: {
@@ -191,6 +192,18 @@ describe("SettingsApp", () => {
       within(
         screen.getByRole("region", { name: text.groups.startup }),
       ).getByRole("switch", { name: ptBR.settings.launchAtLogin }),
+    ).toBeInTheDocument();
+  });
+
+  it("changes the dock's hotkey in Comportamento (M14)", async () => {
+    await renderApp();
+
+    expect(
+      within(
+        screen.getByRole("region", { name: text.groups.behavior }),
+      ).getByRole("button", {
+        name: "Alterar o atalho do dock, hoje Alt+Win+Z",
+      }),
     ).toBeInTheDocument();
   });
 

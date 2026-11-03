@@ -23,6 +23,7 @@ import ChoiceCards from "./parts/ChoiceCards";
 import SettingsGroup from "./parts/SettingsGroup";
 import { ScreenThumb } from "./ChoiceThumbs";
 import ToggleField from "./parts/ToggleField";
+import HotkeyField from "./HotkeyField";
 import LauncherField from "./LauncherField";
 import TrayInDockField from "./TrayInDockField";
 import WebKeywordsField from "./WebKeywordsField";
@@ -342,6 +343,9 @@ function SettingsPanel({
               change((s) => ({ ...s, dock: { ...s.dock, middleClick: value } }))
             }
           />
+          {withLauncher && shown !== null ? (
+            <HotkeyField of="dock" hotkey={shown.dockHotkey} />
+          ) : null}
         </SettingsGroup>
         {withLauncher ? (
           <SettingsGroup title={groups.launcher} grouped>
@@ -633,6 +637,9 @@ function SettingsPanel({
           change((s) => ({ ...s, dock: { ...s.dock, middleClick: value } }))
         }
       />
+      {withLauncher && shown !== null ? (
+        <HotkeyField of="dock" hotkey={shown.dockHotkey} />
+      ) : null}
       {onOpenLook ? (
         <NavRow
           label={t.settings.look.title}

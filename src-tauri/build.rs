@@ -79,6 +79,8 @@ fn main() {
             "clear_launcher_history",
             "set_launcher_hotkey",
             "capture_launcher_hotkey",
+            "set_dock_hotkey",
+            "capture_dock_hotkey",
             "list_workspaces",
             "create_workspace",
             "rename_workspace",
