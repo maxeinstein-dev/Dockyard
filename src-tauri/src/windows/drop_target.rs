@@ -1,6 +1,6 @@
 //! Takes the files dropped on the dock: on a program's tile they open with
 //! it (spec 0018); anywhere else, a program among them is pinned (spec 0006
-//! B2, drop to pin) where it was let go.
+//! B2, drop to pin) where it was let go, or moved there when already pinned.
 //!
 //! The dock's window (spec 0011 H3: native) takes the drop itself. The paths
 //! come from the drop, so only what the user really dropped can be pinned
