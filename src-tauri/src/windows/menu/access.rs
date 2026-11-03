@@ -12,10 +12,10 @@
 
 use std::sync::{Mutex, PoisonError};
 
+use crate::windows::uia::{none, rect, runtime_id};
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::Com::SAFEARRAY;
-use windows::Win32::System::Ole::{SafeArrayCreateVector, SafeArrayPutElement};
-use windows::Win32::System::Variant::{VARIANT, VT_I4};
+use windows::Win32::System::Variant::VARIANT;
 use windows::Win32::UI::Accessibility::{
     IInvokeProvider, IInvokeProvider_Impl, IRawElementProviderFragment,
     IRawElementProviderFragment_Impl, IRawElementProviderFragmentRoot,
@@ -29,12 +29,12 @@ use windows::Win32::UI::Accessibility::{
     UIA_IsEnabledPropertyId, UIA_IsKeyboardFocusablePropertyId, UIA_MenuClosedEventId,
     UIA_MenuControlTypeId, UIA_MenuItemControlTypeId, UIA_MenuOpenedEventId, UIA_NamePropertyId,
     UIA_PATTERN_ID, UIA_PROPERTY_ID, UIA_PositionInSetPropertyId, UIA_SeparatorControlTypeId,
-    UIA_SizeOfSetPropertyId, UIA_TextControlTypeId, UIA_TogglePatternId, UiaAppendRuntimeId,
-    UiaClientsAreListening, UiaHostProviderFromHwnd, UiaRaiseAutomationEvent, UiaRect,
-    UiaReturnRawElementProvider, UiaRootObjectId,
+    UIA_SizeOfSetPropertyId, UIA_TextControlTypeId, UIA_TogglePatternId, UiaClientsAreListening,
+    UiaHostProviderFromHwnd, UiaRaiseAutomationEvent, UiaRect, UiaReturnRawElementProvider,
+    UiaRootObjectId,
 };
 use windows::Win32::UI::WindowsAndMessaging::PostMessageW;
-use windows::core::{BSTR, Error, IUnknown, IUnknownImpl, Interface, Result, implement};
+use windows::core::{BSTR, IUnknown, IUnknownImpl, Interface, Result, implement};
 
 use super::{WM_MENU_FOCUS, WM_MENU_INVOKE};
 use crate::domain::menu::Line;
@@ -114,11 +114,6 @@ pub fn get_object(hwnd: HWND, wparam: WPARAM, lparam: LPARAM) -> Option<LRESULT>
     }
     .into();
     Some(unsafe { UiaReturnRawElementProvider(hwnd, wparam, lparam, &root) })
-}
-
-/// Nothing: a null out-pointer with success.
-fn none<T>() -> Result<T> {
-    Err(Error::empty())
 }
 
 fn fragment(hwnd: isize, index: usize) -> IRawElementProviderFragment {
@@ -347,34 +342,13 @@ impl IRawElementProviderFragment_Impl for Item_Impl {
     }
 
     fn GetRuntimeId(&self) -> Result<*mut SAFEARRAY> {
-        crate::windows::panics::com_call(|| unsafe {
-            let ids = SafeArrayCreateVector(VT_I4, 0, 2);
-            if ids.is_null() {
-                return none();
-            }
-            for (at, value) in [UiaAppendRuntimeId as i32, self.index as i32 + 1]
-                .into_iter()
-                .enumerate()
-            {
-                let at = at as i32;
-                SafeArrayPutElement(ids, &at, std::ptr::from_ref(&value).cast())?;
-            }
-            Ok(ids)
-        })
+        crate::windows::panics::com_call(|| runtime_id(self.index as i32 + 1))
     }
 
     fn BoundingRectangle(&self) -> Result<UiaRect> {
         crate::windows::panics::com_call(|| {
             Ok(match self.entry() {
-                Some(entry) => {
-                    let (left, top, width, height) = entry.rect;
-                    UiaRect {
-                        left,
-                        top,
-                        width,
-                        height,
-                    }
-                }
+                Some(entry) => rect(entry.rect),
                 None => UiaRect::default(),
             })
         })

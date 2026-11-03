@@ -75,6 +75,8 @@ pub mod toast;
 pub mod tour_window;
 #[cfg(windows)]
 pub mod tray_host;
+#[cfg(windows)]
+pub mod uia;
 pub mod update;
 #[cfg(windows)]
 pub mod water;
