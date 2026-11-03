@@ -17,8 +17,10 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p e2e/tsconfig.json",
     "test": "vitest run",
+    "check": "node scripts/check.mjs",
     "test:e2e:build": "tauri build --debug --no-bundle --features e2e --config src-tauri/tauri.e2e.conf.json",
-    "test:e2e": "wdio run e2e/wdio.conf.ts"
+    "test:e2e": "wdio run e2e/wdio.conf.ts",
+    "prepare": "git config core.hooksPath .githooks"
   },
   "dependencies": {
     "@tauri-apps/api": "2.12.3",
