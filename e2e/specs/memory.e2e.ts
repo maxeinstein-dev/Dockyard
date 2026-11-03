@@ -17,10 +17,11 @@ import {
  *
  * The test build is a debug build with the hidden `e2e` window, so it uses
  * more than a release build: the ceiling is for this build only, set from
- * runs on the GitHub runner with room to spare. */
+ * runs on the GitHub runner (19.4, 19.8 and 19.4 MB) with about half again
+ * to spare. */
 
 /** The most private memory the process may hold at rest. */
-const CEILING_MB = 100_000;
+const CEILING_MB = 30;
 
 const MB = 1024 * 1024;
 
