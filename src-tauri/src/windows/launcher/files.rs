@@ -303,20 +303,26 @@ extern "system" fn reply_procedure(
     wparam: WPARAM,
     lparam: LPARAM,
 ) -> LRESULT {
-    if message == WM_COPYDATA && lparam.0 != 0 {
-        let data = unsafe { &*(lparam.0 as *const COPYDATASTRUCT) };
-        let length = data.cbData as usize;
-        REPLY.with(|slot| {
-            let mut slot = slot.borrow_mut();
-            // Only the answer of the last query.
-            if data.dwData == slot.0 as usize && !data.lpData.is_null() && length <= MAX_REPLY {
-                let bytes = unsafe { std::slice::from_raw_parts(data.lpData.cast::<u8>(), length) };
-                slot.1 = Some(bytes.to_vec());
-            }
-        });
-        return LRESULT(1);
-    }
-    unsafe { DefWindowProcW(hwnd, message, wparam, lparam) }
+    crate::windows::panics::window_message(|| {
+        if message == WM_COPYDATA && lparam.0 != 0 {
+            let data = unsafe { &*(lparam.0 as *const COPYDATASTRUCT) };
+            let length = data.cbData as usize;
+            REPLY.with(|slot| {
+                let mut slot = slot.borrow_mut();
+                // Only the answer of the last query.
+                if data.dwData == slot.0 as usize && !data.lpData.is_null() && length <= MAX_REPLY {
+                    let bytes =
+                        unsafe { std::slice::from_raw_parts(data.lpData.cast::<u8>(), length) };
+                    slot.1 = Some(bytes.to_vec());
+                }
+            });
+            return LRESULT(1);
+        }
+        unsafe { DefWindowProcW(hwnd, message, wparam, lparam) }
+    })
+    .unwrap_or_else(|| unsafe {
+        ::windows::Win32::UI::WindowsAndMessaging::DefWindowProcW(hwnd, message, wparam, lparam)
+    })
 }
 
 /// Answers the queries of the Windows Search index, the last one first: one

@@ -718,21 +718,23 @@ pub fn install(app: &AppHandle, window: &WebviewWindow) -> Result<(), Box<dyn Er
     super::native::install(window)?;
     let app = app.clone();
     window.on_window_event(move |event| {
-        let action = match event {
-            // A program's menu, opened from the tray panel, took the focus:
-            // the panel stays (`popup_menu`).
-            #[cfg(windows)]
-            WindowEvent::Focused(false) if super::popup_menu::blocks_blur() => return,
-            WindowEvent::Focused(false) => lock(&app).blur(Instant::now()),
-            WindowEvent::CloseRequested { api, .. } => {
-                api.prevent_close();
-                lock(&app).hide()
+        let _ = crate::windows::panics::window_message(|| {
+            let action = match event {
+                // A program's menu, opened from the tray panel, took the focus:
+                // the panel stays (`popup_menu`).
+                #[cfg(windows)]
+                WindowEvent::Focused(false) if super::popup_menu::blocks_blur() => return,
+                WindowEvent::Focused(false) => lock(&app).blur(Instant::now()),
+                WindowEvent::CloseRequested { api, .. } => {
+                    api.prevent_close();
+                    lock(&app).hide()
+                }
+                _ => return,
+            };
+            if let Err(error) = apply(&app, action) {
+                log::warn!("panel: failed to hide: {error}");
             }
-            _ => return,
-        };
-        if let Err(error) = apply(&app, action) {
-            log::warn!("panel: failed to hide: {error}");
-        }
+        });
     });
     Ok(())
 }

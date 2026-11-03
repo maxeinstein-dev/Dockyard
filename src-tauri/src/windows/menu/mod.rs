@@ -421,116 +421,121 @@ impl Menu {
 }
 
 extern "system" fn procedure(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-    // What UI Automation hears after the menu is let go of.
-    let mut focus: Option<Option<usize>> = None;
-    let handled = match message {
-        WM_PAINT => {
-            let mut paint = PAINTSTRUCT::default();
-            unsafe { BeginPaint(hwnd, &mut paint) };
-            with_menu(Menu::paint);
-            let _ = unsafe { EndPaint(hwnd, &paint) };
-            true
-        }
-        WM_ERASEBKGND => return LRESULT(1),
-        WM_MOUSEMOVE => {
-            let mut track = TRACKMOUSEEVENT {
-                cbSize: size_of::<TRACKMOUSEEVENT>() as u32,
-                dwFlags: TME_LEAVE,
-                hwndTrack: hwnd,
-                dwHoverTime: 0,
-            };
-            let _ = unsafe { TrackMouseEvent(&mut track) };
-            // The screen reader follows the pointer too, as in Windows' menus.
-            focus = with_menu(|menu| {
-                let at = menu.line_at(lparam);
-                menu.set_hot(at, at.is_some())
-            })
-            .flatten();
-            true
-        }
-        WM_MOUSELEAVE => {
-            with_menu(|menu| menu.set_hot(None, false));
-            true
-        }
-        WM_LBUTTONUP | WM_RBUTTONUP => {
-            with_menu(|menu| {
-                if let Some(at) = menu.line_at(lparam) {
-                    menu.finish(Some(at));
-                }
-            });
-            true
-        }
-        WM_KEYDOWN => {
-            focus = with_menu(|menu| menu.key(VIRTUAL_KEY(wparam.0 as u16))).flatten();
-            true
-        }
-        WM_SYSKEYDOWN => {
-            let key = VIRTUAL_KEY(wparam.0 as u16);
-            if key == VK_MENU || key == VK_F10 {
-                with_menu(|menu| menu.finish(None));
+    crate::windows::panics::window_message(|| {
+        // What UI Automation hears after the menu is let go of.
+        let mut focus: Option<Option<usize>> = None;
+        let handled = match message {
+            WM_PAINT => {
+                let mut paint = PAINTSTRUCT::default();
+                unsafe { BeginPaint(hwnd, &mut paint) };
+                with_menu(Menu::paint);
+                let _ = unsafe { EndPaint(hwnd, &paint) };
                 true
-            } else {
-                false
             }
-        }
-        WM_CHAR => {
-            let typed = char::from_u32(wparam.0 as u32).filter(|c| c.is_alphanumeric());
-            if let Some(typed) = typed {
+            WM_ERASEBKGND => return LRESULT(1),
+            WM_MOUSEMOVE => {
+                let mut track = TRACKMOUSEEVENT {
+                    cbSize: size_of::<TRACKMOUSEEVENT>() as u32,
+                    dwFlags: TME_LEAVE,
+                    hwndTrack: hwnd,
+                    dwHoverTime: 0,
+                };
+                let _ = unsafe { TrackMouseEvent(&mut track) };
+                // The screen reader follows the pointer too, as in Windows' menus.
                 focus = with_menu(|menu| {
-                    let (index, unique) = model::by_letter(&menu.lines, menu.hot, typed)?;
-                    let moved = menu.set_hot(Some(index), true);
-                    if unique {
-                        menu.finish(Some(index));
-                    }
-                    moved
+                    let at = menu.line_at(lparam);
+                    menu.set_hot(at, at.is_some())
                 })
                 .flatten();
+                true
             }
-            true
-        }
-        WM_ACTIVATE => {
-            // A click anywhere else (or Alt+Tab) lets the menu go.
-            if u32::from(wparam.0 as u16) == WA_INACTIVE {
-                with_menu(|menu| menu.finish(None));
+            WM_MOUSELEAVE => {
+                with_menu(|menu| menu.set_hot(None, false));
+                true
             }
-            true
-        }
-        WM_MENU_INVOKE => {
-            with_menu(|menu| menu.finish(Some(wparam.0)));
-            true
-        }
-        WM_MENU_FOCUS => {
-            focus = with_menu(|menu| menu.set_hot(Some(wparam.0), true)).flatten();
-            true
-        }
-        WM_GETOBJECT => {
-            if let Some(result) = access::get_object(hwnd, wparam, lparam) {
-                return result;
+            WM_LBUTTONUP | WM_RBUTTONUP => {
+                with_menu(|menu| {
+                    if let Some(at) = menu.line_at(lparam) {
+                        menu.finish(Some(at));
+                    }
+                });
+                true
             }
-            false
+            WM_KEYDOWN => {
+                focus = with_menu(|menu| menu.key(VIRTUAL_KEY(wparam.0 as u16))).flatten();
+                true
+            }
+            WM_SYSKEYDOWN => {
+                let key = VIRTUAL_KEY(wparam.0 as u16);
+                if key == VK_MENU || key == VK_F10 {
+                    with_menu(|menu| menu.finish(None));
+                    true
+                } else {
+                    false
+                }
+            }
+            WM_CHAR => {
+                let typed = char::from_u32(wparam.0 as u32).filter(|c| c.is_alphanumeric());
+                if let Some(typed) = typed {
+                    focus = with_menu(|menu| {
+                        let (index, unique) = model::by_letter(&menu.lines, menu.hot, typed)?;
+                        let moved = menu.set_hot(Some(index), true);
+                        if unique {
+                            menu.finish(Some(index));
+                        }
+                        moved
+                    })
+                    .flatten();
+                }
+                true
+            }
+            WM_ACTIVATE => {
+                // A click anywhere else (or Alt+Tab) lets the menu go.
+                if u32::from(wparam.0 as u16) == WA_INACTIVE {
+                    with_menu(|menu| menu.finish(None));
+                }
+                true
+            }
+            WM_MENU_INVOKE => {
+                with_menu(|menu| menu.finish(Some(wparam.0)));
+                true
+            }
+            WM_MENU_FOCUS => {
+                focus = with_menu(|menu| menu.set_hot(Some(wparam.0), true)).flatten();
+                true
+            }
+            WM_GETOBJECT => {
+                if let Some(result) = access::get_object(hwnd, wparam, lparam) {
+                    return result;
+                }
+                false
+            }
+            _ => false,
+        };
+        if let Some(index) = focus {
+            access::focused(hwnd, index);
         }
-        _ => false,
-    };
-    if let Some(index) = focus {
-        access::focused(hwnd, index);
-    }
-    // Outside `with_menu`: what hears it may make windows.
-    let rested = with_menu(|menu| {
-        let changed = menu.hot != menu.told;
-        menu.told = menu.hot;
-        menu.hot.filter(|_| changed)
+        // Outside `with_menu`: what hears it may make windows.
+        let rested = with_menu(|menu| {
+            let changed = menu.hot != menu.told;
+            menu.told = menu.hot;
+            menu.hot.filter(|_| changed)
+        })
+        .flatten();
+        if let Some(index) = rested {
+            ON_HOT.with(|slot| {
+                if let Some(on_hot) = slot.borrow().as_ref() {
+                    on_hot(index);
+                }
+            });
+        }
+        if handled {
+            LRESULT(0)
+        } else {
+            unsafe { DefWindowProcW(hwnd, message, wparam, lparam) }
+        }
     })
-    .flatten();
-    if let Some(index) = rested {
-        ON_HOT.with(|slot| {
-            if let Some(on_hot) = slot.borrow().as_ref() {
-                on_hot(index);
-            }
-        });
-    }
-    if handled {
-        LRESULT(0)
-    } else {
-        unsafe { DefWindowProcW(hwnd, message, wparam, lparam) }
-    }
+    .unwrap_or_else(|| unsafe {
+        ::windows::Win32::UI::WindowsAndMessaging::DefWindowProcW(hwnd, message, wparam, lparam)
+    })
 }

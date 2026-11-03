@@ -91,9 +91,11 @@ pub fn start(app: &AppHandle) {
     }
     let handle = app.clone();
     app.listen(SETTINGS_CHANGED_EVENT, move |_| {
-        if crate::commands::settings::current(&handle).dock.show_badges {
-            spawn();
-        }
+        let _ = crate::windows::panics::window_message(|| {
+            if crate::commands::settings::current(&handle).dock.show_badges {
+                spawn();
+            }
+        });
     });
 }
 
@@ -103,13 +105,11 @@ fn spawn() {
     if STARTED.swap(true, Ordering::SeqCst) {
         return;
     }
-    let spawned = std::thread::Builder::new()
-        .name("taskbar-badges".into())
-        .spawn(|| {
-            if let Err(error) = run() {
-                log::warn!("badges: the taskbar can not be read: {error}");
-            }
-        });
+    let spawned = super::panics::lasting("taskbar-badges", || {
+        if let Err(error) = run() {
+            log::warn!("badges: the taskbar can not be read: {error}");
+        }
+    });
     if let Err(error) = spawned {
         log::warn!("badges: the reader did not start: {error}");
     }
@@ -131,8 +131,10 @@ impl IUIAutomationStructureChangedEventHandler_Impl for Changes_Impl {
         _change: StructureChangeType,
         _runtime_id: *const SAFEARRAY,
     ) -> Result<()> {
-        let _ = self.wake.send(());
-        Ok(())
+        crate::windows::panics::com_call(|| {
+            let _ = self.wake.send(());
+            Ok(())
+        })
     }
 }
 
@@ -143,8 +145,10 @@ impl IUIAutomationPropertyChangedEventHandler_Impl for Changes_Impl {
         _property: UIA_PROPERTY_ID,
         _value: &VARIANT,
     ) -> Result<()> {
-        let _ = self.wake.send(());
-        Ok(())
+        crate::windows::panics::com_call(|| {
+            let _ = self.wake.send(());
+            Ok(())
+        })
     }
 }
 

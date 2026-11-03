@@ -81,7 +81,7 @@ pub fn want(dock: isize, wanted: bool) {
     WANTED.store(on, Ordering::Relaxed);
     if on {
         STARTED.call_once(|| {
-            if let Ok(reader) = std::thread::Builder::new().name("media".into()).spawn(run) {
+            if let Ok(reader) = super::panics::lasting("media", run) {
                 let _ = READER.set(reader.thread().clone());
             }
         });

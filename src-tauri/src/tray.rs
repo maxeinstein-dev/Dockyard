@@ -132,17 +132,19 @@ pub fn setup(app: &AppHandle) -> tauri::Result<()> {
     let mut tray = TrayIconBuilder::with_id(ID)
         .tooltip(TOOLTIP)
         .on_tray_icon_event(|icon, event| {
-            if let TrayIconEvent::Click {
-                button: MouseButton::Right,
-                button_state: MouseButtonState::Up,
-                ..
-            } = event
-            {
-                // A late check, in case a theme change went unseen.
-                refresh(icon.app_handle());
-                #[cfg(windows)]
-                crate::windows::native_dock::tray_menu(icon.app_handle());
-            }
+            let _ = crate::windows::panics::window_message(|| {
+                if let TrayIconEvent::Click {
+                    button: MouseButton::Right,
+                    button_state: MouseButtonState::Up,
+                    ..
+                } = event
+                {
+                    // A late check, in case a theme change went unseen.
+                    refresh(icon.app_handle());
+                    #[cfg(windows)]
+                    crate::windows::native_dock::tray_menu(icon.app_handle());
+                }
+            });
         });
     let (ink, size) = current();
     if let Some(image) = decode(png(ink, size)) {

@@ -94,6 +94,7 @@ fn main() {
             // The E2E suite's, registered only in the test build (`e2e.rs`).
             "e2e_dock_view",
             "e2e_press_dock",
+            "e2e_dock_panic",
             "e2e_launcher_view",
             "e2e_launcher_toggle",
             "e2e_launcher_type",

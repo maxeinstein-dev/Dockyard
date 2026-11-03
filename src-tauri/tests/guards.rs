@@ -195,6 +195,7 @@ const EXPECTED_CAPABILITIES: &[(&str, &str, &[&str], &[&str])] = &[
         &[
             "allow-e2e-dock-view",
             "allow-e2e-press-dock",
+            "allow-e2e-dock-panic",
             "allow-e2e-launcher-view",
             "allow-e2e-launcher-toggle",
             "allow-e2e-launcher-type",
@@ -758,6 +759,7 @@ fn every_declared_command_is_registered_and_vice_versa() {
     assert_eq!(
         added,
         [
+            "e2e_dock_panic",
             "e2e_dock_view",
             "e2e_launcher_key",
             "e2e_launcher_toggle",
@@ -899,5 +901,174 @@ fn the_app_builder_registers_its_state_through_with_state() {
     assert!(
         with_state.contains("PanelState"),
         "src/lib.rs: `with_state` must manage the PanelState state"
+    );
+}
+
+/// Every `.rs` file under `dir`, relative to the crate root.
+fn rust_files(dir: &Path, found: &mut Vec<String>) {
+    let entries =
+        fs::read_dir(dir).unwrap_or_else(|e| panic!("cannot list {}: {e}", dir.display()));
+    for entry in entries {
+        let path = entry.expect("cannot read directory entry").path();
+        if path.is_dir() {
+            rust_files(&path, found);
+        } else if path.extension().is_some_and(|ext| ext == "rs") {
+            let relative = path.strip_prefix(manifest_dir()).unwrap_or(&path);
+            found.push(relative.to_string_lossy().replace('\\', "/"));
+        }
+    }
+}
+
+/// A panic cannot leave a function Windows calls (`extern "system"`): the
+/// process aborts there, whatever `panic` the profile says, and the dock,
+/// the tray and the taskbar's band go with it (M4). So every such function
+/// runs its body through `panics::window_message`, which catches the panic
+/// and answers the call as Windows would.
+#[test]
+fn every_function_windows_calls_catches_panics() {
+    let mut files = Vec::new();
+    rust_files(&manifest_dir().join("src"), &mut files);
+    let marker = "extern \"system\" fn ";
+    let mut checked = 0;
+    let mut missing = Vec::new();
+    for file in &files {
+        let code = rust_code(file);
+        for (index, _) in code.match_indices(marker) {
+            let rest = &code[index + marker.len()..];
+            // `extern "system" fn(` is a type (a pointer), not a function.
+            let Some(name) = rest.split('(').next().filter(|name| {
+                !name.is_empty() && name.chars().all(|c| c == '_' || c.is_alphanumeric())
+            }) else {
+                continue;
+            };
+            let body = block_after(rest, name, file);
+            checked += 1;
+            if !body.contains("window_message(") {
+                missing.push(format!("{file}: {name}"));
+            }
+        }
+    }
+    assert!(
+        checked >= 15,
+        "found only {checked} functions Windows calls"
+    );
+    assert!(
+        missing.is_empty(),
+        "these functions Windows calls must run their body through \
+         `panics::window_message`: {missing:?}"
+    );
+}
+
+/// The methods of our COM objects (`#[implement]`: the screen reader's view
+/// of the dock and the menus, the drop target, the badges' events) are
+/// called by Windows through `extern "system"` shims the `windows` crate
+/// makes, which do not catch a panic either. So every method of an
+/// `impl …_Impl for …_Impl` block runs its body through `panics::com_call`.
+#[test]
+fn every_method_of_our_com_objects_catches_panics() {
+    let mut files = Vec::new();
+    rust_files(&manifest_dir().join("src"), &mut files);
+    let mut checked = 0;
+    let mut missing = Vec::new();
+    for file in &files {
+        let code = rust_code(file);
+        for (index, _) in code.match_indices("impl ") {
+            let header = code[index..].split('{').next().unwrap_or_default();
+            let is_com = header
+                .split_whitespace()
+                .nth(1)
+                .is_some_and(|name| name.ends_with("_Impl"))
+                && header.trim_end().ends_with("_Impl")
+                && header.contains(" for ");
+            if !is_com {
+                continue;
+            }
+            let block = block_after(&code[index..], "impl", file);
+            for (at, _) in block.match_indices("fn ") {
+                // Only the block's own methods (outside every brace of it),
+                // not a function inside one.
+                let depth = block[..at].matches('{').count() - block[..at].matches('}').count();
+                if depth != 0 || block[..at].ends_with(is_ident_char) {
+                    continue;
+                }
+                let rest = &block[at + "fn ".len()..];
+                let Some(name) = rest.split('(').next().filter(|name| {
+                    !name.is_empty() && name.chars().all(|c| c == '_' || c.is_alphanumeric())
+                }) else {
+                    continue;
+                };
+                checked += 1;
+                if !block_after(rest, name, file).contains("com_call(") {
+                    missing.push(format!("{file}: {name}"));
+                }
+            }
+        }
+    }
+    assert!(checked >= 80, "found only {checked} methods of COM objects");
+    assert!(
+        missing.is_empty(),
+        "these methods Windows calls must run their body through \
+         `panics::com_call`: {missing:?}"
+    );
+}
+
+/// The text of the call whose `(` is at `open` in `code`, parentheses
+/// included.
+fn call_at<'a>(code: &'a str, open: usize, file: &str) -> &'a str {
+    let mut depth = 0usize;
+    for (index, c) in code[open..].char_indices() {
+        match c {
+            '(' => depth += 1,
+            ')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return &code[open..=open + index];
+                }
+            }
+            _ => {}
+        }
+    }
+    panic!("{file}: a call is not closed");
+}
+
+/// Tauri runs the callbacks the app gives it (a page loaded, a window's
+/// event, the tray icon, an event between windows, the app's own) inside
+/// its window procedure, catches a panic there and raises it again on the
+/// main thread, which ends the app. So each runs its body through
+/// `panics::window_message`. Not `setup`: a panic while the app starts
+/// means it can not run, and ending is right.
+#[test]
+fn every_callback_tauri_runs_catches_panics() {
+    let mut files = Vec::new();
+    rust_files(&manifest_dir().join("src"), &mut files);
+    let markers = [
+        ".on_page_load(",
+        ".on_window_event(",
+        ".on_tray_icon_event(",
+        ".on_menu_event(",
+        ".listen(",
+        ".listen_any(",
+        ".run(|",
+    ];
+    let mut checked = 0;
+    let mut missing = Vec::new();
+    for file in &files {
+        let code = rust_code(file);
+        for marker in markers {
+            for (index, _) in code.match_indices(marker) {
+                let open = index + marker.find('(').unwrap_or_default();
+                checked += 1;
+                if !call_at(&code, open, file).contains("window_message(") {
+                    let line = code[..index].lines().count();
+                    missing.push(format!("{file}:{line}: {marker}"));
+                }
+            }
+        }
+    }
+    assert!(checked >= 8, "found only {checked} callbacks Tauri runs");
+    assert!(
+        missing.is_empty(),
+        "these callbacks Tauri runs must run their body through \
+         `panics::window_message`: {missing:?}"
     );
 }

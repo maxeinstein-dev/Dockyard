@@ -671,53 +671,58 @@ fn point_of(lparam: LPARAM) -> (f64, f64) {
 }
 
 extern "system" fn procedure(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-    match message {
-        WM_PAINT => {
-            paint(hwnd);
-            LRESULT(0)
+    crate::windows::panics::window_message(|| {
+        match message {
+            WM_PAINT => {
+                paint(hwnd);
+                LRESULT(0)
+            }
+            WM_ERASEBKGND => LRESULT(1),
+            // A click never takes the focus from the window in front.
+            WM_MOUSEACTIVATE => LRESULT(MA_NOACTIVATE as isize),
+            WM_MOUSEMOVE => {
+                let (x, y) = point_of(lparam);
+                hover(hwnd, x, y);
+                LRESULT(0)
+            }
+            WM_LBUTTONUP => {
+                let (x, y) = point_of(lparam);
+                click(x, y);
+                LRESULT(0)
+            }
+            WM_TIMER if wparam.0 == WATCH_TIMER => {
+                watch();
+                LRESULT(0)
+            }
+            WM_TIMER if wparam.0 == SLIDE_TIMER => {
+                slide(hwnd);
+                LRESULT(0)
+            }
+            WM_MEDIA => {
+                media_found(wparam.0 == 2, lparam.0);
+                LRESULT(0)
+            }
+            WM_PRESS if wparam.0 >= PRESS_MEDIA => {
+                act(Hit::Media(wparam.0 - PRESS_MEDIA));
+                LRESULT(0)
+            }
+            WM_PRESS => {
+                let index = wparam.0 / 2;
+                act(if wparam.0 % 2 == 1 {
+                    Hit::Close(index)
+                } else {
+                    Hit::Cell(index)
+                });
+                LRESULT(0)
+            }
+            WM_GETOBJECT => access::get_object(hwnd, wparam, lparam)
+                .unwrap_or_else(|| unsafe { DefWindowProcW(hwnd, message, wparam, lparam) }),
+            _ => unsafe { DefWindowProcW(hwnd, message, wparam, lparam) },
         }
-        WM_ERASEBKGND => LRESULT(1),
-        // A click never takes the focus from the window in front.
-        WM_MOUSEACTIVATE => LRESULT(MA_NOACTIVATE as isize),
-        WM_MOUSEMOVE => {
-            let (x, y) = point_of(lparam);
-            hover(hwnd, x, y);
-            LRESULT(0)
-        }
-        WM_LBUTTONUP => {
-            let (x, y) = point_of(lparam);
-            click(x, y);
-            LRESULT(0)
-        }
-        WM_TIMER if wparam.0 == WATCH_TIMER => {
-            watch();
-            LRESULT(0)
-        }
-        WM_TIMER if wparam.0 == SLIDE_TIMER => {
-            slide(hwnd);
-            LRESULT(0)
-        }
-        WM_MEDIA => {
-            media_found(wparam.0 == 2, lparam.0);
-            LRESULT(0)
-        }
-        WM_PRESS if wparam.0 >= PRESS_MEDIA => {
-            act(Hit::Media(wparam.0 - PRESS_MEDIA));
-            LRESULT(0)
-        }
-        WM_PRESS => {
-            let index = wparam.0 / 2;
-            act(if wparam.0 % 2 == 1 {
-                Hit::Close(index)
-            } else {
-                Hit::Cell(index)
-            });
-            LRESULT(0)
-        }
-        WM_GETOBJECT => access::get_object(hwnd, wparam, lparam)
-            .unwrap_or_else(|| unsafe { DefWindowProcW(hwnd, message, wparam, lparam) }),
-        _ => unsafe { DefWindowProcW(hwnd, message, wparam, lparam) },
-    }
+    })
+    .unwrap_or_else(|| unsafe {
+        ::windows::Win32::UI::WindowsAndMessaging::DefWindowProcW(hwnd, message, wparam, lparam)
+    })
 }
 
 /// The card's colors: the launcher's plate (spec 0012), light or dark.
