@@ -322,6 +322,29 @@ impl Glaze {
     };
 
     /// The two tones of the glaze, top and bottom.
+    /// What fills a widget's ring, meter or hands on this glaze (spec 0020
+    /// Q9): `style_mark`, the mark of the style in use, lightened toward
+    /// white just enough to stand out on the glaze's light top (3:1,
+    /// WCAG's for graphics). Most marks are about as light as the glazes,
+    /// so they keep their hue as a tint; white itself always stands out.
+    pub fn mark(self, style_mark: Color) -> Color {
+        let rgb = |c: Color| {
+            let byte = |v: f32| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+            (byte(c.r), byte(c.g), byte(c.b))
+        };
+        let (top, _) = self.tones();
+        let mix = |t: f32| Color {
+            r: style_mark.r + (1.0 - style_mark.r) * t,
+            g: style_mark.g + (1.0 - style_mark.g) * t,
+            b: style_mark.b + (1.0 - style_mark.b) * t,
+            a: 1.0,
+        };
+        (0..=20)
+            .map(|step| mix(step as f32 / 20.0))
+            .find(|c| crate::domain::calendar::contrast(rgb(*c), rgb(top)) >= 3.0)
+            .unwrap_or(Color::WHITE)
+    }
+
     pub fn tones(self) -> (Color, Color) {
         (
             Color::hsl(self.h, self.s, self.l + 7.0),
@@ -468,6 +491,40 @@ mod tests {
     fn a_glaze_is_lighter_on_top() {
         let (top, bottom) = Glaze::CLOCK.tones();
         assert!(top.r + top.g + top.b > bottom.r + bottom.g + bottom.b);
+    }
+
+    #[test]
+    fn a_widget_takes_the_styles_mark_lightened_until_it_stands_out() {
+        let rgb = |c: Color| {
+            let byte = |v: f32| (v * 255.0).round() as u8;
+            (byte(c.r), byte(c.g), byte(c.b))
+        };
+        let glazes = [
+            Glaze::CLOCK,
+            Glaze::CYCLE,
+            Glaze::POMODORO,
+            Glaze::WATER,
+            Glaze::CLAUDE,
+            Glaze::WEATHER,
+        ];
+        // The Fósforo's green, the Tático's orange, the Cyberpunk's magenta.
+        for mark in [
+            Color::rgb(0x3c, 0xff, 0x6e),
+            Color::rgb(0xff, 0x8a, 0x1f),
+            Color::rgb(0xff, 0x2b, 0xd6),
+        ] {
+            for glaze in glazes {
+                let filled = glaze.mark(mark);
+                let (top, _) = glaze.tones();
+                let contrast = crate::domain::calendar::contrast(rgb(filled), rgb(top));
+                assert!(contrast >= 3.0, "{mark:?} on {glaze:?}: {contrast}");
+                // Still a tint of the mark, not plain white.
+                assert_ne!(filled, Color::WHITE, "{mark:?} on {glaze:?}");
+                assert_eq!(filled.a, 1.0);
+            }
+        }
+        // White stays white.
+        assert_eq!(Glaze::CLOCK.mark(Color::WHITE), Color::WHITE);
     }
 }
 
