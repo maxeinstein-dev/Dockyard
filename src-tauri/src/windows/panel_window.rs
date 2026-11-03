@@ -106,7 +106,9 @@ fn ensure(app: &AppHandle) {
     let spawned = thread::Builder::new()
         .name("panel-window".into())
         .spawn(move || {
-            let built =
+            let built = if super::webview_failure::fails_for_test("panel") {
+                Err("told to fail (DOCKYARD_FAIL_WEBVIEW)".to_string())
+            } else {
                 WebviewWindowBuilder::new(&app, LABEL, WebviewUrl::App("panel.html".into()))
                     .title("Dockyard")
                     .inner_size(360.0, 480.0)
@@ -119,7 +121,9 @@ fn ensure(app: &AppHandle) {
                     .visible(false)
                     .focused(false)
                     .additional_browser_args(super::BROWSER_ARGS)
-                    .build();
+                    .build()
+                    .map_err(|error| error.to_string())
+            };
             match built {
                 Ok(window) => {
                     let handle = app.clone();
@@ -134,7 +138,17 @@ fn ensure(app: &AppHandle) {
                         log::warn!("panel: the window setup was not scheduled: {error}");
                     }
                 }
-                Err(error) => log::warn!("panel: the window could not be made: {error}"),
+                Err(error) => {
+                    log::warn!("panel: the window could not be made: {error}");
+                    with_life(|life| life.pending = None);
+                    // The panel waiting for it gives up now.
+                    let handle = app.clone();
+                    let scheduled =
+                        app.run_on_main_thread(move || super::panel::window_failed(&handle));
+                    if let Err(error) = scheduled {
+                        log::warn!("panel: giving up was not scheduled: {error}");
+                    }
+                }
             }
             with_life(|life| life.making = false);
         });
