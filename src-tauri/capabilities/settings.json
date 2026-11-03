@@ -39,6 +39,8 @@
     "allow-recolor-workspace",
     "allow-move-workspace",
     "allow-delete-workspace",
+    "allow-remove-spacer",
+    "allow-move-spacer",
     "allow-share-widget",
     "allow-google-status",
     "allow-set-google-client",

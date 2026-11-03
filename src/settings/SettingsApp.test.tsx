@@ -222,8 +222,20 @@ describe("SettingsApp", () => {
       if (command === "list_workspaces") {
         return Promise.resolve({
           workspaces: [
-            { id: "w1", name: "Principal", color: "#0A84FF", items: [] },
-            { id: "w2", name: "Trabalho", color: "#FF9F0A", items: ["app:a2"] },
+            {
+              id: "w1",
+              name: "Principal",
+              color: "#0A84FF",
+              items: [],
+              spacers: [],
+            },
+            {
+              id: "w2",
+              name: "Trabalho",
+              color: "#FF9F0A",
+              items: ["app:a2"],
+              spacers: [],
+            },
           ],
           inUse: "w2",
         });

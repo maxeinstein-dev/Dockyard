@@ -1,4 +1,11 @@
-import { inWorkspace, type Workspace } from "../core/workspaces";
+import {
+  inWorkspace,
+  isWorkspaceCommandError,
+  moveSpacer,
+  removeSpacer,
+  type Workspace,
+  type WorkspaceSpacer,
+} from "../core/workspaces";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   CREATABLE_KINDS,
@@ -180,6 +187,51 @@ function subtitleOf(
     : format(t.widgets.common.labelledSubtitle, { kind, detail });
 }
 
+/** A row of the list: a widget, or a spacer of the workspace (spec 0022),
+ * by the id its buttons are kept under. */
+type Row =
+  | { kind: "widget"; id: WidgetId; instance: WidgetInstance }
+  | { kind: "spacer"; id: string; spacer: WorkspaceSpacer };
+
+/** The widgets and the spacers `workspace` shows, in its order: the
+ * spacers are listed with the widgets so they can be moved and removed
+ * here too. Without a workspace, the widgets alone. */
+function rowsOf(
+  widgets: readonly WidgetInstance[],
+  workspace: Workspace | null | undefined,
+): Row[] {
+  if (!workspace) {
+    return widgets.map((instance) => ({
+      kind: "widget",
+      id: instance.id,
+      instance,
+    }));
+  }
+  const byId = new Map(widgets.map((instance) => [instance.id, instance]));
+  const spacers = new Map(
+    workspace.spacers.map((spacer) => [spacer.id, spacer]),
+  );
+  return workspace.items.flatMap((key): Row[] => {
+    const at = key.indexOf(":");
+    const kind = key.slice(0, at);
+    const id = key.slice(at + 1);
+    const instance = kind === "widget" ? byId.get(id) : undefined;
+    if (instance) return [{ kind: "widget", id, instance }];
+    const spacer = kind === "spacer" ? spacers.get(id) : undefined;
+    return spacer ? [{ kind: "spacer", id, spacer }] : [];
+  });
+}
+
+/** A spacer's mini tile: a dashed room, narrow or wide as its size.
+ * Decorative: the name is next to it. */
+function SpacerTile({ spacer }: { spacer: WorkspaceSpacer }) {
+  return (
+    <span className="dock-items-spacer-cell" aria-hidden="true">
+      <span className={`dock-items-spacer ${spacer.size}`} />
+    </span>
+  );
+}
+
 /** Where the focus goes once the snapshot that answers an action comes:
  * the control it was on may have moved, turned off or gone. */
 type FocusTarget =
@@ -247,6 +299,7 @@ function DockItems({ snapshot, workspace, onBack, catalog }: DockItemsProps) {
   const widgets = available
     ? inWorkspace(snapshot.widgets, workspace, "widget")
     : [];
+  const rows = available ? rowsOf(widgets, workspace) : [];
   const space = workspace?.id;
   const full = widgets.length >= MAX_WIDGETS;
   /** The widgets other workspaces show and this one doesn't (spec 0013
@@ -282,8 +335,8 @@ function DockItems({ snapshot, workspace, onBack, catalog }: DockItemsProps) {
       }
       case "removed": {
         // Still listed: wait for the snapshot without it.
-        if (widgets.some((instance) => instance.id === target.id)) return;
-        const next = widgets[Math.min(target.index, widgets.length - 1)];
+        if (rows.some((row) => row.id === target.id)) return;
+        const next = rows[Math.min(target.index, rows.length - 1)];
         const button = next
           ? moveButtons.current.get(`${next.id}:remove`)
           : addButton.current;
@@ -342,15 +395,45 @@ function DockItems({ snapshot, workspace, onBack, catalog }: DockItemsProps) {
 
   function fail(reason: unknown) {
     focusTarget.current = null;
-    setError(isWidgetCommandError(reason) ? reason.code : "notReady");
+    if (isWidgetCommandError(reason)) {
+      setError(reason.code);
+    } else if (
+      // A spacer's command answers as the workspaces' do; the codes it can
+      // give have a widget message too.
+      isWorkspaceCommandError(reason) &&
+      reason.code in t.widgets.errors
+    ) {
+      setError(reason.code as WidgetErrorCode);
+    } else {
+      setError("notReady");
+    }
   }
 
-  function move(id: WidgetId, direction: MoveDirection) {
+  function move(row: Row, direction: MoveDirection) {
     setError(null);
-    // Applied when the reordered snapshot comes (`widgets-changed`), which
-    // may be before or after the command answers.
-    focusTarget.current = { kind: "move", id, direction };
-    moveWidget({ id, direction, workspace: space }).catch(fail);
+    // Applied when the reordered snapshot comes (`widgets-changed`, or
+    // `workspaces-changed` for a spacer), which may be before or after the
+    // command answers.
+    focusTarget.current = { kind: "move", id: row.id, direction };
+    (row.kind === "spacer"
+      ? moveSpacer(row.id, direction, space)
+      : moveWidget({ id: row.id, direction, workspace: space })
+    ).catch(fail);
+  }
+
+  /** Removes a spacer (`remove_spacer`), at once: it holds nothing. */
+  function removeSpacerRow(id: string, index: number) {
+    setError(null);
+    setRemoving(id);
+    focusTarget.current = { kind: "removed", id, index };
+    removeSpacer(id, space).then(
+      () => setRemoving(null),
+      (reason: unknown) => {
+        fail(reason);
+        focusTarget.current = { kind: "remove", id };
+        setRemoving(null);
+      },
+    );
   }
 
   function add(kind: CreatableKind) {
@@ -478,18 +561,26 @@ function DockItems({ snapshot, workspace, onBack, catalog }: DockItemsProps) {
       ) : null}
       {available ? (
         <>
-          {widgets.length > 0 ? (
+          {rows.length > 0 ? (
             <ul
               className="dock-items-list"
               aria-label={t.widgets.items.listLabel}
             >
-              {widgets.map((instance, index) => {
-                const name = widgetName(t, instance);
-                const subtitle = subtitleOf(t, instance, noteLines);
+              {rows.map((row, index) => {
+                const instance = row.kind === "widget" ? row.instance : null;
+                const name =
+                  row.kind === "widget"
+                    ? widgetName(t, row.instance)
+                    : t.widgets.items.spacers[row.spacer.size];
+                const subtitle = instance
+                  ? subtitleOf(t, instance, noteLines)
+                  : null;
                 return (
-                  <li key={instance.id} className="dock-items-row">
-                    {isCreatableInstance(instance) ? (
-                      <MiniTile kind={instance.kind} />
+                  <li key={row.id} className="dock-items-row">
+                    {row.kind === "spacer" ? (
+                      <SpacerTile spacer={row.spacer} />
+                    ) : isCreatableInstance(row.instance) ? (
+                      <MiniTile kind={row.instance.kind} />
                     ) : (
                       <span />
                     )}
@@ -503,7 +594,7 @@ function DockItems({ snapshot, workspace, onBack, catalog }: DockItemsProps) {
                       <IconButton
                         key={direction}
                         ref={(button) => {
-                          const key = `${instance.id}:${direction}`;
+                          const key = `${row.id}:${direction}`;
                           if (button) moveButtons.current.set(key, button);
                           else moveButtons.current.delete(key);
                         }}
@@ -517,12 +608,12 @@ function DockItems({ snapshot, workspace, onBack, catalog }: DockItemsProps) {
                         disabled={
                           direction === "up"
                             ? index === 0
-                            : index === widgets.length - 1
+                            : index === rows.length - 1
                         }
-                        onClick={() => move(instance.id, direction)}
+                        onClick={() => move(row, direction)}
                       />
                     ))}
-                    {confirming === instance.id ? (
+                    {instance && confirming === instance.id ? (
                       <div className="dock-items-confirm">
                         <InlineConfirm
                           title={t.widgets.note.confirmRemove.title}
@@ -537,15 +628,19 @@ function DockItems({ snapshot, workspace, onBack, catalog }: DockItemsProps) {
                     ) : (
                       <IconButton
                         ref={(button) => {
-                          const key = `${instance.id}:remove`;
+                          const key = `${row.id}:remove`;
                           if (button) moveButtons.current.set(key, button);
                           else moveButtons.current.delete(key);
                         }}
                         icon="trash"
                         tone="danger"
                         label={format(t.widgets.common.removeNamed, { name })}
-                        disabled={removing === instance.id}
-                        onClick={() => askToRemove(instance, index)}
+                        disabled={removing === row.id}
+                        onClick={() =>
+                          instance
+                            ? askToRemove(instance, index)
+                            : removeSpacerRow(row.id, index)
+                        }
                       />
                     )}
                   </li>

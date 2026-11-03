@@ -605,6 +605,7 @@ describe("DockItems in a workspace (spec 0013 C3)", () => {
     name: "Trabalho",
     color: "#FF9F0A",
     items: ["widget:c1"],
+    spacers: [],
   };
 
   beforeEach(() => {
@@ -644,6 +645,82 @@ describe("DockItems in a workspace (spec 0013 C3)", () => {
     expect(
       screen.queryByRole("group", { name: text.items.fromOthers }),
     ).toBeNull();
+  });
+});
+
+describe("DockItems with spacers (spec 0022)", () => {
+  const SPACED = {
+    id: "w-main",
+    name: "Principal",
+    color: "#0A84FF",
+    items: ["widget:c1", "spacer:s1", "app:a1", "widget:p1", "spacer:s2"],
+    spacers: [
+      { id: "s1", size: "small" as const },
+      { id: "s2", size: "large" as const },
+    ],
+  };
+
+  beforeEach(() => {
+    invoke.mockReset();
+    answer();
+  });
+
+  it("lists the spacers with the widgets, in the workspace's order", () => {
+    render(<DockItems snapshot={THREE} workspace={SPACED} />);
+
+    expect(
+      rows().map((row) => row.querySelector(".dock-items-name")?.textContent),
+    ).toEqual([
+      "Relógio",
+      text.items.spacers.small,
+      "Progresso do tempo",
+      text.items.spacers.large,
+    ]);
+    // The first is first and the last is last, spacers included.
+    expect(moveUp("Relógio")).toBeDisabled();
+    expect(moveDown(text.items.spacers.large)).toBeDisabled();
+    expect(moveUp(text.items.spacers.large)).toBeEnabled();
+  });
+
+  it("removes a spacer at once with remove_spacer", async () => {
+    render(<DockItems snapshot={THREE} workspace={SPACED} />);
+
+    fireEvent.click(removeButton(text.items.spacers.small));
+    await flush();
+
+    expect(sent("remove_spacer")).toEqual([{ id: "s1", workspace: "w-main" }]);
+    expect(sent("remove_widget")).toEqual([]);
+  });
+
+  it("moves a spacer with move_spacer, and a widget across it with move_widget", async () => {
+    render(<DockItems snapshot={THREE} workspace={SPACED} />);
+
+    fireEvent.click(moveUp(text.items.spacers.small));
+    await flush();
+    fireEvent.click(moveUp("Progresso do tempo"));
+    await flush();
+
+    expect(sent("move_spacer")).toEqual([
+      { id: "s1", direction: "up", workspace: "w-main" },
+    ]);
+    expect(sent("move_widget")).toEqual([
+      { id: "p1", direction: "up", workspace: "w-main" },
+    ]);
+  });
+
+  it("shows the message of a refused spacer change", async () => {
+    invoke.mockImplementation((command: string) =>
+      command === "remove_spacer"
+        ? Promise.reject({ code: "notFound" })
+        : Promise.resolve(undefined),
+    );
+    render(<DockItems snapshot={THREE} workspace={SPACED} />);
+
+    fireEvent.click(removeButton(text.items.spacers.large));
+    await flush();
+
+    expect(getAlert()).toHaveTextContent(text.errors.notFound);
+    expect(removeButton(text.items.spacers.large)).toHaveFocus();
   });
 });
 

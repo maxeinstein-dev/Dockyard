@@ -17,7 +17,13 @@ impl Dock {
                 .take(dots)
                 .map(|w| format!("{WORKSPACE_KEY}{}", w.id))
                 .collect(),
-            items: self.items.iter().map(Item::key).collect(),
+            // A spacer is room, not a stop (spec 0022).
+            items: self
+                .items
+                .iter()
+                .filter(|item| !matches!(item, Item::Spacer(_)))
+                .map(Item::key)
+                .collect(),
             strip: self.strip.iter().map(Cell::key).collect(),
         }
     }

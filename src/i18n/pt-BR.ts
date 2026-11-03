@@ -3,6 +3,7 @@ import type { HotkeyErrorCode } from "../core/launcher";
 import type { PackErrorCode } from "../core/iconPacks";
 import type { SkinProblemKind } from "../core/skinProblems";
 import type { ThemeId } from "../core/themes";
+import type { SpacerSize } from "../core/workspaces";
 import type {
   DockEdge,
   DockOpacity,
@@ -1318,6 +1319,12 @@ const messages = {
       fromOthers: "De outros espaços",
       /** In place of the count at the limit; the add buttons turn off. */
       limit: "Limite de {max} widgets",
+      /** A spacer of the workspace (spec 0022), listed with the widgets;
+       * added from the dock's menu. */
+      spacers: {
+        small: "Espaçador pequeno",
+        large: "Espaçador grande",
+      } satisfies Record<SpacerSize, string>,
       footer: "A ordem é a do dock",
       footerUnavailable: "Configurações e Sobre continuam funcionando",
       /** Notice of a database set aside and recreated, until dismissed. */

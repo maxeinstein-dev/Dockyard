@@ -80,7 +80,7 @@ use crate::domain::dock_layout::{
 use crate::domain::open_apps::OpenSnapshot;
 use crate::domain::settings::{DockEdge, MiddleClick, OpenAnimation, Settings, TaskbarMode, Theme};
 use crate::domain::widgets::{WidgetConfig, WidgetsSnapshot};
-use crate::domain::workspaces::Workspace;
+use crate::domain::workspaces::{SpacerSize, Workspace};
 use crate::persistence::database::Storage;
 
 /// The class of the docks' windows (and of the hidden one that wakes them).
@@ -695,13 +695,14 @@ fn is_launcher(item: &Item) -> bool {
     matches!(item, Item::Widget(widget) if matches!(widget.config, WidgetConfig::Launcher(_)))
 }
 
-/// The panel an item opens: a program's is its menu.
-fn panel_of(item: &Item) -> PanelId {
+/// The panel an item opens: a program's is its menu. A spacer has none.
+fn panel_of(item: &Item) -> Option<PanelId> {
     match item {
-        Item::App(app) => PanelId::App(app.id.clone()),
-        Item::Widget(widget) => PanelId::Widget(widget.id.clone()),
-        Item::Other(other) => PanelId::Open(other.key.clone()),
-        Item::System(SystemItem::Settings) => PanelId::Settings,
+        Item::App(app) => Some(PanelId::App(app.id.clone())),
+        Item::Widget(widget) => Some(PanelId::Widget(widget.id.clone())),
+        Item::Other(other) => Some(PanelId::Open(other.key.clone())),
+        Item::System(SystemItem::Settings) => Some(PanelId::Settings),
+        Item::Spacer(_) => None,
     }
 }
 
@@ -729,7 +730,13 @@ impl Dock {
             tray: self.strip.len(),
             switcher: self.data.workspaces.len(),
             spans: self.items.iter().map(Item::span).collect(),
+            spacers: self.items.iter().map(Item::spacer_size).collect(),
         }
+    }
+
+    /// Whether the panel of `item` is the one open.
+    fn is_open(&self, item: &Item) -> bool {
+        self.open.is_some() && self.open == panel_of(item)
     }
 
     /// The window's client area, in logical pixels.
@@ -847,7 +854,7 @@ impl Dock {
             apps: self.data.apps.as_ref(),
             open: &self.data.open,
             show_open: settings.dock.show_open_apps,
-            workspace: self.data.workspace.as_ref().map(|w| w.items.as_slice()),
+            workspace: self.data.workspace.as_ref(),
         });
         self.strip = strip::cells(
             settings.dock.taskbar,
@@ -1380,6 +1387,9 @@ impl Dock {
                         .iter()
                         .zip(&self.names)
                         .zip(&rest.items)
+                        // A spacer is room, not a button: the Narrator
+                        // goes from the item before it to the one after.
+                        .filter(|((item, _), _)| !matches!(item, Item::Spacer(_)))
                         .map(|((item, name), area)| {
                             let on_screen = to_screen(*area);
                             access::Entry {
@@ -1472,18 +1482,15 @@ impl Dock {
     }
 
     /// The item under the point (logical, in the window), as drawn now: the
-    /// one whose column holds it, inside the bar or on a grown tile.
+    /// one whose column holds it, inside the bar or on a grown tile. Never a
+    /// spacer (spec 0022): see `spacer_hit`.
     fn hit(&self, x: f64, y: f64) -> Option<usize> {
-        let placement = self.placement_now();
-        let gap = self.shape().size.geometry().gap;
-        let on_tile = placement.tiles.iter().any(|tile| tile.contains(x, y));
-        if !placement.bar.contains(x, y) && !on_tile {
-            return None;
-        }
-        placement
-            .items
-            .iter()
-            .position(|item| x >= item.x - gap / 2.0 && x < item.x + item.width + gap / 2.0)
+        dock_layout::hit(&self.shape(), &self.placement_now(), x, y)
+    }
+
+    /// The spacer under the point, as drawn now.
+    fn spacer_hit(&self, x: f64, y: f64) -> Option<usize> {
+        dock_layout::spacer_hit(&self.shape(), &self.placement_now(), x, y)
     }
 
     fn placement_now(&self) -> dock_layout::Placement {
@@ -1704,11 +1711,16 @@ impl Dock {
         let offsets = self.shown_offsets(&rest);
         let mut tiles = Vec::with_capacity(self.items.len());
         for (index, item) in self.items.iter().enumerate() {
+            let dragging = held == Some(index);
+            // A spacer draws nothing, but while it is dragged: an empty
+            // plate its size, so what moves shows (spec 0022).
+            if matches!(item, Item::Spacer(_)) && !dragging {
+                continue;
+            }
             let mut area = now_placement.tiles[index];
             let mut box_area = now_placement.items[index];
             area.x += offsets[index];
             box_area.x += offsets[index];
-            let dragging = held == Some(index);
             if dragging {
                 // Picked up: off the bar, a little bigger.
                 let lift = match edge {
@@ -1753,7 +1765,7 @@ impl Dock {
                     height: side,
                 };
             }
-            let open_here = self.open.as_ref() == Some(&panel_of(item));
+            let open_here = self.is_open(item);
             let running = dock_items::running(&self.data.open, item);
             let dot = match (open_here, running) {
                 (true, _) | (_, Some(true)) => 1.0,
@@ -1783,7 +1795,7 @@ impl Dock {
             .filter(|&index| {
                 self.items
                     .get(index)
-                    .is_some_and(|item| self.open.as_ref() != Some(&panel_of(item)))
+                    .is_some_and(|item| !self.is_open(item))
             })
             .and_then(|index| {
                 let tile = target.tiles.get(index)?;
@@ -1951,6 +1963,11 @@ impl Dock {
                 glaze: theme::Glaze::SETTINGS,
                 paths: paint::SETTINGS_GLYPH,
             },
+            // Drawn only while dragged: an empty plate.
+            Item::Spacer(_) => Face::Glyph {
+                glaze: theme::Glaze::APP,
+                paths: &[],
+            },
         }
     }
 
@@ -2102,8 +2119,10 @@ impl Dock {
         self.end_preview();
         self.use_here();
         shared().clicked = Some(Instant::now());
-        let index = self.hit(x, y);
-        self.pressed = index;
+        // A spacer is pressed only to be dragged: it never looks pressed.
+        let index = self.hit(x, y).or_else(|| self.spacer_hit(x, y));
+        self.pressed =
+            index.filter(|&index| !matches!(self.items.get(index), Some(Item::Spacer(_))));
         // A program alone in its group still goes out to a folder.
         let group = |index: usize| {
             self.group_of(index)
@@ -2327,6 +2346,7 @@ impl Dock {
             // apps…", where it opens today (spec 0012): with the hotkey off
             // in Configurações too, since that only lets the hotkey go.
             _ if is_launcher(&item) => super::launcher::toggle(),
+            Item::Spacer(_) => {}
             _ => {
                 if let Item::Widget(widget) = &item
                     && (super::calendar::seen(widget.id.as_str())
@@ -2336,7 +2356,9 @@ impl Dock {
                     post(Dock::notices_changed);
                 }
                 let anchor = self.rest().items[index];
-                self.toggle(panel_of(&item), anchor);
+                if let Some(panel) = panel_of(&item) {
+                    self.toggle(panel, anchor);
+                }
             }
         }
     }
@@ -2465,11 +2487,11 @@ impl Dock {
         let Some(item) = self.items.get(index).cloned() else {
             return;
         };
-        if !item.is_program() {
+        let Some(panel) = panel_of(&item).filter(|_| item.is_program()) else {
             return;
-        }
+        };
         let anchor = self.rest().items[index];
-        self.toggle(panel_of(&item), anchor);
+        self.toggle(panel, anchor);
     }
 
     /// The dock's own menu, on the right button away from a program: what
@@ -2477,12 +2499,23 @@ impl Dock {
     /// left the dock's items; the Task Manager as in the taskbar's menu).
     /// Shown once the dock's state is let go: the menu runs a loop of its own.
     /// The dock's menu; on a widget that takes more than one width
-    /// (`index`), the widths come first.
+    /// (`index`), the widths come first; on a spacer, "Remover espaçador"
+    /// (spec 0022). A spacer added from it goes right after the item it
+    /// opened on, or at the end of the workspace.
     fn dock_menu(&mut self, index: Option<usize>) {
-        let widget = index.and_then(|index| match self.items.get(index) {
+        let item = index.and_then(|index| self.items.get(index));
+        let widget = match item {
             Some(Item::Widget(widget)) => Some(widget.clone()),
             _ => None,
-        });
+        };
+        let spacer = match item {
+            Some(Item::Spacer(spacer)) => Some(spacer.id.clone()),
+            _ => None,
+        };
+        // Only the workspace's own items have a place in it.
+        let after = item
+            .filter(|item| matches!(item, Item::App(_) | Item::Widget(_) | Item::Spacer(_)))
+            .map(Item::key);
         self.hovered = None;
         self.animate();
         self.paint();
@@ -2509,10 +2542,14 @@ impl Dock {
             .as_ref()
             .map(|widget| widget_items(&widget.config))
             .unwrap_or_default();
+        if spacer.is_some() {
+            items.extend(spacer_items());
+        }
         items.extend(dock_menu_items(
             self.data.settings.dock.auto_hide,
             &workspaces,
             crate::commands::workspaces::can_create(&self.data.workspaces),
+            shown.is_some(),
         ));
         let widget = widget.map(|widget| widget.id);
         let monitor = self.monitor.key.clone();
@@ -2523,14 +2560,12 @@ impl Dock {
             let chosen = show_dock_menu(app, edge, items, from_keys);
             post_to(hwnd, Dock::menu_closed);
             if let Some(choice) = chosen {
-                act(
-                    app,
-                    choice,
-                    &monitor,
-                    &ids,
-                    widget.as_ref(),
-                    shown.as_deref(),
-                );
+                let on = MenuOn {
+                    widget: widget.as_ref(),
+                    spacer: spacer.as_deref(),
+                    after: after.as_deref(),
+                };
+                act(app, choice, &monitor, &ids, on, shown.as_deref());
             }
         }));
     }
@@ -2539,7 +2574,11 @@ impl Dock {
     /// window never came up, `panel::fallback`): at the pointer, where the
     /// right click was.
     fn program_menu(&mut self, panel: &PanelId) {
-        let Some(item) = self.items.iter().find(|item| panel_of(item) == *panel) else {
+        let Some(item) = self
+            .items
+            .iter()
+            .find(|item| panel_of(item).as_ref() == Some(panel))
+        else {
             return;
         };
         let (program, windows) = match item {
@@ -2593,7 +2632,11 @@ impl Dock {
             return;
         }
         let rest = self.rest();
-        let Some(index) = self.items.iter().position(|item| panel_of(item) == panel) else {
+        let Some(index) = self
+            .items
+            .iter()
+            .position(|item| panel_of(item).as_ref() == Some(&panel))
+        else {
             return;
         };
         let anchor = rest.items[index];
@@ -2752,9 +2795,13 @@ fn handle(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
                 Some(index) if dock.items.get(index).is_some_and(Item::is_program) => {
                     dock.right_click(index);
                 }
-                // Anywhere else on the dock, a widget too: its own menu,
-                // with the widget's widths first.
-                hit => dock.dock_menu(hit),
+                // Anywhere else on the dock, a widget or a spacer too: its
+                // own menu, with the widget's widths or the spacer's
+                // "Remover espaçador" first.
+                hit => {
+                    let on = hit.or_else(|| dock.spacer_hit(x, y));
+                    dock.dock_menu(on);
+                }
             }
         }),
         WM_CAPTURECHANGED => with_dock(hwnd, |dock| {
@@ -3021,13 +3068,17 @@ mod tests {
 
     #[test]
     fn the_dock_menu_has_what_the_tray_menu_has() {
-        // One workspace: no list to switch, "Novo espaço" to make the second.
+        // One workspace: no list to switch, "Novo espaço" to make the second;
+        // the spacers, for the workspace shown.
         let one = [workspace("Principal", "#0A84FF", true)];
         assert_eq!(
-            labels(&dock_menu_items(true, &one, true)),
+            labels(&dock_menu_items(true, &one, true, true)),
             [
                 "Buscar apps…",
                 "Gerenciador de Tarefas",
+                "—",
+                "Adicionar espaçador pequeno",
+                "Adicionar espaçador grande",
                 "—",
                 "Novo espaço",
                 "—",
@@ -3037,9 +3088,10 @@ mod tests {
                 "Sair",
             ]
         );
-        // The tray icon's: the same, without the workspaces.
+        // The tray icon's: the same, without the workspaces and the
+        // spacers.
         assert_eq!(
-            labels(&dock_menu_items(false, &[], false)),
+            labels(&dock_menu_items(false, &[], false, false)),
             [
                 "Buscar apps…",
                 "Gerenciador de Tarefas",
@@ -3054,7 +3106,7 @@ mod tests {
 
     #[test]
     fn every_item_has_a_glyph_and_auto_hide_says_it_turns() {
-        for entry in dock_menu_items(true, &[], true) {
+        for entry in dock_menu_items(true, &[], true, true) {
             if let menu::Line::Item(item) = entry.line {
                 assert!(item.glyph.is_some(), "{}", item.label);
                 let turns = entry.choice == Some(MenuChoice::AutoHide);
@@ -3069,7 +3121,7 @@ mod tests {
             workspace("Principal", "#0A84FF", false),
             workspace("Foco", "#30D158", true),
         ];
-        let items = dock_menu_items(false, &two, false);
+        let items = dock_menu_items(false, &two, false, false);
         assert_eq!(
             labels(&items)[3..7],
             ["# Espaços de trabalho", "Principal", "Foco ✓", "—"]
@@ -3083,6 +3135,24 @@ mod tests {
         assert_eq!(focus.shortcut.as_deref(), Some("Ctrl+Alt+2"));
         // A title chooses nothing.
         assert_eq!(items[3].choice, None);
+    }
+
+    #[test]
+    fn the_spacer_entries_add_each_size_and_a_spacer_removes_itself() {
+        let one = [workspace("Principal", "#0A84FF", true)];
+        let items = dock_menu_items(false, &one, true, true);
+        assert_eq!(
+            items[3].choice,
+            Some(MenuChoice::AddSpacer(SpacerSize::Small))
+        );
+        assert_eq!(
+            items[4].choice,
+            Some(MenuChoice::AddSpacer(SpacerSize::Large))
+        );
+        // A spacer's own menu: "Remover espaçador" before the dock's.
+        let own = spacer_items();
+        assert_eq!(labels(&own), ["Remover espaçador", "—"]);
+        assert_eq!(own[0].choice, Some(MenuChoice::RemoveSpacer));
     }
 
     #[test]
