@@ -3431,13 +3431,15 @@ static RECOVERIES: Mutex<Vec<Instant>> = Mutex::new(Vec::new());
 /// work of other threads, which may have touched any. Queued, outside the
 /// message.
 fn recover(hwnd: HWND) {
-    let now = Instant::now();
-    if !super::panics::may_retry(
+    let next = after_panic(
         &mut RECOVERIES.lock().unwrap_or_else(PoisonError::into_inner),
-        now,
-    ) {
-        give_up();
-        return;
+        Instant::now(),
+        &GAVE_UP,
+    );
+    match next {
+        AfterPanic::MadeAgain => {}
+        AfterPanic::Closed => return give_up(),
+        AfterPanic::AlreadyClosing => return,
     }
     log::warn!("dock: made again after a panic");
     let gone = hwnd.0 as isize;
@@ -3457,43 +3459,114 @@ fn recover(hwnd: HWND) {
 /// Whether the app already gave up on the dock: once only.
 static GAVE_UP: AtomicBool = AtomicBool::new(false);
 
-/// The dock kept panicking: making it again does not help, and an app left
-/// open with no dock would keep the taskbar hidden. So, in this order, the
-/// docks go, the taskbar comes back (as on exit), a notice says what
-/// happened (a Windows notice, or a message box when those are off) and the
-/// app exits. Queued, outside the message that panicked.
-fn give_up() {
-    if GAVE_UP.swap(true, Ordering::SeqCst) {
-        return;
+/// What a panic in a dock's message leads to.
+#[derive(Debug, PartialEq, Eq)]
+enum AfterPanic {
+    /// The dock is made again from scratch.
+    MadeAgain,
+    /// It panicked too often: the app closes ([`give_up`]).
+    Closed,
+    /// The app is closing already: nothing more.
+    AlreadyClosing,
+}
+
+/// What the panic at `now` leads to, given when the docks were last made
+/// again (`times`) and whether the app gave up already (`gave_up`, set
+/// here when it does).
+fn after_panic(times: &mut Vec<Instant>, now: Instant, gave_up: &AtomicBool) -> AfterPanic {
+    if gave_up.load(Ordering::SeqCst) {
+        AfterPanic::AlreadyClosing
+    } else if super::panics::may_retry(times, now) {
+        AfterPanic::MadeAgain
+    } else if gave_up.swap(true, Ordering::SeqCst) {
+        AfterPanic::AlreadyClosing
+    } else {
+        AfterPanic::Closed
     }
-    log::error!(
-        "dock: it panicked {} times within a minute; closing",
-        super::panics::MAX_RETRIES
-    );
-    queue(Box::new(|docks| {
-        // On their own: a dock that panics again here does not stop the rest.
-        let _ = super::panics::window_message(|| {
-            for dock in docks.iter_mut() {
-                dock.destroy();
-            }
-        });
-        docks.clear();
+}
+
+/// The steps of closing after the dock kept panicking, apart so the tests
+/// can check their order.
+trait Closing {
+    fn destroy_docks(&mut self);
+    /// The tray, the edge of the screen and the Windows taskbar, as on exit.
+    fn release_taskbar(&mut self);
+    /// The Windows notice; `false` when Windows has the notices off.
+    fn notify(&mut self) -> bool;
+    fn message_box(&mut self);
+    fn exit(&mut self);
+}
+
+/// In this order: the docks go, the taskbar comes back, a notice says what
+/// happened (a message box when the notices are off) and the app exits. A
+/// dock that panics again while it goes does not stop the rest.
+fn close_after_failures(steps: &mut impl Closing) {
+    let _ = super::panics::window_message(|| steps.destroy_docks());
+    steps.release_taskbar();
+    if !steps.notify() {
+        steps.message_box();
+    }
+    steps.exit();
+}
+
+/// The real steps, on the docks of the main thread.
+struct ClosingForReal<'a> {
+    docks: &'a mut Vec<Dock>,
+}
+
+impl Closing for ClosingForReal<'_> {
+    fn destroy_docks(&mut self) {
+        for dock in self.docks.iter_mut() {
+            dock.destroy();
+        }
+        self.docks.clear();
+    }
+
+    fn release_taskbar(&mut self) {
         super::tray_host::stop();
         super::appbar::remove();
         super::taskbar::release();
         super::window_spaces::release_all();
+    }
+
+    fn notify(&mut self) -> bool {
         let text = &crate::i18n::messages().dock;
-        let shown =
-            super::toast::show(text.crash_notice_title, text.crash_notice_line).unwrap_or(false);
-        if !shown {
+        super::toast::show(text.crash_notice_title, text.crash_notice_line).unwrap_or(false)
+    }
+
+    fn message_box(&mut self) {
+        let text = &crate::i18n::messages().dock;
+        // The test build only logs it: a box would wait for a click that
+        // never comes, and the suite checks that the app closes.
+        #[cfg(feature = "e2e")]
+        log::warn!("e2e: {}", text.crash_notice_line);
+        #[cfg(not(feature = "e2e"))]
+        {
             use windows::Win32::UI::WindowsAndMessaging::{MB_ICONWARNING, MB_OK, MessageBoxW};
             let title = windows::core::HSTRING::from(text.crash_notice_title);
             let line = windows::core::HSTRING::from(text.crash_notice_line);
             unsafe { MessageBoxW(None, &line, &title, MB_OK | MB_ICONWARNING) };
         }
+    }
+
+    fn exit(&mut self) {
         if let Some(app) = APP.get() {
             app.exit(1);
         }
+    }
+}
+
+/// The dock kept panicking: making it again does not help, and an app left
+/// open with no dock would keep the taskbar hidden. So the app closes, the
+/// way [`close_after_failures`] says. Queued, outside the message that
+/// panicked.
+fn give_up() {
+    log::error!(
+        "dock: it panicked {} times within a minute; closing",
+        super::panics::MAX_RETRIES
+    );
+    queue(Box::new(|docks| {
+        close_after_failures(&mut ClosingForReal { docks });
     }));
 }
 
@@ -3967,6 +4040,93 @@ pub fn clicked_recently() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_dock_that_keeps_panicking_closes_the_app_once() {
+        let start = Instant::now();
+        let gave_up = AtomicBool::new(false);
+        let mut times = Vec::new();
+        let at = |second| start + Duration::from_secs(second);
+        for second in 0..3 {
+            assert_eq!(
+                after_panic(&mut times, at(second), &gave_up),
+                AfterPanic::MadeAgain
+            );
+        }
+        // The fourth within the minute closes the app, and only once.
+        assert_eq!(after_panic(&mut times, at(4), &gave_up), AfterPanic::Closed);
+        assert_eq!(
+            after_panic(&mut times, at(5), &gave_up),
+            AfterPanic::AlreadyClosing
+        );
+        // Even a minute later: the app is on its way out.
+        assert_eq!(
+            after_panic(&mut times, at(90), &gave_up),
+            AfterPanic::AlreadyClosing
+        );
+    }
+
+    /// Closing steps that write down what was done.
+    struct Steps {
+        done: Vec<&'static str>,
+        notices: bool,
+        dock_panics: bool,
+    }
+
+    impl Closing for Steps {
+        fn destroy_docks(&mut self) {
+            self.done.push("docks");
+            if self.dock_panics {
+                panic!("on purpose");
+            }
+        }
+        fn release_taskbar(&mut self) {
+            self.done.push("taskbar");
+        }
+        fn notify(&mut self) -> bool {
+            self.done.push("notice");
+            self.notices
+        }
+        fn message_box(&mut self) {
+            self.done.push("box");
+        }
+        fn exit(&mut self) {
+            self.done.push("exit");
+        }
+    }
+
+    #[test]
+    fn closing_gives_the_taskbar_back_then_says_so_then_exits() {
+        let mut steps = Steps {
+            done: Vec::new(),
+            notices: true,
+            dock_panics: false,
+        };
+        close_after_failures(&mut steps);
+        assert_eq!(steps.done, ["docks", "taskbar", "notice", "exit"]);
+    }
+
+    #[test]
+    fn closing_shows_a_box_when_the_notices_are_off() {
+        let mut steps = Steps {
+            done: Vec::new(),
+            notices: false,
+            dock_panics: false,
+        };
+        close_after_failures(&mut steps);
+        assert_eq!(steps.done, ["docks", "taskbar", "notice", "box", "exit"]);
+    }
+
+    #[test]
+    fn closing_goes_on_when_a_dock_panics_again_on_its_way_out() {
+        let mut steps = Steps {
+            done: Vec::new(),
+            notices: true,
+            dock_panics: true,
+        };
+        close_after_failures(&mut steps);
+        assert_eq!(steps.done, ["docks", "taskbar", "notice", "exit"]);
+    }
 
     const MONITOR: Rect = Rect {
         x: -1920,

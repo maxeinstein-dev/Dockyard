@@ -144,7 +144,7 @@ export function assertTestBuild() {
 }
 
 /** Whether the WebDriver server of a running test build answers. */
-async function serverUp(): Promise<boolean> {
+export async function serverUp(): Promise<boolean> {
   try {
     const response = await fetch(`http://127.0.0.1:${WEBDRIVER_PORT}/status`, {
       signal: AbortSignal.timeout(1000),
