@@ -2940,6 +2940,14 @@ impl Painter {
     fn tip(&mut self, scene: &Scene, tip: &Tip) {
         let width = self.label_width(&tip.text);
         let (x, y) = tip.anchor;
+        // Moved in to stay whole inside the window, near its sides.
+        let x = match &self.surface {
+            Some(surface) => {
+                let window = f64::from(surface.width) * 96.0 / f64::from(self.dpi);
+                dock_layout::tip_center(x, width, window)
+            }
+            None => x,
+        };
         let top = match scene.edge {
             DockEdge::Bottom => y - 24.0,
             DockEdge::Top => y,

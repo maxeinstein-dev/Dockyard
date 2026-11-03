@@ -394,8 +394,11 @@ fn ceil(value: f64) -> f64 {
 
 /// The window the dock needs, whatever is magnified or labelled: the bar,
 /// the magnified tile and the label pill beyond it, plus `ROOM`; and,
-/// across, the widest the bar gets or the farthest a label reaches past it,
-/// plus `ROOM` on each side. `label_widths` are each item's pill.
+/// across, the widest the bar gets or the widest label, plus `ROOM` on each
+/// side. `label_widths` are the pills of every label the dock can show: its
+/// items', its strip cells' and its workspace dots'. A pill sits over what
+/// it names and moves in to stay inside the window (`tip_center`), so the
+/// window never grows past the widest of them.
 pub fn window_size(shape: &Shape, motion: bool, label_widths: &[f64]) -> (f64, f64) {
     let SizeGeometry { icon, pad, .. } = shape.size.geometry();
     let peak = shape.hover.peak();
@@ -408,20 +411,12 @@ pub fn window_size(shape: &Shape, motion: bool, label_widths: &[f64]) -> (f64, f
     if grows {
         states.extend((0..count).map(Some));
     }
-    let mut half: f64 = 0.0;
-    for state in states {
-        let Row { width, items, .. } = row(shape, &|index| shape.hover.of_item(index, state));
-        half = half.max(width / 2.0);
-        for (index, item) in items.iter().enumerate() {
-            if state.is_some_and(|magnified| magnified != index) {
-                continue;
-            }
-            let center = item.x + item.width / 2.0 - width / 2.0;
-            let label = label_widths.get(index).copied().unwrap_or(0.0);
-            half = half.max(center.abs() + label / 2.0);
-        }
-    }
-    (ceil(2.0 * half + 2.0 * ROOM), ceil(height))
+    let bar = states
+        .into_iter()
+        .map(|state| row(shape, &|index| shape.hover.of_item(index, state)).width)
+        .fold(0.0, f64::max);
+    let label = label_widths.iter().copied().fold(0.0, f64::max);
+    (ceil(bar.max(label) + 2.0 * ROOM), ceil(height))
 }
 
 /// Where everything sits in a window of `viewport`.
@@ -544,6 +539,20 @@ pub fn tip_anchor(tile: Area, edge: DockEdge) -> (f64, f64) {
             DockEdge::Top => tile.y + tile.height + TIP_GAP,
         },
     )
+}
+
+/// Where across a label pill `width` wide is centred, in a window `window`
+/// wide, for what it names centred at `x`: over it, moved in just enough to
+/// keep `ROOM` between the pill and each side of the window; in the middle
+/// of a window too narrow for it.
+pub fn tip_center(x: f64, width: f64, window: f64) -> f64 {
+    let low = ROOM + width / 2.0;
+    let high = window - low;
+    if low > high {
+        window / 2.0
+    } else {
+        x.clamp(low, high)
+    }
 }
 
 /// How far the pointer goes before a press becomes a drag: a click that
@@ -796,9 +805,9 @@ mod tests {
     #[test]
     fn window_fits_each_size_magnified_with_its_labels() {
         for (size, expected) in [
-            (DockSize::Small, (178.0, 110.0)),
-            (DockSize::Medium, (189.0, 123.0)),
-            (DockSize::Large, (209.0, 147.0)),
+            (DockSize::Small, (136.0, 110.0)),
+            (DockSize::Medium, (160.0, 123.0)),
+            (DockSize::Large, (207.0, 147.0)),
         ] {
             assert_eq!(window_size(&shape(size), true, &LABELS), expected);
         }
@@ -807,9 +816,9 @@ mod tests {
     #[test]
     fn window_fits_each_size_at_rest_with_reduced_motion() {
         for (size, expected) in [
-            (DockSize::Small, (172.0, 88.0)),
-            (DockSize::Medium, (181.0, 97.0)),
-            (DockSize::Large, (199.0, 115.0)),
+            (DockSize::Small, (126.0, 88.0)),
+            (DockSize::Medium, (133.0, 97.0)),
+            (DockSize::Large, (171.0, 115.0)),
         ] {
             assert_eq!(window_size(&shape(size), false, &LABELS), expected);
         }
@@ -824,11 +833,14 @@ mod tests {
     }
 
     #[test]
-    fn window_grows_with_a_long_label() {
+    fn window_grows_with_a_label_wider_than_the_bar() {
         let narrow = window_size(&shape(DockSize::Medium), true, &LABELS);
         let wide = window_size(&shape(DockSize::Medium), true, &[200.0, 60.0]);
 
-        assert_eq!(wide.0 - narrow.0, 90.0);
+        // As wide as the label and ROOM on each side, not more: the pill
+        // moves in to stay inside.
+        assert_eq!(wide.0, 200.0 + 2.0 * ROOM);
+        assert!(wide.0 > narrow.0);
         assert_eq!(wide.1, narrow.1);
     }
 
@@ -1011,6 +1023,7 @@ mod tests {
                             }
                             let (x, y) = tip_anchor(*tile, edge);
                             let width = LABELS[index];
+                            let x = tip_center(x, width, window.0);
                             let pill_y = match edge {
                                 DockEdge::Bottom => y - TIP_HEIGHT - ROOM,
                                 DockEdge::Top => y,
@@ -1029,6 +1042,111 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// Whether the pill `width` wide of what sits in `named`, in a window
+    /// of `window`, is whole inside it, with `ROOM` around.
+    fn pill_fits(named: Area, width: f64, edge: DockEdge, window: (f64, f64)) -> bool {
+        let (x, y) = tip_anchor(named, edge);
+        let x = tip_center(x, width, window.0);
+        let top = match edge {
+            DockEdge::Bottom => y - TIP_HEIGHT,
+            DockEdge::Top => y,
+        };
+        x - width / 2.0 >= ROOM - 1e-9
+            && x + width / 2.0 <= window.0 - ROOM + 1e-9
+            && top >= -1e-9
+            && top + TIP_HEIGHT <= window.1 + 1e-9
+    }
+
+    #[test]
+    fn the_label_of_a_tray_icon_fits_a_narrow_dock() {
+        // One program, the tray with its arrow, the FortiClient and the
+        // network, volume and battery, the clock: a long tray tip
+        // ("FortiClient 7.4.3 hotfix 1.8758") wider than the bar.
+        let shape = Shape {
+            groups: vec![1],
+            status: true,
+            tray: 5,
+            ..shape(DockSize::Small)
+        };
+        let forticlient = 230.0;
+        let labels = [60.0, 90.0, forticlient, 50.0, 70.0, 80.0];
+        for edge in [DockEdge::Bottom, DockEdge::Top] {
+            for motion in [true, false] {
+                let window = window_size(&shape, motion, &labels);
+                let placement = place(&shape, edge, window, None);
+                let icon = shape.size.geometry().icon;
+                let cells = tray_cells(placement.tray.unwrap(), shape.tray, icon);
+                for (index, cell) in cells.iter().enumerate() {
+                    assert!(
+                        pill_fits(*cell, labels[1 + index], edge, window),
+                        "{edge:?} {motion} cell {index} in {window:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_labels_of_a_new_workspace_with_few_items_fit() {
+        // A workspace just made, with two programs: the dots start the bar,
+        // the tray ends it, and every name is wider than the bar.
+        let shape = Shape {
+            groups: vec![2],
+            status: true,
+            tray: 2,
+            switcher: 2,
+            ..shape(DockSize::Small)
+        };
+        let items = [180.0, 210.0];
+        let strip = [150.0, 240.0];
+        let dots = [120.0, 200.0];
+        let labels: Vec<f64> = items.iter().chain(&strip).chain(&dots).copied().collect();
+        for edge in [DockEdge::Bottom, DockEdge::Top] {
+            for motion in [true, false] {
+                let window = window_size(&shape, motion, &labels);
+                let states: &[Option<usize>] = if motion {
+                    &[None, Some(0), Some(1)]
+                } else {
+                    &[None]
+                };
+                for &magnified in states {
+                    let placement = place(&shape, edge, window, magnified);
+                    for (index, tile) in placement.tiles.iter().enumerate() {
+                        if magnified.is_some_and(|m| m != index) {
+                            continue;
+                        }
+                        assert!(
+                            pill_fits(*tile, items[index], edge, window),
+                            "{edge:?} {motion} item {index} magnified {magnified:?}"
+                        );
+                    }
+                    let icon = shape.size.geometry().icon;
+                    let cells = tray_cells(placement.tray.unwrap(), shape.tray, icon);
+                    for (index, cell) in cells.iter().enumerate() {
+                        assert!(pill_fits(*cell, strip[index], edge, window));
+                    }
+                    let side = 2.0 * ACTIVE_DOT_RADIUS;
+                    let centers = switcher_dots(placement.switcher.unwrap(), shape.switcher);
+                    for (index, &(x, y)) in centers.iter().enumerate() {
+                        let dot = area(x - side / 2.0, y - side / 2.0, side, side);
+                        assert!(pill_fits(dot, dots[index], edge, window));
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_label_moves_in_only_near_the_sides() {
+        // Room for it over what it names: it stays there.
+        assert_eq!(tip_center(100.0, 60.0, 200.0), 100.0);
+        // Near a side, in just enough to keep ROOM.
+        assert_eq!(tip_center(10.0, 60.0, 200.0), ROOM + 30.0);
+        assert_eq!(tip_center(195.0, 60.0, 200.0), 200.0 - ROOM - 30.0);
+        // Wider than the window: in its middle.
+        assert_eq!(tip_center(10.0, 300.0, 200.0), 100.0);
     }
 
     #[test]
