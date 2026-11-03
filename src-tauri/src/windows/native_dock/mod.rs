@@ -3436,10 +3436,7 @@ fn recover(hwnd: HWND) {
         &mut RECOVERIES.lock().unwrap_or_else(PoisonError::into_inner),
         now,
     ) {
-        log::error!(
-            "dock: it panicked {} times within a minute; not made again",
-            super::panics::MAX_RETRIES
-        );
+        give_up();
         return;
     }
     log::warn!("dock: made again after a panic");
@@ -3454,6 +3451,49 @@ fn recover(hwnd: HWND) {
             keep
         });
         sync(docks);
+    }));
+}
+
+/// Whether the app already gave up on the dock: once only.
+static GAVE_UP: AtomicBool = AtomicBool::new(false);
+
+/// The dock kept panicking: making it again does not help, and an app left
+/// open with no dock would keep the taskbar hidden. So, in this order, the
+/// docks go, the taskbar comes back (as on exit), a notice says what
+/// happened (a Windows notice, or a message box when those are off) and the
+/// app exits. Queued, outside the message that panicked.
+fn give_up() {
+    if GAVE_UP.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    log::error!(
+        "dock: it panicked {} times within a minute; closing",
+        super::panics::MAX_RETRIES
+    );
+    queue(Box::new(|docks| {
+        // On their own: a dock that panics again here does not stop the rest.
+        let _ = super::panics::window_message(|| {
+            for dock in docks.iter_mut() {
+                dock.destroy();
+            }
+        });
+        docks.clear();
+        super::tray_host::stop();
+        super::appbar::remove();
+        super::taskbar::release();
+        super::window_spaces::release_all();
+        let text = &crate::i18n::messages().dock;
+        let shown =
+            super::toast::show(text.crash_notice_title, text.crash_notice_line).unwrap_or(false);
+        if !shown {
+            use windows::Win32::UI::WindowsAndMessaging::{MB_ICONWARNING, MB_OK, MessageBoxW};
+            let title = windows::core::HSTRING::from(text.crash_notice_title);
+            let line = windows::core::HSTRING::from(text.crash_notice_line);
+            unsafe { MessageBoxW(None, &line, &title, MB_OK | MB_ICONWARNING) };
+        }
+        if let Some(app) = APP.get() {
+            app.exit(1);
+        }
     }));
 }
 
