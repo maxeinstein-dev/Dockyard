@@ -116,8 +116,10 @@ impl IUIAutomationStructureChangedEventHandler_Impl for Changes_Impl {
         _change: StructureChangeType,
         _runtime_id: *const SAFEARRAY,
     ) -> Result<()> {
-        let _ = self.wake.send(());
-        Ok(())
+        crate::windows::panics::com_call(|| {
+            let _ = self.wake.send(());
+            Ok(())
+        })
     }
 }
 
@@ -128,8 +130,10 @@ impl IUIAutomationPropertyChangedEventHandler_Impl for Changes_Impl {
         _property: UIA_PROPERTY_ID,
         _value: &VARIANT,
     ) -> Result<()> {
-        let _ = self.wake.send(());
-        Ok(())
+        crate::windows::panics::com_call(|| {
+            let _ = self.wake.send(());
+            Ok(())
+        })
     }
 }
 

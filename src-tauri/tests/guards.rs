@@ -956,3 +956,56 @@ fn every_function_windows_calls_catches_panics() {
          `panics::window_message`: {missing:?}"
     );
 }
+
+/// The methods of our COM objects (`#[implement]`: the screen reader's view
+/// of the dock and the menus, the drop target, the badges' events) are
+/// called by Windows through `extern "system"` shims the `windows` crate
+/// makes, which do not catch a panic either. So every method of an
+/// `impl …_Impl for …_Impl` block runs its body through `panics::com_call`.
+#[test]
+fn every_method_of_our_com_objects_catches_panics() {
+    let mut files = Vec::new();
+    rust_files(&manifest_dir().join("src"), &mut files);
+    let mut checked = 0;
+    let mut missing = Vec::new();
+    for file in &files {
+        let code = rust_code(file);
+        for (index, _) in code.match_indices("impl ") {
+            let header = code[index..].split('{').next().unwrap_or_default();
+            let is_com = header
+                .split_whitespace()
+                .nth(1)
+                .is_some_and(|name| name.ends_with("_Impl"))
+                && header.trim_end().ends_with("_Impl")
+                && header.contains(" for ");
+            if !is_com {
+                continue;
+            }
+            let block = block_after(&code[index..], "impl", file);
+            for (at, _) in block.match_indices("fn ") {
+                // Only the block's own methods (outside every brace of it),
+                // not a function inside one.
+                let depth = block[..at].matches('{').count() - block[..at].matches('}').count();
+                if depth != 0 || block[..at].ends_with(is_ident_char) {
+                    continue;
+                }
+                let rest = &block[at + "fn ".len()..];
+                let Some(name) = rest.split('(').next().filter(|name| {
+                    !name.is_empty() && name.chars().all(|c| c == '_' || c.is_alphanumeric())
+                }) else {
+                    continue;
+                };
+                checked += 1;
+                if !block_after(rest, name, file).contains("com_call(") {
+                    missing.push(format!("{file}: {name}"));
+                }
+            }
+        }
+    }
+    assert!(checked >= 80, "found only {checked} methods of COM objects");
+    assert!(
+        missing.is_empty(),
+        "these methods Windows calls must run their body through \
+         `panics::com_call`: {missing:?}"
+    );
+}

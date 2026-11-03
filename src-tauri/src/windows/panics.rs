@@ -4,7 +4,9 @@
 //!   the enumerations) runs its body through [`window_message`], which
 //!   catches the panic and answers the call as Windows would. A panic that
 //!   left such a function would abort the process whatever the profile says;
-//!   a guard (`tests/guards.rs`) keeps every one of them caught;
+//!   the methods of our COM objects (`#[implement]`), which Windows calls
+//!   through such functions too, run through [`com_call`]. A guard
+//!   (`tests/guards.rs`) keeps every one of them caught;
 //! - the threads that keep reading for the dock (media, badges, weather...)
 //!   run through [`lasting`], which starts the work again after a panic, so
 //!   a part of the dock does not stop updating in silence.
@@ -78,6 +80,16 @@ pub fn window_message<T>(body: impl FnOnce() -> T) -> Option<T> {
     let result = catch_unwind(AssertUnwindSafe(body));
     CATCHING.with(|count| count.set(count.get() - 1));
     result.ok()
+}
+
+/// Runs `body`, the work of a method of a COM object of ours (the screen
+/// reader's view of the dock and the menus, the drop target, the badges'
+/// events), which Windows calls through `extern "system"` shims made by
+/// `#[implement]`. After a panic, the call fails with `E_FAIL`, as a COM
+/// call may.
+#[cfg(windows)]
+pub fn com_call<T>(body: impl FnOnce() -> windows::core::Result<T>) -> windows::core::Result<T> {
+    window_message(body).unwrap_or_else(|| Err(windows::Win32::Foundation::E_FAIL.into()))
 }
 
 /// The main thread's answer to work another thread sent it, waited for at
