@@ -810,6 +810,7 @@ const messages = {
       weather: "Clima",
       launcher: "Lançador",
       keyboard: "Layout do teclado",
+      "world-clock": "Relógio mundial",
     } satisfies Record<WidgetKind, string>,
     /** Short name of each kind on the add buttons of Itens do dock. */
     addNames: {
@@ -829,6 +830,7 @@ const messages = {
       weather: "Clima",
       launcher: "Lançador",
       keyboard: "Teclado",
+      "world-clock": "Relógio mundial",
     } satisfies Record<CreatableKind, string>,
     /** Parts every widget panel shares. */
     common: {
@@ -1049,6 +1051,8 @@ const messages = {
           "Um botão no dock que abre o lançador, como o Iniciar: busca apps, páginas e contas.",
         keyboard:
           "O layout do teclado da janela da frente, como na barra do Windows; um clique troca para o próximo.",
+        "world-clock":
+          "A hora em várias cidades ao mesmo tempo, num ladrilho largo.",
       } satisfies Record<CreatableKind, string>,
       /** The add button of a card, and its accessible name. */
       add: "Adicionar",
@@ -1128,6 +1132,24 @@ const messages = {
     keyboard: {
       settingsTitle: "Ajustes do Layout do teclado",
       hint: "Clique no Layout do teclado, no dock, para passar ao próximo layout instalado. Os layouts ficam nas configurações de idioma do Windows.",
+    },
+    /** The Relógio mundial (F9 of estudo 0002). */
+    worldClock: {
+      settingsTitle: "Ajustes do Relógio mundial",
+      places: "Cidades",
+      placesHint: "O ladrilho mostra as primeiras, uma por ícone de largura.",
+      add: "Adicionar cidade",
+      addPlaceholder: "Escolha um fuso…",
+      full: "Até {max} cidades.",
+      moveUp: "Subir {city}",
+      moveDown: "Descer {city}",
+      remove: "Remover {city}",
+      dayBefore: "ontem",
+      dayAfter: "amanhã",
+      offset: "{offset} em relação a você",
+      sameTime: "mesma hora que você",
+      listLabel: "Cidades e horas",
+      footer: "Comparado com a hora do seu computador",
     },
     /** The Clima (spec 0017 F5). */
     weather: {
