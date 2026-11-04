@@ -751,6 +751,29 @@ fn panel_of(item: &Item) -> Option<PanelId> {
     }
 }
 
+/// What the dock keeps a program's picture by: where it comes from (the
+/// icon chosen for it, spec 0024, or the dock's pack; `None` for Windows'
+/// own), its id, and whether it is a pack's dark image (only a pack has
+/// one, while the bar is `dark`).
+fn icon_key(
+    dock: &crate::domain::settings::DockSettings,
+    app_id: &str,
+    dark: bool,
+) -> (Option<String>, String, bool) {
+    let source = match dock
+        .app_icons
+        .get(&crate::domain::app_icon::choice_key(app_id))
+    {
+        Some(chosen) => Some(chosen.source()),
+        None => dock.icon_pack.as_ref().map(|pack| format!("pack:{pack}")),
+    };
+    let dark = dark
+        && source
+            .as_deref()
+            .is_some_and(|source| source.starts_with("pack:"));
+    (source, app_id.to_owned(), dark)
+}
+
 fn logical(area: Area) -> LogicalRect {
     LogicalRect {
         x: area.x,
@@ -1318,17 +1341,15 @@ impl Dock {
     /// lets go of the ones no item shows any more (a program closed, another
     /// pack or theme): the dock is open all day, so they must not pile up.
     fn request_pictures(&mut self) {
-        let pack = self.data.settings.dock.icon_pack.clone();
-        // A pack's dark images while the dock is dark; Windows' icons are
-        // the same in both themes.
-        let dark = pack.is_some() && self.bar_dark();
+        let settings = &self.data.settings.dock;
+        let dark = self.bar_dark();
         let hwnd = self.hwnd.0 as isize;
         let shown: HashSet<_> = self
             .items
             .iter()
             .filter_map(|item| match item {
-                Item::App(app) => Some((pack.clone(), app.app_id.clone(), dark)),
-                Item::Other(other) => Some((pack.clone(), other.app_id.clone(), dark)),
+                Item::App(app) => Some(icon_key(settings, &app.app_id, dark)),
+                Item::Other(other) => Some(icon_key(settings, &other.app_id, dark)),
                 _ => None,
             })
             .collect();
@@ -1348,10 +1369,12 @@ impl Dock {
                 Item::Other(other) => other.app_id.clone(),
                 _ => continue,
             };
-            let key = (pack.clone(), app_id.clone(), dark);
+            let key = icon_key(&self.data.settings.dock, &app_id, dark);
             if !self.icons.contains_key(&key) {
                 self.icons.insert(key.clone(), Loaded::Loading);
                 let app = self.app.clone();
+                // A pack's dark images while the dock is dark.
+                let dark = key.2;
                 std::thread::spawn(move || {
                     let png = crate::commands::apps::dock_icon_png(&app, &app_id, dark);
                     post_to(hwnd, move |dock| {
@@ -2026,10 +2049,9 @@ impl Dock {
         size: DockSize,
         clock: &windows::Win32::Foundation::SYSTEMTIME,
     ) -> Face {
-        let pack = settings.icon_pack.clone();
-        let dark = pack.is_some() && self.bar_dark();
+        let dark = self.bar_dark();
         let program = |app_id: &str, badge: Option<&str>| {
-            let icon = match self.icons.get(&(pack.clone(), app_id.to_string(), dark)) {
+            let icon = match self.icons.get(&icon_key(settings, app_id, dark)) {
                 Some(Loaded::Ready(Some(icon))) => Some(icon.clone()),
                 _ => None,
             };
@@ -3343,6 +3365,35 @@ mod tests {
         let own = spacer_items();
         assert_eq!(labels(&own), ["Remover espaçador", "—"]);
         assert_eq!(own[0].choice, Some(MenuChoice::RemoveSpacer));
+    }
+
+    #[test]
+    fn a_program_s_picture_is_kept_by_where_it_comes_from() {
+        use crate::domain::app_icon::AppIcon;
+        let mut dock = crate::domain::settings::DockSettings::default();
+        assert_eq!(icon_key(&dock, "Calc", true), (None, "Calc".into(), false));
+        dock.icon_pack = Some("pixel-system".into());
+        assert_eq!(
+            icon_key(&dock, "Calc", true),
+            (Some("pack:pixel-system".into()), "Calc".into(), true)
+        );
+        // A choice wins over the dock's pack; only a pack has dark images.
+        dock.app_icons.insert("calc".into(), AppIcon::Original);
+        assert_eq!(
+            icon_key(&dock, "Calc", true),
+            (Some("original".into()), "Calc".into(), false)
+        );
+        dock.app_icons.insert(
+            "calc".into(),
+            AppIcon::Pack {
+                pack: "retro".into(),
+            },
+        );
+        assert_eq!(
+            icon_key(&dock, "Calc", true).0.as_deref(),
+            Some("pack:retro")
+        );
+        assert!(icon_key(&dock, "Calc", true).2);
     }
 
     #[test]

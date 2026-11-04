@@ -1,3 +1,4 @@
+pub mod app_icons;
 pub mod apps;
 pub mod calendar;
 pub mod claude;

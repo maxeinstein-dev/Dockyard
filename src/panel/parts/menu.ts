@@ -4,7 +4,7 @@ import type { KeyboardEvent } from "react";
 export function menuItems(root: HTMLElement | null): HTMLButtonElement[] {
   return Array.from(
     root?.querySelectorAll<HTMLButtonElement>(
-      'button[role="menuitem"]:not(:disabled)',
+      'button:is([role="menuitem"], [role="menuitemradio"]):not(:disabled)',
     ) ?? [],
   );
 }

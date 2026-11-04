@@ -49,7 +49,7 @@ Rodada de 2026-11-04, no build de lançamento com uma cópia dos dados do autor:
 - Botão direito no Ciclo › "Calendário" (embaixo de "Empilhar com"): os dois viraram um ladrilho, no lugar do Calendário, com o Ciclo em cima. A árvore de UI Automation passou de 18 para 17 botões, e a pilha diz "Ciclo, 2 de 2 na pilha".
 - Ctrl+roda para baixo em cima da pilha pôs o Calendário em cima ("Calendário, 1 de 2 na pilha"), e o ladrilho passou a ter a largura dele.
 - "Tirar da pilha" soltou o Calendário e desfez a pilha: 18 botões de novo.
-- Sem erro nem pânico no log, e a barra do Windows ficou como estava.
+- A barra do Windows ficou como estava. O log do app não foi lido nesta rodada: o roteiro abria o primeiro `*.log` da pasta, que era um arquivo do WebView2, e não `logs\dockmax.log` (achado em 2026-11-04, já corrigido nos roteiros). O log fica para a próxima conferência.
 - Os pontinhos aparecem nos dois ladrilhos. Com a marca branca do autor, o aceso quase não se distinguia dos outros: o de cima ficou maior (raio 2,25) e os outros menores e mais apagados. Essa troca ainda não foi vista ao vivo.
 
 Ainda falta conferir à mão os passos 4 e 5 abaixo, e a roda sem Ctrl trocando de espaço.

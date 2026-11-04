@@ -17,6 +17,7 @@ pub mod credentials;
 pub mod dock;
 #[cfg(windows)]
 pub mod drop_target;
+pub mod file_dialog;
 #[cfg(windows)]
 pub mod flyout;
 #[cfg(windows)]

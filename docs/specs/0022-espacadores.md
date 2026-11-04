@@ -53,7 +53,7 @@ Rodada de 2026-11-03, no build de lançamento com uma cópia dos dados do autor 
 - "Adicionar espaçador grande" no menu do Calendário abriu um vão logo depois dele. Nas fotos, a distância entre o Calendário e o Ciclo passou de ~7 px para ~33 px (½ ícone). Como o dock é centralizado, o Ciclo andou só +13 px: a outra metade foi para a esquerda.
 - A árvore de UI Automation continuou com 19 botões: o Narrador não vê o vão.
 - O botão direito no vão mostrou "Remover espaçador", e o item voltou ao lugar exato (x=1373).
-- Sem erro nem pânico no log, e a barra do Windows ficou como estava.
+- A barra do Windows ficou como estava. O log do app não foi lido nesta rodada: o roteiro abria o primeiro `*.log` da pasta, que era um arquivo do WebView2, e não `logs\dockmax.log` (achado em 2026-11-04, já corrigido nos roteiros). O log fica para a próxima conferência.
 
 Ainda falta conferir à mão os passos 2, 3, 5, 6 e 7 abaixo e o espaçador pequeno.
 

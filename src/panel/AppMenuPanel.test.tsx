@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppMenu, PinnedApp } from "../core/apps";
 import type { WorkspacesSnapshot } from "../core/workspaces";
+import { format } from "../i18n";
 import { ptBR } from "../i18n/pt-BR";
 import AppMenuPanel from "./AppMenuPanel";
 import { getAlert } from "../test/alerts";
@@ -46,6 +47,11 @@ function answer(
       return menu instanceof Error
         ? Promise.reject(menu)
         : Promise.resolve(menu);
+    }
+    // The icon choices (spec 0024) only where a test asks for them: the
+    // section is left out without an answer.
+    if (command === "app_icon_options" && !others[command]) {
+      return Promise.reject(new Error("no icon options"));
     }
     return others[command]?.() ?? Promise.resolve(undefined);
   });
@@ -310,5 +316,76 @@ describe("AppMenuPanel", () => {
       await flush();
       expect(screen.queryByRole("menuitem", { name: /Mover para/ })).toBeNull();
     });
+  });
+});
+
+describe("AppMenuPanel's icon (spec 0024)", () => {
+  const OPTIONS = {
+    current: { kind: "pack", pack: "retro" },
+    packs: [
+      { id: "pixel", name: "Pixel" },
+      { id: "retro", name: "Retrô" },
+    ],
+  };
+
+  beforeEach(() => {
+    invoke.mockReset();
+    answer(MENU, { app_icon_options: () => Promise.resolve(OPTIONS) });
+  });
+
+  const line = () => item(format(text.icon.title, { current: "Retrô" }));
+  const choice = (name: string) => screen.getByRole("menuitemradio", { name });
+
+  it("is one line saying what it wears until opened", async () => {
+    await renderMenu();
+
+    expect(line()).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryAllByRole("menuitemradio")).toEqual([]);
+  });
+
+  it("opens to the dock's pack, the original, each pack and an image, the one worn checked", async () => {
+    await renderMenu();
+    fireEvent.click(line());
+
+    expect(line()).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.getAllByRole("menuitemradio").map((button) => button.textContent),
+    ).toEqual([
+      text.icon.dock,
+      text.icon.original,
+      "Pixel",
+      "Retrô",
+      text.icon.image,
+    ]);
+    expect(choice("Retrô")).toHaveAttribute("aria-checked", "true");
+    expect(choice(text.icon.dock)).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("asks Rust for the choice by the pinned id and closes", async () => {
+    const onDone = vi.fn();
+    await renderMenu(onDone);
+    fireEvent.click(line());
+
+    fireEvent.click(choice("Pixel"));
+    await flush();
+    fireEvent.click(choice(text.icon.dock));
+    await flush();
+
+    expect(sent("set_app_icon")).toEqual([
+      { id: APP.id, icon: { kind: "pack", pack: "pixel" } },
+      { id: APP.id, icon: null },
+    ]);
+    expect(onDone).toHaveBeenCalledTimes(2);
+  });
+
+  it("leaves the image to Rust's dialog and closes at once", async () => {
+    const onDone = vi.fn();
+    await renderMenu(onDone);
+    fireEvent.click(line());
+
+    fireEvent.click(choice(text.icon.image));
+
+    expect(sent("choose_app_icon_image")).toEqual([{ id: APP.id }]);
+    expect(onDone).toHaveBeenCalledTimes(1);
   });
 });
