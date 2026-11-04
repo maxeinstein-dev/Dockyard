@@ -92,6 +92,59 @@ describe("AppsPanel", () => {
     answer();
   });
 
+  describe("Procurar…", () => {
+    it("is only in the Configurações app", async () => {
+      await renderPanel(snapshot([CALCULATOR]));
+      expect(
+        screen.queryByRole("button", { name: text.browseLabel }),
+      ).toBeNull();
+    });
+
+    it("asks Rust for the dialog, for the workspace edited", async () => {
+      render(
+        <AppsPanel
+          snapshot={snapshot([CALCULATOR])}
+          workspace={{
+            id: "w-main",
+            name: "Principal",
+            color: "#0A84FF",
+            items: ["app:" + CALCULATOR.id],
+            spacers: [],
+            stacks: [],
+          }}
+          browse
+        />,
+      );
+      await flush();
+
+      const browse = button(text.browseLabel);
+      expect(browse.textContent).toBe(text.browse);
+      fireEvent.click(browse);
+      expect((browse as HTMLButtonElement).disabled).toBe(true);
+      await flush();
+
+      expect(sent("browse_app")).toEqual([{ workspace: "w-main" }]);
+      expect((browse as HTMLButtonElement).disabled).toBe(false);
+    });
+
+    it("says why the program was refused", async () => {
+      answer({
+        browse_app: () => Promise.reject({ code: "alreadyPinned" }),
+      });
+      render(<AppsPanel snapshot={snapshot([CALCULATOR])} browse />);
+      await flush();
+
+      fireEvent.click(button(text.browseLabel));
+      await flush();
+
+      expect(
+        screen
+          .getAllByRole("alert")
+          .some((alert) => alert.textContent === text.errors.alreadyPinned),
+      ).toBe(true);
+    });
+  });
+
   describe("the pinned programs", () => {
     it("lists them in dock order, each with subir, descer and remover", async () => {
       await renderPanel(snapshot([CALCULATOR, NOTEPAD]));

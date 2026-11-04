@@ -56,6 +56,7 @@ fn main() {
             "list_catalog",
             "app_icon",
             "pin_app",
+            "browse_app",
             "unpin_app",
             "move_app",
             "place_app",

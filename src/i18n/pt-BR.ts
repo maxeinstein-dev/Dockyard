@@ -634,6 +634,9 @@ const messages = {
     listLabel: "Apps na ordem do dock",
     empty: "Nenhum app no dock. Procure um abaixo.",
     add: "Adicionar um app",
+    /** F7 of estudo 0002: the Windows dialog for any program. */
+    browse: "Procurar…",
+    browseLabel: "Procurar um programa no computador",
     /** In place of the count at the limit; pinning turns off. */
     limit: "Limite de {max} apps",
     searchLabel: "Buscar app instalado",
@@ -667,8 +670,8 @@ const messages = {
       open: "Abrir",
       reveal: "Mostrar no Explorador de Arquivos",
       remove: "Remover do dock",
-      /** Spec 0009 D3. */
-      newInstance: "Nova instância",
+      /** Spec 0009 D3; "Nova janela" since F7 of estudo 0002. */
+      newWindow: "Nova janela",
       closeWindow: "Fechar janela",
       closeWindows: "Fechar todas as janelas",
       pin: "Fixar no dock",

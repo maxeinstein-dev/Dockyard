@@ -264,15 +264,21 @@ pub(super) enum Program {
 }
 
 /// A program's own menu, native, for when its panel can't open (its
-/// WebView2 window never came up): "Abrir", "Fechar janela" (or
+/// WebView2 window never came up): "Abrir" ("Nova janela" while it has
+/// windows open), "Fechar janela" (or
 /// "Fechar janelas") while it has `windows` open, and "Remover do dock"
 /// for a pinned one. The panel's other entries (its Jump List, moving its
 /// windows) need the panel.
 pub(super) fn program_items(program: &Program, windows: usize) -> Vec<MenuEntry> {
     let text = &crate::i18n::messages().tray;
+    let open = if windows > 0 {
+        text.new_window
+    } else {
+        text.open_app
+    };
     let mut items = vec![MenuEntry::item(
         MenuChoice::OpenProgram,
-        menu::Item::new(text.open_app, OPEN_GLYPH),
+        menu::Item::new(open, OPEN_GLYPH),
     )];
     if windows > 0 {
         let close = if windows > 1 {

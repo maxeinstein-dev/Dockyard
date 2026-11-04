@@ -536,6 +536,38 @@ pub async fn pin_app(
     })
 }
 
+/// "Procurar…" in Apps do dock (F7 of estudo 0002): the Windows dialog for
+/// an `.exe` or a shortcut, pinned at the end of the workspace `workspace`
+/// (or the one in use). `None` when the dialog was cancelled. Only what the
+/// user picked in the dialog can be pinned: the page names no file.
+#[tauri::command]
+pub async fn browse_app(
+    app: AppHandle,
+    state: State<'_, Mutex<Storage>>,
+    workspace: Option<String>,
+) -> Result<Option<PinnedApp>, AppCommandError> {
+    log::info!("apps: browsing for a program to pin");
+    let picked = tauri::async_runtime::spawn_blocking(|| {
+        let text = &crate::i18n::messages().tray;
+        let path =
+            crate::windows::file_dialog::pick_program(text.browse_title, text.program_files)?;
+        let id = droppable(&[path]).into_iter().next()?;
+        let name = apps::name_of(&id).filter(|name| is_valid_app_name(name));
+        Some((id, name))
+    })
+    .await
+    .ok()
+    .flatten();
+    let Some((id, name)) = picked else {
+        return Ok(None);
+    };
+    let name = name.ok_or(AppError::InvalidApp)?;
+    change(&app, &state, "browse", |storage| {
+        pin(storage, &id, &name, workspace.as_deref())
+    })
+    .map(Some)
+}
+
 #[tauri::command]
 pub fn unpin_app(
     app: AppHandle,

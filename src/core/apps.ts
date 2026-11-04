@@ -107,6 +107,7 @@ export const APP_COMMANDS = {
   catalog: "list_catalog",
   icon: "app_icon",
   pin: "pin_app",
+  browse: "browse_app",
   unpin: "unpin_app",
   move: "move_app",
   place: "place_app",
@@ -180,6 +181,15 @@ function inSpace(workspace: string | undefined): { workspace?: string } {
 export function pinApp(appId: string, workspace?: string): Promise<PinnedApp> {
   return run(APP_COMMANDS.pin, { appId, ...inSpace(workspace) }, (error) =>
     log.warn(`apps: pin failed: ${errorKind(error)}`),
+  );
+}
+
+/** "Procurar…" (F7 of estudo 0002): the Windows dialog for an `.exe` or a
+ * shortcut, pinned at the end of the workspace `workspace` (or the one in
+ * use); null when the dialog was cancelled. */
+export function browseApp(workspace?: string): Promise<PinnedApp | null> {
+  return run(APP_COMMANDS.browse, inSpace(workspace), (error) =>
+    log.warn(`apps: browse failed: ${errorKind(error)}`),
   );
 }
 
