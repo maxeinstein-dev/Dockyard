@@ -10,7 +10,7 @@ Extensão da fase G ([spec 0019](0019-fase-g-extras.md)): **temas** que vestem o
 5. Medieval 8-bit (#116);
 6. Caçador (#117).
 
-Também entrou o "experimentar e voltar" (#115). A segunda leva gamer, com Cyberpunk, Fliperama e Espacial, entrou em 2026-11-03 (§4). Os widgets no tom do tema (Q9) e a pasta `Skins` para barras de terceiros (Q14) entraram em 2026-11-03 (§5 e §6).
+Também entrou o "experimentar e voltar" (#115). A segunda leva gamer, com Cyberpunk, Fliperama e Espacial, entrou em 2026-11-03 (§4). Os widgets no tom do tema (Q9) e a pasta `Skins` para barras de terceiros (Q14) entraram em 2026-11-03 (§5 e §6). Os glifos dos launchers nos quatro pacotes de pixel que vieram antes deles entraram em 2026-11-04 ([spec 0019](0019-fase-g-extras.md) G4).
 
 **Verificação final** (2026-10-30, build e2e da `main` com os seis passos, cópia dos dados do autor):
 - **Os 11 temas:** aplicados pelos cartões, um a um. Cada um perguntou "Manter este tema?", foi mantido e gravou estilo e pacote, e o dock desenhou a barra e os ícones dele. Fotos em [`docs/fotos/g7-11-temas-ao-vivo.png`](../fotos/g7-11-temas-ao-vivo.png).
