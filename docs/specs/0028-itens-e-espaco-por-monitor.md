@@ -27,13 +27,18 @@ O que ainda **não** existe:
 | D. Itens por monitor dentro do mesmo espaço | Cada item ganha "mostrar em: todos / este monitor". É um terceiro eixo, além de espaço e monitor. | G |
 | E. Configurações › Espaços por monitor | Cada monitor numa linha, com o espaço dele, o "fixo" e os espaços que são dele. | M |
 
-## 3. Decisões do autor
+## 3. Decisões do autor (2026-11-04)
 
-1. **Que peças entram?** Recomendação: **A, C e E** agora, e **B** depois, se a falta fizer falta. A resolve o problema real de perder o espaço ao religar. C cobre o caso "um monitor para cada coisa" com pouco código. D cria um terceiro eixo que confunde com os espaços e fica de fora.
-2. **Monitor que some e volta.** Quando um monitor é desligado, o espaço dele fica guardado e volta com ele (proposta). A outra opção é ele cair no primeiro espaço.
-3. **Janela levada a outro monitor** (a pergunta 1 em aberto da 0013 §6). Hoje ela passa para o espaço ativo de lá, que é a proposta em uso. Confirmar, ou manter a janela no espaço de origem.
-4. **Monitor fixo e janelas.** Num monitor fixo nada é escondido, porque ele nunca troca. Uma janela levada para ele passa para o espaço dele (segue a resposta 3).
-5. **Onde fica a escolha.** Recomendação: em Configurações › Espaços, numa seção "Monitores", e no menu do dock, com "Fixar este monitor em <espaço>".
+1. **Peças que entram:**
+   - **A**, identidade estável;
+   - **C**, monitor fixo;
+   - **E**, Configurações por monitor.
+
+   B (espaços de um monitor só) e D (itens por monitor dentro do espaço) ficam de fora.
+2. **Monitor que some e volta:** volta com o mesmo espaço, guardado pelo aparelho.
+3. **Janela levada a outro monitor:** passa a ser do espaço de lá. Fecha a pergunta 1 da 0013 §6.
+4. **Monitor fixo e janelas:** nada é escondido num monitor fixo, e a janela levada a ele passa a ser do espaço dele.
+5. **Onde se escolhe:** Configurações › Espaços, numa seção "Monitores", e o menu do dock, com "Fixar este monitor em <espaço>" e "Soltar este monitor".
 
 ## 4. Verificação (depois das decisões)
 
