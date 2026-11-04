@@ -17,12 +17,14 @@ Levantamento de 2026-10-30, depois da primeira leva da [spec 0020](../specs/0020
   - F1 Economia de bateria: na main ([spec 0021](../specs/0021-economia-de-bateria.md), PR #151).
   - F2 Espaçadores: na main ([spec 0022](../specs/0022-espacadores.md), PR #153).
   - F3 Pilhas de widgets: na main ([spec 0023](../specs/0023-pilhas-de-widgets.md), PR #155).
-  - F4 Ícone por app: na main (spec 0024, PR #162).
-  - F5 Downloads, Lixeira e pastas: em andamento.
+  - F4 Ícone por app: na main ([spec 0024](../specs/0024-icone-por-app.md), PR #162).
+  - F5 Downloads, Lixeira e pastas: na main ([spec 0025](../specs/0025-pastas-no-dock.md), PR #166).
   - F6 Busca dentro de Configurações: na main (PR #163).
-  - F7: "Duplicar" um espaço na main (PR #164); "Nova janela" e "Procurar…" em revisão (PR #168).
-  - F8 a F15: a fazer, na ordem da lista. F13 e F14 começam por uma spec, para o autor decidir antes do código; F15 fica por último.
-- **Itens adiados da spec 0020:** os quatro entraram (ver "Como ler").
+  - F7: na main. "Duplicar" um espaço entrou no PR #164; "Nova janela" e "Procurar…", no PR #168.
+  - F8 Exportar e importar: em andamento (spec 0026). O teste ao vivo achou um problema no reinício depois de importar, já corrigido no código e à espera de um novo teste ao vivo.
+  - F9 Widgets que faltam: Layout do teclado em revisão (PR #169); Relógio mundial em andamento.
+  - F10 a F15: a fazer, na ordem da lista. F13 e F14 começam por uma spec, para o autor decidir antes do código; F15 fica por último.
+- **Itens adiados da spec 0020:** os quatro entraram (ver "Como ler"). Os pacotes de pixel ganharam os launchers de jogos (PR #167).
 
 ## Resumo
 
