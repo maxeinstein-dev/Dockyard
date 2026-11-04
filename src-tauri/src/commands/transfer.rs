@@ -8,7 +8,6 @@ use std::sync::{Mutex, PoisonError};
 
 use tauri::{AppHandle, Manager};
 
-use crate::domain::widgets::UnavailableReason;
 use crate::persistence::database::Storage;
 use crate::persistence::transfer::{self, Checked, MAX_FILE_BYTES, Summary, TransferError};
 
@@ -158,8 +157,11 @@ pub fn wait_for_previous() {
 /// Dockyard is started, told to wait for this one, and this one quits as
 /// Sair does (giving the taskbar back). `app.restart()` is not used: from
 /// the main thread it starts the new one while this one still runs.
+///
+/// Off the main thread: the exit is asked of the event loop from here, as
+/// a thread asks it (the main thread, inside a command, did not quit live).
 #[tauri::command]
-pub fn confirm_import(app: AppHandle) -> Result<(), TransferError> {
+pub async fn confirm_import(app: AppHandle) -> Result<(), TransferError> {
     let chosen = CHOSEN.lock().unwrap_or_else(PoisonError::into_inner).take();
     let Some(checked) = chosen else {
         return Err(TransferError::NotACopy);
@@ -184,12 +186,7 @@ pub fn confirm_import(app: AppHandle) -> Result<(), TransferError> {
         let _ = std::fs::remove_dir_all(dir.join(transfer::PENDING_DIR));
         return Err(TransferError::Failed);
     }
-    log::info!("transfer: an import waits for the restart");
-    // The database closes now, so nothing is written after the copy.
-    if let Some(state) = app.try_state::<Mutex<Storage>>() {
-        *state.lock().unwrap_or_else(PoisonError::into_inner) =
-            Storage::unavailable(UnavailableReason::OpenFailed);
-    }
+    log::info!("transfer: an import waits for the restart; quitting");
     app.exit(0);
     Ok(())
 }
