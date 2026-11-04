@@ -471,6 +471,84 @@ pub fn move_spacer(
     })
 }
 
+/// Puts the widget or the stack `moving` on the widget or the stack
+/// `target` of the workspace `workspace` (the one the dock shows; the one
+/// in use without it): "Empilhar com" in the dock's menu (spec 0023). A
+/// refusal is only logged.
+pub fn stack_from_dock(app: &AppHandle, workspace: Option<&str>, moving: &str, target: &str) {
+    let state = app.state::<Mutex<Storage>>();
+    // `change` logs a refusal.
+    let _ = change(app, &state, "stack widgets", |storage| {
+        let id = workspace_or_in_use(storage, workspace)?.id;
+        storage.stack_with(&id, moving, target).map(|_| ())
+    });
+}
+
+/// The widget on top of the stack `id` out of it, loose right after it
+/// ("Tirar da pilha" in its menu).
+pub fn take_from_stack(app: &AppHandle, id: &str) {
+    let state = app.state::<Mutex<Storage>>();
+    // `change` logs a refusal.
+    let _ = change(app, &state, "take from stack", |storage| {
+        storage.take_from_stack(id)
+    });
+}
+
+/// Another widget on top of the stack `id`, `step` turns of the wheel away
+/// (Ctrl and the wheel over it).
+pub fn turn_stack(app: &AppHandle, id: &str, step: i32) {
+    let state = app.state::<Mutex<Storage>>();
+    // `change` logs a refusal.
+    let _ = change(app, &state, "turn stack", |storage| {
+        storage.turn_stack(id, step)
+    });
+}
+
+/// The key of the stack `id` of `workspace`; `NotFound` when it has none
+/// such.
+fn stack_key(workspace: &Workspace, id: &str) -> Result<String, WorkspaceError> {
+    workspace
+        .stacks
+        .iter()
+        .find(|stack| stack.id == id)
+        .map(|stack| stack.key())
+        .ok_or(WorkspaceError::NotFound)
+}
+
+/// Moves the stack `id` one place up or down among the widgets, the
+/// spacers and the stacks of the workspace `workspace` (or the one in use),
+/// as Itens do dock lists them (spec 0023).
+#[tauri::command]
+pub fn move_stack(
+    app: AppHandle,
+    state: State<'_, Mutex<Storage>>,
+    id: String,
+    direction: MoveDirection,
+    workspace: Option<String>,
+) -> Result<(), WorkspaceCommandError> {
+    change(&app, &state, "move stack", |storage| {
+        let found = workspace_or_in_use(storage, workspace.as_deref())?;
+        let key = stack_key(&found, &id)?;
+        storage.shift_in_workspace(&found.id, &key, direction == MoveDirection::Up)
+    })
+}
+
+/// Undoes the stack `id` of the workspace `workspace` (or the one in use):
+/// its widgets loose in its place ("Desfazer pilha" in Itens do dock).
+#[tauri::command]
+pub fn dissolve_stack(
+    app: AppHandle,
+    state: State<'_, Mutex<Storage>>,
+    id: String,
+    workspace: Option<String>,
+) -> Result<(), WorkspaceCommandError> {
+    change(&app, &state, "dissolve stack", |storage| {
+        let found = workspace_or_in_use(storage, workspace.as_deref())?;
+        stack_key(&found, &id)?;
+        storage.dissolve_stack(&id)
+    })
+}
+
 /// Whether one more workspace can be made.
 pub fn can_create(workspaces: &[Workspace]) -> bool {
     workspaces.len() < MAX_WORKSPACES

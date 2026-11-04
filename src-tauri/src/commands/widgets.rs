@@ -161,13 +161,18 @@ pub fn add(
 
 /// Takes an instance out of the workspace `workspace` (or the one in use);
 /// with no other workspace showing it, it is removed for good, a note's text
-/// with it.
+/// with it. One in a stack of the workspace leaves the stack (spec 0023).
 pub fn remove(storage: &mut Storage, id: &str, workspace: Option<&str>) -> Result<(), WidgetError> {
     let id = parse_id(id)?;
     let workspace = workspace_of(storage, workspace)?;
     let key = key_of(&id);
-    in_workspace(storage, &workspace, &key)?;
-    if storage.remove_from_workspace(&workspace, &key)? {
+    let elsewhere = if storage.leave_stacks(&workspace, id.as_str())? {
+        storage.held(&key)?
+    } else {
+        in_workspace(storage, &workspace, &key)?;
+        storage.remove_from_workspace(&workspace, &key)?
+    };
+    if elsewhere {
         return Ok(());
     }
     widgets_repo::remove(storage.connection()?, &id)?;
@@ -745,6 +750,37 @@ mod tests {
             );
         }
         assert_eq!(snapshot(&storage).unwrap().widgets.len(), 3);
+    }
+
+    #[test]
+    fn a_stacked_widget_removed_leaves_its_stack_and_goes_for_good() {
+        let dir = tempdir().unwrap();
+        let (mut storage, [clock, progress, note]) = open(&dir);
+        let first = storage.in_use().unwrap().id;
+        let stack = storage
+            .stack_with(&first, &format!("widget:{progress}"), &format!("widget:{clock}"))
+            .unwrap();
+        storage
+            .stack_with(&first, &format!("widget:{note}"), &stack.key())
+            .unwrap();
+
+        remove(&mut storage, &note, None).unwrap();
+
+        // Gone for good, and the stack of two keeps the others.
+        let left: Vec<String> = snapshot(&storage)
+            .unwrap()
+            .widgets
+            .iter()
+            .map(|widget| widget.id.to_string())
+            .collect();
+        assert_eq!(left, [clock.to_string(), progress.to_string()]);
+        let workspace = storage.in_use().unwrap();
+        assert_eq!(workspace.stacks[0].widgets, [clock.to_string(), progress.to_string()]);
+        // Removing one more undoes the stack: the clock alone in its place.
+        remove(&mut storage, &progress, None).unwrap();
+        let workspace = storage.in_use().unwrap();
+        assert!(workspace.stacks.is_empty());
+        assert_eq!(workspace.items, [format!("widget:{clock}")]);
     }
 
     #[test]

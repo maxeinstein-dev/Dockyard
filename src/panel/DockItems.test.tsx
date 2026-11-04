@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WidgetInstance, WidgetsSnapshot } from "../core/widgets";
+import { format } from "../i18n";
 import { ptBR } from "../i18n/pt-BR";
 import tokens from "../themes/tokens.css?raw";
 import { draftOf, forgetNote, keepDraft } from "../widgets/notes/memory";
@@ -606,6 +607,7 @@ describe("DockItems in a workspace (spec 0013 C3)", () => {
     color: "#FF9F0A",
     items: ["widget:c1"],
     spacers: [],
+    stacks: [],
   };
 
   beforeEach(() => {
@@ -658,6 +660,7 @@ describe("DockItems with spacers (spec 0022)", () => {
       { id: "s1", size: "small" as const },
       { id: "s2", size: "large" as const },
     ],
+    stacks: [],
   };
 
   beforeEach(() => {
@@ -721,6 +724,51 @@ describe("DockItems with spacers (spec 0022)", () => {
 
     expect(getAlert()).toHaveTextContent(text.errors.notFound);
     expect(removeButton(text.items.spacers.large)).toHaveFocus();
+  });
+});
+
+describe("DockItems with stacks (spec 0023)", () => {
+  /** The clock and the note in one stack, the note on top; the progress
+   * alone after it. */
+  const STACKED = {
+    id: "w-main",
+    name: "Principal",
+    color: "#0A84FF",
+    items: ["stack:k1", "widget:p1"],
+    spacers: [],
+    stacks: [{ id: "k1", widgets: ["c1", "n1"], top: 1 }],
+  };
+  const named = format(text.items.stackNamed, { names: "Relógio, Nota" });
+
+  beforeEach(() => {
+    invoke.mockReset();
+    answer();
+  });
+
+  it("lists a stack as one row, and its widgets not as from other workspaces", () => {
+    render(<DockItems snapshot={THREE} workspace={STACKED} />);
+
+    expect(
+      rows().map((row) => row.querySelector(".dock-items-name")?.textContent),
+    ).toEqual([named, "Progresso do tempo"]);
+    expect(
+      screen.queryByRole("group", { name: text.items.fromOthers }),
+    ).toBeNull();
+  });
+
+  it("moves a stack with move_stack and undoes it with dissolve_stack", async () => {
+    render(<DockItems snapshot={THREE} workspace={STACKED} />);
+
+    fireEvent.click(moveDown(named));
+    await flush();
+    fireEvent.click(button(format(text.items.unstackNamed, { name: named })));
+    await flush();
+
+    expect(sent("move_stack")).toEqual([
+      { id: "k1", direction: "down", workspace: "w-main" },
+    ]);
+    expect(sent("dissolve_stack")).toEqual([{ id: "k1", workspace: "w-main" }]);
+    expect(sent("remove_widget")).toEqual([]);
   });
 });
 

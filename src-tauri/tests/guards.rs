@@ -174,6 +174,9 @@ const EXPECTED_CAPABILITIES: &[(&str, &str, &[&str], &[&str])] = &[
             // Its spacers (spec 0022): removed and moved in Itens do dock.
             "allow-remove-spacer",
             "allow-move-spacer",
+            // Its stacks (spec 0023): moved and undone in Itens do dock.
+            "allow-move-stack",
+            "allow-dissolve-stack",
             // A widget shown in another workspace too (spec 0013 C3).
             "allow-share-widget",
             // Configurações › Contas (spec 0017 F2a, ADR 0012): the OAuth

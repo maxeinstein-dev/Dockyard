@@ -245,6 +245,7 @@ describe("AppMenuPanel", () => {
           color: "#0A84FF",
           items: [],
           spacers: [],
+          stacks: [],
         },
         {
           id: "w-work",
@@ -252,6 +253,7 @@ describe("AppMenuPanel", () => {
           color: "#FF9F0A",
           items: [],
           spacers: [],
+          stacks: [],
         },
       ],
       inUse: "w-main",

@@ -31,6 +31,11 @@ pub(super) enum MenuChoice {
     AddSpacer(SpacerSize),
     /// The spacer the menu opened on leaves the dock, for good.
     RemoveSpacer,
+    /// "Empilhar com": on the widget or the stack at this index of the
+    /// targets the menu listed (spec 0023).
+    StackWith(usize),
+    /// "Tirar da pilha": the widget on top leaves the stack.
+    TakeFromStack,
 }
 
 /// One line of the dock's menu: what it does and how it shows (spec 0014
@@ -54,6 +59,7 @@ pub(super) const OPEN_GLYPH: char = '\u{E8A7}';
 pub(super) const CLOSE_GLYPH: char = '\u{E8BB}';
 /// "Adicionar espaçador": the font's gap between two bars.
 pub(super) const SPACER_GLYPH: char = '\u{E745}';
+pub(super) const STACK_GLYPH: char = '\u{E8FD}';
 
 impl MenuEntry {
     fn item(choice: MenuChoice, item: menu::Item) -> MenuEntry {
@@ -208,6 +214,34 @@ pub(super) fn widget_items(config: &WidgetConfig) -> Vec<MenuEntry> {
     items
 }
 
+/// What a widget's or a stack's menu has about stacks (spec 0023): "Tirar
+/// da pilha" on a stack, then "Empilhar com" and the other widgets and
+/// stacks of the workspace, by name (`targets`); nothing when there is
+/// neither.
+pub(super) fn stack_items(stacked: bool, targets: &[String]) -> Vec<MenuEntry> {
+    let text = &crate::i18n::messages().tray;
+    let mut items = Vec::new();
+    if stacked {
+        items.push(MenuEntry::item(
+            MenuChoice::TakeFromStack,
+            menu::Item::new(text.take_from_stack, STACK_GLYPH),
+        ));
+    }
+    if !targets.is_empty() {
+        items.push(MenuEntry::title(text.stack_with));
+        for (index, name) in targets.iter().enumerate() {
+            items.push(MenuEntry::item(
+                MenuChoice::StackWith(index),
+                menu::Item::new(name, STACK_GLYPH),
+            ));
+        }
+    }
+    if !items.is_empty() {
+        items.push(MenuEntry::separator());
+    }
+    items
+}
+
 /// What a spacer's menu has before the dock's (spec 0022): "Remover
 /// espaçador", as a widget's "Remover do dock".
 pub(super) fn spacer_items() -> Vec<MenuEntry> {
@@ -359,6 +393,12 @@ pub(super) struct MenuOn<'a> {
     pub(super) widget: Option<&'a crate::domain::widgets::WidgetId>,
     pub(super) spacer: Option<&'a str>,
     pub(super) after: Option<&'a str>,
+    /// The key of the widget or the stack the menu opened on, and the keys
+    /// of what "Empilhar com" listed (spec 0023).
+    pub(super) moving: Option<&'a str>,
+    pub(super) targets: &'a [String],
+    /// The stack the menu opened on.
+    pub(super) stack: Option<&'a str>,
 }
 
 /// Does what was chosen in the dock's menu (or the tray icon's): `monitor`
@@ -418,6 +458,16 @@ pub(super) fn act(
         MenuChoice::RemoveSpacer => {
             if let Some(id) = on.spacer {
                 crate::commands::workspaces::remove_spacer_from_dock(app, id);
+            }
+        }
+        MenuChoice::StackWith(index) => {
+            if let (Some(moving), Some(target)) = (on.moving, on.targets.get(index)) {
+                crate::commands::workspaces::stack_from_dock(app, workspace, moving, target);
+            }
+        }
+        MenuChoice::TakeFromStack => {
+            if let Some(id) = on.stack {
+                crate::commands::workspaces::take_from_stack(app, id);
             }
         }
         // A program's own menu: `act_on_program`.

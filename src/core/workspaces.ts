@@ -38,16 +38,26 @@ export interface WorkspaceSpacer {
   size: SpacerSize;
 }
 
+/** Widgets in one tile of a workspace's dock (spec 0023): their ids in
+ * order, and which is on top. */
+export interface WorkspaceStack {
+  id: string;
+  widgets: string[];
+  top: number;
+}
+
 export interface Workspace {
   id: string;
   name: string;
   /** One of `WORKSPACE_COLORS`. */
   color: string;
-  /** Its items in dock order: `app:<id>`, `widget:<id>` and
-   * `spacer:<id>`. */
+  /** Its items in dock order: `app:<id>`, `widget:<id>`, `spacer:<id>`
+   * and `stack:<id>`. */
   items: string[];
   /** Its spacers, in dock order: what the `spacer:<id>` keys stand for. */
   spacers: WorkspaceSpacer[];
+  /** Its stacks, in dock order: what the `stack:<id>` keys stand for. */
+  stacks: WorkspaceStack[];
 }
 
 /** Every workspace in order, and the one in use (the dock used last). */
@@ -104,6 +114,8 @@ export const WORKSPACE_COMMANDS = {
   moveOpenWindows: "move_open_windows",
   removeSpacer: "remove_spacer",
   moveSpacer: "move_spacer",
+  moveStack: "move_stack",
+  dissolveStack: "dissolve_stack",
 } as const;
 
 /** Event every window receives with a `WorkspacesSnapshot` after a change. */
@@ -186,6 +198,27 @@ export function moveSpacer(
   );
 }
 
+/** Moves the stack `id` one place up or down among the widgets, the
+ * spacers and the stacks of `workspace` (spec 0023). */
+export function moveStack(
+  id: string,
+  direction: MoveDirection,
+  workspace?: string,
+): Promise<void> {
+  return run(
+    WORKSPACE_COMMANDS.moveStack,
+    workspace === undefined ? { id, direction } : { id, direction, workspace },
+  );
+}
+
+/** Undoes the stack `id` of `workspace`: its widgets loose in its place. */
+export function dissolveStack(id: string, workspace?: string): Promise<void> {
+  return run(
+    WORKSPACE_COMMANDS.dissolveStack,
+    workspace === undefined ? { id } : { id, workspace },
+  );
+}
+
 /** A name the user may give: one line, no spaces at the ends, 1 to
  * `MAX_WORKSPACE_NAME` characters (Rust checks it again). */
 export function isValidWorkspaceName(name: string): boolean {
@@ -199,7 +232,8 @@ export function isValidWorkspaceName(name: string): boolean {
 }
 
 /** Of `list` (programs or widgets, by `id`), those `workspace` shows, in its
- * order; the whole list when there is no workspace (they can't be read). */
+ * order, the widgets of a stack in its place (spec 0023); the whole list
+ * when there is no workspace (they can't be read). */
 export function inWorkspace<T extends { id: string }>(
   list: readonly T[],
   workspace: Workspace | null | undefined,
@@ -207,9 +241,16 @@ export function inWorkspace<T extends { id: string }>(
 ): T[] {
   if (!workspace) return [...list];
   const byKey = new Map(list.map((item) => [`${kind}:${item.id}`, item]));
+  const stacks = new Map(
+    workspace.stacks.map((stack) => [`stack:${stack.id}`, stack]),
+  );
   return workspace.items.flatMap((key) => {
-    const item = byKey.get(key);
-    return item ? [item] : [];
+    const stack = kind === "widget" ? stacks.get(key) : undefined;
+    const keys = stack ? stack.widgets.map((id) => `widget:${id}`) : [key];
+    return keys.flatMap((each) => {
+      const item = byKey.get(each);
+      return item ? [item] : [];
+    });
   });
 }
 

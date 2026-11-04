@@ -8,15 +8,19 @@
 //!
 //! The spacers (spec 0022) are rows of `spacers`, named in `workspace_items`
 //! by `spacer:<id>`; one leaves the table when it leaves its workspace.
+//!
+//! The stacks of widgets (spec 0023) are rows of `stacks`, named by
+//! `stack:<id>`, with their widgets in `stack_members`. A stack is never
+//! left with fewer than two: the one left takes its place (`tidy`).
 
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 
 use super::database::{begin, now_ms, read_failed, write_failed};
 use crate::domain::widgets::WidgetId;
 use crate::domain::workspaces::{
-    FIRST_NAME, MAX_ITEMS, MAX_WORKSPACES, PALETTE, SPACER_PREFIX, Spacer, SpacerSize, Workspace,
-    WorkspaceError, initial_order, is_item_key, is_palette_color, is_valid_name, next_color,
-    next_name, spacer_place,
+    FIRST_NAME, MAX_ITEMS, MAX_WORKSPACES, PALETTE, SPACER_PREFIX, STACK_PREFIX, Spacer,
+    SpacerSize, Stack, Workspace, WorkspaceError, initial_order, is_item_key, is_palette_color,
+    is_valid_name, joined, next_color, next_name, spacer_place,
 };
 
 /// Prefix in `meta` of the workspace a monitor shows: `workspace:` and the
@@ -40,6 +44,7 @@ pub fn list(conn: &Connection) -> Result<Vec<Workspace>, WorkspaceError> {
                 color: row.get(2)?,
                 items: Vec::new(),
                 spacers: Vec::new(),
+                stacks: Vec::new(),
             })
         })
         .map_err(read_failed)?;
@@ -48,6 +53,7 @@ pub fn list(conn: &Connection) -> Result<Vec<Workspace>, WorkspaceError> {
         let mut workspace = row.map_err(read_failed)?;
         workspace.items = items(conn, &workspace.id)?;
         workspace.spacers = spacers(conn, &workspace.id)?;
+        workspace.stacks = stacks(conn, &workspace.id)?;
         workspaces.push(workspace);
     }
     Ok(workspaces)
@@ -210,6 +216,7 @@ pub fn create(conn: &mut Connection, name: Option<&str>) -> Result<Workspace, Wo
         color: next_color(&colors).to_owned(),
         items: Vec::new(),
         spacers: Vec::new(),
+        stacks: Vec::new(),
     };
     tx.execute(
         "INSERT INTO workspaces (id, name, color, position, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -298,7 +305,23 @@ pub fn delete(conn: &mut Connection, id: &str) -> Result<Vec<String>, WorkspaceE
     if order.len() == 1 {
         return Err(WorkspaceError::LastWorkspace);
     }
-    let gone = items(&tx, id)?;
+    // A stack goes with its workspace; its widgets are what may be left
+    // behind.
+    let mut gone = Vec::new();
+    for key in items(&tx, id)? {
+        match key.strip_prefix(STACK_PREFIX) {
+            Some(stack) => {
+                gone.extend(
+                    members(&tx, stack)?
+                        .into_iter()
+                        .map(|w| format!("widget:{w}")),
+                );
+                tx.execute("DELETE FROM stacks WHERE id = ?1", params![stack])
+                    .map_err(write_failed)?;
+            }
+            None => gone.push(key),
+        }
+    }
     tx.execute(
         "DELETE FROM workspace_items WHERE workspace_id = ?1",
         params![id],
@@ -323,12 +346,16 @@ pub fn delete(conn: &mut Connection, id: &str) -> Result<Vec<String>, WorkspaceE
     Ok(orphans)
 }
 
-/// Whether any workspace has the item `key`.
+/// Whether any workspace has the item `key`: in its list, or (a widget)
+/// in one of its stacks.
 pub fn held(conn: &Connection, key: &str) -> Result<bool, WorkspaceError> {
     let found = conn
         .query_row(
-            "SELECT EXISTS(SELECT 1 FROM workspace_items WHERE item_key = ?1)",
-            params![key],
+            "SELECT EXISTS(SELECT 1 FROM workspace_items WHERE item_key = ?1)
+                 OR EXISTS(SELECT 1 FROM stack_members
+                     JOIN workspace_items ON workspace_items.item_key = ?2 || stack_members.stack_id
+                     WHERE 'widget:' || stack_members.widget_id = ?1)",
+            params![key, STACK_PREFIX],
             |row| row.get(0),
         )
         .map_err(read_failed)?;
@@ -398,7 +425,8 @@ fn forget_in(tx: &Transaction<'_>, key: &str) -> Result<(), WorkspaceError> {
             .collect();
         write_items(tx, &id, &keys)?;
     }
-    Ok(())
+    // A widget gone for good left its stacks (the cascade).
+    tidy(tx)
 }
 
 /// Makes a spacer of `size` in the workspace `id`, right after its item
@@ -445,6 +473,323 @@ pub fn remove_spacer(conn: &mut Connection, id: &str) -> Result<(), WorkspaceErr
     }
     forget_in(&tx, &format!("{SPACER_PREFIX}{id}"))?;
     tx.commit().map_err(write_failed)?;
+    Ok(())
+}
+
+/// The stacks of the workspace `id`, in dock order; one with no widget left
+/// is skipped.
+fn stacks(conn: &Connection, id: &str) -> Result<Vec<Stack>, WorkspaceError> {
+    let found: Vec<(String, i64)> = {
+        let mut statement = conn
+            .prepare(
+                "SELECT stacks.id, stacks.top FROM workspace_items \
+                 JOIN stacks ON workspace_items.item_key = ?2 || stacks.id \
+                 WHERE workspace_items.workspace_id = ?1 ORDER BY workspace_items.position",
+            )
+            .map_err(read_failed)?;
+        statement
+            .query_map(params![id, STACK_PREFIX], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })
+            .map_err(read_failed)?
+            .filter_map(Result::ok)
+            .collect()
+    };
+    let mut stacks = Vec::new();
+    for (id, top) in found {
+        let widgets = members(conn, &id)?;
+        if widgets.is_empty() {
+            continue;
+        }
+        let top = usize::try_from(top).unwrap_or(0).min(widgets.len() - 1);
+        stacks.push(Stack { id, widgets, top });
+    }
+    Ok(stacks)
+}
+
+/// The ids of the widgets of the stack `id`, in order.
+fn members(conn: &Connection, id: &str) -> Result<Vec<String>, WorkspaceError> {
+    let mut statement = conn
+        .prepare("SELECT widget_id FROM stack_members WHERE stack_id = ?1 ORDER BY position")
+        .map_err(read_failed)?;
+    let found = statement
+        .query_map(params![id], |row| row.get(0))
+        .map_err(read_failed)?
+        .filter_map(Result::ok)
+        .collect();
+    Ok(found)
+}
+
+/// The workspace that has the stack `id`, if one does.
+fn holder_of(conn: &Connection, id: &str) -> Result<Option<String>, WorkspaceError> {
+    let found = conn
+        .query_row(
+            "SELECT workspace_id FROM workspace_items WHERE item_key = ?1",
+            params![format!("{STACK_PREFIX}{id}")],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(read_failed)?;
+    Ok(found)
+}
+
+/// The stack `id` and the workspace that has it; `NotFound` when no
+/// workspace has such a stack.
+fn stack_and_workspace(conn: &Connection, id: &str) -> Result<(Stack, String), WorkspaceError> {
+    let workspace = holder_of(conn, id)?.ok_or(WorkspaceError::NotFound)?;
+    let stack = stacks(conn, &workspace)?
+        .into_iter()
+        .find(|stack| stack.id == id)
+        .ok_or(WorkspaceError::NotFound)?;
+    Ok((stack, workspace))
+}
+
+/// Writes the widgets and the top of `stack`, whose row exists.
+fn write_stack(tx: &Transaction<'_>, stack: &Stack) -> Result<(), WorkspaceError> {
+    tx.execute(
+        "UPDATE stacks SET top = ?2 WHERE id = ?1",
+        params![stack.id, stack.top as i64],
+    )
+    .map_err(write_failed)?;
+    tx.execute(
+        "DELETE FROM stack_members WHERE stack_id = ?1",
+        params![stack.id],
+    )
+    .map_err(write_failed)?;
+    for (position, widget) in stack.widgets.iter().enumerate() {
+        tx.execute(
+            "INSERT INTO stack_members (stack_id, widget_id, position) VALUES (?1, ?2, ?3)",
+            params![stack.id, widget, position as i64],
+        )
+        .map_err(write_failed)?;
+    }
+    Ok(())
+}
+
+/// The widgets an item key of a workspace stands for, to be stacked: a
+/// widget's own id, or a stack's widgets. `None` for any other item.
+fn stackable(conn: &Connection, key: &str) -> Result<Option<Vec<String>>, WorkspaceError> {
+    if let Some(widget) = key.strip_prefix("widget:") {
+        return Ok(Some(vec![widget.to_owned()]));
+    }
+    match key.strip_prefix(STACK_PREFIX) {
+        Some(stack) => Ok(Some(members(conn, stack)?)),
+        None => Ok(None),
+    }
+}
+
+/// Puts the widget or the stack `moving` of the workspace `id` on the widget
+/// or the stack `target` ("Empilhar com", spec 0023 §3): one stack in
+/// `target`'s place, the first of `moving` on top. `NotFound` when either is
+/// not a widget or a stack of it; `LimitReached` past `MAX_STACK`.
+pub fn stack_with(
+    conn: &mut Connection,
+    id: &str,
+    moving: &str,
+    target: &str,
+) -> Result<Stack, WorkspaceError> {
+    let tx = begin(conn)?;
+    let mut keys = items(&tx, id)?;
+    if moving == target || !keys.iter().any(|key| key == moving) {
+        return Err(WorkspaceError::NotFound);
+    }
+    let at = keys
+        .iter()
+        .position(|key| key == target)
+        .ok_or(WorkspaceError::NotFound)?;
+    let (Some(on), Some(put)) = (stackable(&tx, target)?, stackable(&tx, moving)?) else {
+        return Err(WorkspaceError::NotFound);
+    };
+    let (widgets, top) = joined(&on, &put).ok_or(WorkspaceError::LimitReached)?;
+    let stack = match target.strip_prefix(STACK_PREFIX) {
+        Some(existing) => Stack {
+            id: existing.to_owned(),
+            widgets,
+            top,
+        },
+        None => {
+            let stack = Stack {
+                id: WidgetId::new().as_str().to_owned(),
+                widgets,
+                top,
+            };
+            tx.execute(
+                "INSERT INTO stacks (id, top, created_at) VALUES (?1, ?2, ?3)",
+                params![stack.id, top as i64, now_ms()],
+            )
+            .map_err(write_failed)?;
+            keys[at] = stack.key();
+            stack
+        }
+    };
+    write_stack(&tx, &stack)?;
+    if let Some(gone) = moving.strip_prefix(STACK_PREFIX) {
+        tx.execute("DELETE FROM stacks WHERE id = ?1", params![gone])
+            .map_err(write_failed)?;
+    }
+    keys.retain(|key| key != moving);
+    write_items(&tx, id, &keys)?;
+    tx.commit().map_err(write_failed)?;
+    Ok(stack)
+}
+
+/// Turns the stack `id` by `step` (the wheel, spec 0023 §2): another widget
+/// on top, going round.
+pub fn turn_stack(conn: &mut Connection, id: &str, step: i32) -> Result<(), WorkspaceError> {
+    let (stack, _) = stack_and_workspace(conn, id)?;
+    conn.execute(
+        "UPDATE stacks SET top = ?2 WHERE id = ?1",
+        params![stack.id, stack.turned(step) as i64],
+    )
+    .map_err(write_failed)?;
+    Ok(())
+}
+
+/// Takes the widget on top of the stack `id` out of it ("Tirar da pilha"):
+/// loose, right after the stack.
+pub fn take_top(conn: &mut Connection, id: &str) -> Result<(), WorkspaceError> {
+    let (stack, workspace) = stack_and_workspace(conn, id)?;
+    let widget = stack.widgets[stack.top].clone();
+    let tx = begin(conn)?;
+    leave(&tx, &workspace, &stack, &widget, true)?;
+    tx.commit().map_err(write_failed)?;
+    Ok(())
+}
+
+/// Takes the widget `widget` out of whichever stack of the workspace `id`
+/// has it, not loose anywhere (it is being removed); returns whether one
+/// had it.
+pub fn leave_stacks(conn: &mut Connection, id: &str, widget: &str) -> Result<bool, WorkspaceError> {
+    let holder = stacks(conn, id)?
+        .into_iter()
+        .find(|stack| stack.widgets.iter().any(|known| known == widget));
+    let Some(stack) = holder else {
+        return Ok(false);
+    };
+    let tx = begin(conn)?;
+    leave(&tx, id, &stack, widget, false)?;
+    tx.commit().map_err(write_failed)?;
+    Ok(true)
+}
+
+/// `widget` out of `stack` of the workspace `id`, and loose right after it
+/// when `loose`; a stack left with one widget gives its place to it.
+fn leave(
+    tx: &Transaction<'_>,
+    id: &str,
+    stack: &Stack,
+    widget: &str,
+    loose: bool,
+) -> Result<(), WorkspaceError> {
+    let mut keys = items(tx, id)?;
+    let at = keys
+        .iter()
+        .position(|key| *key == stack.key())
+        .ok_or(WorkspaceError::NotFound)?;
+    let key = format!("widget:{widget}");
+    if loose && !keys.contains(&key) {
+        keys.insert(at + 1, key);
+    }
+    let left: Vec<String> = stack
+        .widgets
+        .iter()
+        .filter(|known| *known != widget)
+        .cloned()
+        .collect();
+    if left.len() < 2 {
+        dissolve_into(tx, &mut keys, &stack.id, &left)?;
+    } else {
+        let removed = stack
+            .widgets
+            .iter()
+            .position(|known| known == widget)
+            .unwrap_or(0);
+        let top = if removed < stack.top {
+            stack.top - 1
+        } else {
+            stack.top
+        };
+        write_stack(
+            tx,
+            &Stack {
+                id: stack.id.clone(),
+                top: top.min(left.len() - 1),
+                widgets: left,
+            },
+        )?;
+    }
+    write_items(tx, id, &keys)
+}
+
+/// Undoes the stack `id` ("Desfazer pilha" in Configurações): its widgets
+/// loose in its place, in order.
+pub fn dissolve_stack(conn: &mut Connection, id: &str) -> Result<(), WorkspaceError> {
+    let (stack, workspace) = stack_and_workspace(conn, id)?;
+    let tx = begin(conn)?;
+    let mut keys = items(&tx, &workspace)?;
+    dissolve_into(&tx, &mut keys, &stack.id, &stack.widgets)?;
+    write_items(&tx, &workspace, &keys)?;
+    tx.commit().map_err(write_failed)?;
+    Ok(())
+}
+
+/// Deletes the stack `id` and puts `widgets` loose in its place among
+/// `keys` (those not there already).
+fn dissolve_into(
+    tx: &Transaction<'_>,
+    keys: &mut Vec<String>,
+    id: &str,
+    widgets: &[String],
+) -> Result<(), WorkspaceError> {
+    let stack_key = format!("{STACK_PREFIX}{id}");
+    let at = keys
+        .iter()
+        .position(|key| *key == stack_key)
+        .unwrap_or(keys.len());
+    keys.retain(|key| *key != stack_key);
+    let loose: Vec<String> = widgets
+        .iter()
+        .map(|widget| format!("widget:{widget}"))
+        .filter(|key| !keys.contains(key))
+        .collect();
+    let at = at.min(keys.len());
+    keys.splice(at..at, loose);
+    tx.execute("DELETE FROM stacks WHERE id = ?1", params![id])
+        .map_err(write_failed)?;
+    Ok(())
+}
+
+/// Undoes every stack left with fewer than two widgets (a widget of it was
+/// removed for good): the one left, if any, takes its place.
+fn tidy(tx: &Transaction<'_>) -> Result<(), WorkspaceError> {
+    let thin: Vec<String> = {
+        let mut statement = tx
+            .prepare(
+                "SELECT stacks.id FROM stacks \
+                 LEFT JOIN stack_members ON stack_members.stack_id = stacks.id \
+                 GROUP BY stacks.id HAVING COUNT(stack_members.widget_id) < 2",
+            )
+            .map_err(read_failed)?;
+        statement
+            .query_map([], |row| row.get(0))
+            .map_err(read_failed)?
+            .filter_map(Result::ok)
+            .collect()
+    };
+    for id in thin {
+        let widgets = members(tx, &id)?;
+        match holder_of(tx, &id)? {
+            Some(workspace) => {
+                let mut keys = items(tx, &workspace)?;
+                dissolve_into(tx, &mut keys, &id, &widgets)?;
+                write_items(tx, &workspace, &keys)?;
+            }
+            None => {
+                tx.execute("DELETE FROM stacks WHERE id = ?1", params![id])
+                    .map_err(write_failed)?;
+            }
+        }
+    }
     Ok(())
 }
 
@@ -541,6 +886,141 @@ mod tests {
 
     fn keys(texts: &[&str]) -> Vec<String> {
         texts.iter().map(|text| (*text).to_owned()).collect()
+    }
+
+    /// A first workspace with the program a1 and the widgets w1, w2, w3.
+    fn with_three_widgets() -> (Connection, String) {
+        let mut conn = database();
+        conn.execute_batch(
+            "INSERT INTO widget_instances VALUES ('w2', 'note', NULL, 1, '{}', 1, 0);
+             INSERT INTO widget_instances VALUES ('w3', 'clock', NULL, 2, '{}', 1, 0);",
+        )
+        .unwrap();
+        ensure_first(
+            &mut conn,
+            &keys(&["app:a1", "widget:w1", "widget:w2", "widget:w3"]),
+        )
+        .unwrap();
+        let first = list(&conn).unwrap()[0].id.clone();
+        (conn, first)
+    }
+
+    #[test]
+    fn a_widget_stacked_on_another_takes_its_place_on_top() {
+        let (mut conn, first) = with_three_widgets();
+
+        let stack = stack_with(&mut conn, &first, "widget:w3", "widget:w1").unwrap();
+
+        assert_eq!(stack.widgets, keys(&["w1", "w3"]));
+        assert_eq!(stack.top, 1);
+        let all = list(&conn).unwrap();
+        assert_eq!(all[0].items[..3], keys(&["app:a1", &stack.key(), "widget:w2"]));
+        assert!(!all[0].items.contains(&"widget:w3".to_owned()));
+        assert_eq!(all[0].stacks, vec![stack.clone()]);
+        // Still held: in a stack of a workspace.
+        assert!(held(&conn, "widget:w3").unwrap());
+
+        // A widget on the stack: it joins, on top.
+        let more = stack_with(&mut conn, &first, "widget:w2", &stack.key()).unwrap();
+        assert_eq!(more.id, stack.id);
+        assert_eq!(more.widgets, keys(&["w1", "w3", "w2"]));
+        assert_eq!(more.top, 2);
+        assert_eq!(
+            list(&conn).unwrap()[0].items,
+            keys(&["app:a1", &stack.key(), "app:a2"])
+        );
+
+        // Neither a program nor the stack on itself.
+        assert_eq!(
+            stack_with(&mut conn, &first, "app:a1", &stack.key()),
+            Err(WorkspaceError::NotFound)
+        );
+        assert_eq!(
+            stack_with(&mut conn, &first, &stack.key(), &stack.key()),
+            Err(WorkspaceError::NotFound)
+        );
+    }
+
+    #[test]
+    fn a_stack_turns_round_and_gives_its_top_back() {
+        let (mut conn, first) = with_three_widgets();
+        let stack = stack_with(&mut conn, &first, "widget:w2", "widget:w1").unwrap();
+        stack_with(&mut conn, &first, "widget:w3", &stack.key()).unwrap();
+
+        turn_stack(&mut conn, &stack.id, 1).unwrap();
+        assert_eq!(list(&conn).unwrap()[0].stacks[0].top, 0);
+        turn_stack(&mut conn, &stack.id, -1).unwrap();
+        assert_eq!(list(&conn).unwrap()[0].stacks[0].top, 2);
+
+        // The one on top (w3) goes loose right after the stack.
+        take_top(&mut conn, &stack.id).unwrap();
+        let all = list(&conn).unwrap();
+        assert_eq!(
+            all[0].items,
+            keys(&["app:a1", &stack.key(), "widget:w3", "app:a2"])
+        );
+        assert_eq!(all[0].stacks[0].widgets, keys(&["w1", "w2"]));
+        assert_eq!(all[0].stacks[0].top, 1);
+
+        // With one left, the stack gives its place to it.
+        take_top(&mut conn, &stack.id).unwrap();
+        let all = list(&conn).unwrap();
+        assert_eq!(
+            all[0].items,
+            keys(&["app:a1", "widget:w1", "widget:w2", "widget:w3", "app:a2"])
+        );
+        assert!(all[0].stacks.is_empty());
+        assert_eq!(take_top(&mut conn, &stack.id), Err(WorkspaceError::NotFound));
+    }
+
+    #[test]
+    fn a_stack_undone_or_emptied_leaves_its_widgets_in_its_place() {
+        let (mut conn, first) = with_three_widgets();
+        let stack = stack_with(&mut conn, &first, "widget:w3", "widget:w1").unwrap();
+        stack_with(&mut conn, &first, "widget:w2", &stack.key()).unwrap();
+
+        // Removed from the workspace (not loose): the others stay stacked.
+        assert!(leave_stacks(&mut conn, &first, "w3").unwrap());
+        assert!(!held(&conn, "widget:w3").unwrap());
+        assert_eq!(list(&conn).unwrap()[0].stacks[0].widgets, keys(&["w1", "w2"]));
+        assert!(!leave_stacks(&mut conn, &first, "w3").unwrap());
+
+        dissolve_stack(&mut conn, &stack.id).unwrap();
+        let all = list(&conn).unwrap();
+        assert_eq!(
+            all[0].items,
+            keys(&["app:a1", "widget:w1", "widget:w2", "app:a2"])
+        );
+        assert!(all[0].stacks.is_empty());
+
+        // A widget of a stack removed for good: the stack of two undoes.
+        let again = stack_with(&mut conn, &first, "widget:w2", "widget:w1").unwrap();
+        conn.execute("DELETE FROM widget_instances WHERE id = 'w2'", [])
+            .unwrap();
+        forget_item(&mut conn, "widget:w2").unwrap();
+        let all = list(&conn).unwrap();
+        assert_eq!(all[0].items, keys(&["app:a1", "widget:w1", "app:a2"]));
+        assert!(all[0].stacks.is_empty());
+        assert_eq!(dissolve_stack(&mut conn, &again.id), Err(WorkspaceError::NotFound));
+    }
+
+    #[test]
+    fn deleting_a_workspace_leaves_the_widgets_of_its_stacks_behind() {
+        let (mut conn, first) = with_three_widgets();
+        let second = create(&mut conn, None).unwrap().id;
+        add_item(&mut conn, &second, "widget:w1").unwrap();
+        add_item(&mut conn, &second, "widget:w2").unwrap();
+        stack_with(&mut conn, &second, "widget:w2", "widget:w1").unwrap();
+        // w2 only in the second workspace's stack.
+        remove_item(&mut conn, &first, "widget:w2").unwrap();
+
+        let orphans = delete(&mut conn, &second).unwrap();
+
+        assert_eq!(orphans, keys(&["widget:w2"]));
+        let left: i64 = conn
+            .query_row("SELECT COUNT(*) FROM stacks", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(left, 0);
     }
 
     #[test]

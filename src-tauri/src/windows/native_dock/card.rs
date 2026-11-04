@@ -12,9 +12,13 @@ impl Dock {
     /// at once when it already shows (spec 0017 F2a-4).
     pub(super) fn arm_card(&mut self) {
         let _ = unsafe { KillTimer(Some(self.hwnd), CARD_TIMER) };
-        let calendar = self.hovered.and_then(|index| self.items.get(index)).is_some_and(
-            |item| matches!(item, Item::Widget(widget) if matches!(widget.config, WidgetConfig::Calendar(_))),
-        );
+        let calendar = self
+            .hovered
+            .and_then(|index| self.items.get(index))
+            .is_some_and(|item| {
+                item.widget()
+                    .is_some_and(|widget| matches!(widget.config, WidgetConfig::Calendar(_)))
+            });
         if !calendar {
             return;
         }
@@ -31,7 +35,7 @@ impl Dock {
         let Some(index) = self.hovered.filter(|_| !busy) else {
             return;
         };
-        let Some(Item::Widget(widget)) = self.items.get(index) else {
+        let Some(widget) = self.items.get(index).and_then(Item::widget) else {
             return;
         };
         let WidgetConfig::Calendar(config) = &widget.config else {
@@ -104,7 +108,7 @@ impl Dock {
         let Some(index) = self
             .items
             .iter()
-            .position(|item| matches!(item, Item::Widget(each) if &each.id == widget))
+            .position(|item| item.widget().is_some_and(|each| &each.id == widget))
         else {
             return;
         };
