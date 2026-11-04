@@ -243,6 +243,62 @@ pub fn shows(windows: usize, only_several: bool) -> bool {
     windows >= if only_several { 2 } else { 1 }
 }
 
+/// What a key does in a card opened from the keyboard (F10 of estudo
+/// 0002): the cells are in a row, `current` the one chosen of `cells`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CardKey {
+    /// Choose the cell at this position.
+    Select(usize),
+    /// Bring its window to the front (Enter, Space).
+    Open(usize),
+    /// Ask its window to close (Delete).
+    Close(usize),
+    /// Back to the dock's item, the card gone (Esc, or `back`).
+    Leave,
+    Nothing,
+}
+
+/// Virtual-key codes the card takes.
+pub const KEY_RETURN: u16 = 0x0D;
+pub const KEY_ESCAPE: u16 = 0x1B;
+pub const KEY_SPACE: u16 = 0x20;
+pub const KEY_END: u16 = 0x23;
+pub const KEY_HOME: u16 = 0x24;
+pub const KEY_LEFT: u16 = 0x25;
+pub const KEY_UP: u16 = 0x26;
+pub const KEY_RIGHT: u16 = 0x27;
+pub const KEY_DOWN: u16 = 0x28;
+pub const KEY_DELETE: u16 = 0x2E;
+
+/// The arrow that goes from a dock on `edge` to its card (up from a dock at
+/// the bottom), and the one that comes back.
+pub fn card_keys(edge: DockEdge) -> (u16, Option<u16>) {
+    match edge {
+        DockEdge::Bottom => (KEY_UP, Some(KEY_DOWN)),
+        DockEdge::Top => (KEY_DOWN, Some(KEY_UP)),
+    }
+}
+
+/// What `key` does with `cells` cells, `current` chosen, `back` the arrow
+/// back to the dock. The ends don't wrap, as the dock's own keys.
+pub fn card_key(cells: usize, current: usize, key: u16, back: Option<u16>) -> CardKey {
+    if cells == 0 {
+        return CardKey::Leave;
+    }
+    let current = current.min(cells - 1);
+    match key {
+        KEY_ESCAPE => CardKey::Leave,
+        _ if Some(key) == back => CardKey::Leave,
+        KEY_LEFT if current > 0 => CardKey::Select(current - 1),
+        KEY_RIGHT if current + 1 < cells => CardKey::Select(current + 1),
+        KEY_HOME => CardKey::Select(0),
+        KEY_END => CardKey::Select(cells - 1),
+        KEY_RETURN | KEY_SPACE => CardKey::Open(current),
+        KEY_DELETE => CardKey::Close(current),
+        _ => CardKey::Nothing,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -499,5 +555,38 @@ mod tests {
             hit(&playing, toggle.x + 2.0, toggle.y + 2.0),
             Some(Hit::Media(1))
         );
+    }
+
+    #[test]
+    fn the_arrows_walk_the_cells_without_wrapping() {
+        let back = Some(KEY_DOWN);
+        assert_eq!(card_key(3, 0, KEY_RIGHT, back), CardKey::Select(1));
+        assert_eq!(card_key(3, 2, KEY_RIGHT, back), CardKey::Nothing);
+        assert_eq!(card_key(3, 0, KEY_LEFT, back), CardKey::Nothing);
+        assert_eq!(card_key(3, 1, KEY_HOME, back), CardKey::Select(0));
+        assert_eq!(card_key(3, 1, KEY_END, back), CardKey::Select(2));
+        // A card that lost windows keeps a cell that is there.
+        assert_eq!(card_key(2, 5, KEY_LEFT, back), CardKey::Select(0));
+    }
+
+    #[test]
+    fn enter_opens_delete_closes_and_esc_or_back_leaves() {
+        let back = Some(KEY_DOWN);
+        assert_eq!(card_key(2, 1, KEY_RETURN, back), CardKey::Open(1));
+        assert_eq!(card_key(2, 1, KEY_SPACE, back), CardKey::Open(1));
+        assert_eq!(card_key(2, 1, KEY_DELETE, back), CardKey::Close(1));
+        assert_eq!(card_key(2, 1, KEY_ESCAPE, back), CardKey::Leave);
+        assert_eq!(card_key(2, 1, KEY_DOWN, back), CardKey::Leave);
+        assert_eq!(card_key(2, 1, KEY_UP, back), CardKey::Nothing);
+        assert_eq!(card_key(0, 0, KEY_RIGHT, back), CardKey::Leave);
+    }
+
+    #[test]
+    fn the_way_to_the_card_follows_the_docks_edge() {
+        assert_eq!(card_keys(DockEdge::Bottom), (KEY_UP, Some(KEY_DOWN)));
+        assert_eq!(card_keys(DockEdge::Top), (KEY_DOWN, Some(KEY_UP)));
+        // Without a way back, only Esc leaves.
+        assert_eq!(card_key(2, 1, KEY_DOWN, None), CardKey::Nothing);
+        assert_eq!(card_key(2, 1, KEY_ESCAPE, None), CardKey::Leave);
     }
 }

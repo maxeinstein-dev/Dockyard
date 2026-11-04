@@ -157,6 +157,13 @@ impl Dock {
         let Some(index) = self.hovered.filter(|_| !busy) else {
             return;
         };
+        self.show_preview_of(index, None);
+    }
+
+    /// Shows the card of the item at `index`; from the keyboard
+    /// (`keyboard`: the cell chosen) even with one window, as asked. Whether
+    /// a card shows.
+    pub(super) fn show_preview_of(&mut self, index: usize, keyboard: Option<usize>) -> bool {
         let workspace = self.workspace_id();
         let windows = match self.items.get(index) {
             Some(Item::App(app)) => {
@@ -165,17 +172,21 @@ impl Dock {
             Some(Item::Other(other)) => {
                 super::super::open_apps::windows_of_other(&other.key, workspace.as_deref())
             }
-            _ => return,
+            _ => return false,
         };
         let settings = &self.data.settings.dock;
-        if !crate::domain::previews::shows(windows.len(), settings.previews_only_several) {
+        let wanted = match keyboard {
+            Some(_) => !windows.is_empty(),
+            None => crate::domain::previews::shows(windows.len(), settings.previews_only_several),
+        };
+        if !wanted {
             if self.previewing() {
                 super::super::previews::hide();
             }
-            return;
+            return false;
         }
         let Some(area) = self.placement_now().items.get(index).copied() else {
-            return;
+            return false;
         };
         let rect = self.monitor.rect;
         super::super::previews::show(super::super::previews::Request {
@@ -199,7 +210,9 @@ impl Dock {
             name: self.names.get(index).cloned().unwrap_or_default(),
             motion: self.motion,
             media: None,
+            keyboard,
         });
+        true
     }
 
     /// Hides this dock's card, if it shows (a click, a menu, a drag, the dock

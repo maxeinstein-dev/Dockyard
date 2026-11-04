@@ -79,6 +79,11 @@ const LEAVE_GRACE: Duration = Duration::from_millis(300);
 /// A new card slides `SLIDE` logical pixels in from the dock's side, in
 /// `SLIDE_TIME`.
 const SLIDE_TIMER: usize = 2;
+
+/// The Espiar (spec 0027 §2): after the pointer rests on a cell this long
+/// (or the keyboard chose it), only its window shows on the screen.
+const PEEK_TIMER: usize = 3;
+const PEEK_DELAY: u32 = 500;
 const SLIDE_EVERY: u32 = 16;
 const SLIDE: f64 = 8.0;
 const SLIDE_TIME: Duration = Duration::from_millis(120);
@@ -120,6 +125,9 @@ pub struct Request {
     /// card has the media buttons, and whether it plays. `None` until known
     /// (spec 0017 F4).
     pub media: Option<bool>,
+    /// Opened from the keyboard (F10 of estudo 0002): the cell chosen, by
+    /// its position. The card then stays without the pointer.
+    pub keyboard: Option<usize>,
 }
 
 /// A card on the screen.
@@ -130,6 +138,8 @@ struct Shown {
     thumbs: Vec<isize>,
     card: Card,
     hovered: Option<Hit>,
+    /// The cell chosen from the keyboard, by its position in the card.
+    keyboard: Option<usize>,
     away_since: Option<Instant>,
     /// When the card started sliding in, while it does.
     sliding: Option<Instant>,
@@ -306,6 +316,9 @@ pub fn show(request: Request) {
         let _ = unsafe { DwmUpdateThumbnailProperties(thumb, &properties) };
     }
     let request = Request { windows, ..request };
+    let keyboard = request
+        .keyboard
+        .map(|chosen| chosen.min(card.cells.len().saturating_sub(1)));
     let media_unknown = request.media.is_none();
     let media_windows = request.windows.clone();
     publish(hwnd, &request, &card, &titles);
@@ -318,6 +331,7 @@ pub fn show(request: Request) {
                 thumbs,
                 card,
                 hovered: None,
+                keyboard,
                 away_since: None,
                 sliding: slides.then(Instant::now),
             });
@@ -342,6 +356,10 @@ pub fn show(request: Request) {
                 }
             });
     }
+    if let Some(chosen) = keyboard {
+        focus_cell(hwnd, chosen);
+    }
+    arm_peek(hwnd);
     unsafe {
         SetTimer(Some(hwnd), WATCH_TIMER, WATCH_EVERY, None);
         if slides {
@@ -484,7 +502,9 @@ pub fn hide() {
         let shown = preview.shown.take()?;
         Some((preview.hwnd, shown))
     });
+    stop_peek();
     if let Some((hwnd, shown)) = hidden {
+        let _ = unsafe { KillTimer(Some(hwnd), PEEK_TIMER) };
         unregister(&shown.thumbs);
         access::forget(hwnd.0 as isize);
         unsafe {
@@ -537,6 +557,10 @@ fn watch() {
     }
     let gone = PREVIEW.with_borrow_mut(|preview| {
         let shown = preview.as_mut()?.shown.as_mut()?;
+        // Opened from the keyboard: the pointer is not what it follows.
+        if shown.keyboard.is_some() {
+            return Some(false);
+        }
         let icon = shown.request.icon;
         let card = shown.card.area;
         // The gap: as wide as the icon, from it to the card.
@@ -562,6 +586,162 @@ fn watch() {
     }
 }
 
+/// `DwmpActivateLivePreview`, ordinal 113 of `dwmapi.dll`: not documented,
+/// found by a spike (spec 0027 §2). `None` where Windows has no such
+/// function: the card then simply has no Espiar.
+type LivePreview = unsafe extern "system" fn(i32, HWND, HWND, u32, usize) -> windows::core::HRESULT;
+
+fn live_preview() -> Option<LivePreview> {
+    static FOUND: std::sync::OnceLock<Option<usize>> = std::sync::OnceLock::new();
+    let address = (*FOUND.get_or_init(|| {
+        use windows::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
+        let module = unsafe { LoadLibraryW(windows::core::w!("dwmapi.dll")) }.ok()?;
+        // An ordinal goes where the name would, as a small number.
+        let ordinal = windows::core::PCSTR(113usize as *const u8);
+        unsafe { GetProcAddress(module, ordinal) }.map(|function| function as usize)
+    }))?;
+    // SAFETY: the address is the ordinal's, and its signature is the one
+    // the spike found on this Windows (two calls, on and off, both S_OK).
+    Some(unsafe { std::mem::transmute::<usize, LivePreview>(address) })
+}
+
+thread_local! {
+    /// Whether the Espiar is on, so it is turned off once.
+    static PEEKING: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// The window the Espiar shows now: the cell under the pointer, else the
+/// one the keyboard chose.
+fn peek_target() -> Option<isize> {
+    PREVIEW.with_borrow(|preview| {
+        let shown = preview.as_ref()?.shown.as_ref()?;
+        let index = match shown.hovered {
+            Some(Hit::Cell(index)) => index,
+            Some(_) => return None,
+            None => shown.card.cells.get(shown.keyboard?)?.index,
+        };
+        shown.request.windows.get(index).copied()
+    })
+}
+
+/// The cell changed: the Espiar goes off, and comes on again for the new
+/// one after `PEEK_DELAY`.
+fn arm_peek(hwnd: HWND) {
+    stop_peek();
+    unsafe {
+        let _ = KillTimer(Some(hwnd), PEEK_TIMER);
+        if peek_target().is_some() && live_preview().is_some() {
+            SetTimer(Some(hwnd), PEEK_TIMER, PEEK_DELAY, None);
+        }
+    }
+}
+
+fn peek_now(card: HWND) {
+    let (Some(target), Some(activate)) = (peek_target(), live_preview()) else {
+        return;
+    };
+    // The card stays over what shows.
+    let result = unsafe { activate(1, HWND(target as _), card, 1, 0) };
+    if result.is_ok() {
+        PEEKING.set(true);
+    } else {
+        log::warn!("previews: the Espiar did not start: {result:?}");
+    }
+}
+
+/// Turns the Espiar off, if it is on: when the card goes, the cell changes,
+/// a window is brought to the front, and when the app quits.
+pub fn stop_peek() {
+    if !PEEKING.replace(false) {
+        return;
+    }
+    if let Some(activate) = live_preview() {
+        let _ = unsafe { activate(0, HWND::default(), HWND::default(), 1, 0) };
+    }
+}
+
+/// Assistive technology follows the cell chosen from the keyboard, at
+/// `position` in the card.
+fn focus_cell(hwnd: HWND, position: usize) {
+    let index = PREVIEW.with_borrow(|preview| {
+        Some(
+            preview
+                .as_ref()?
+                .shown
+                .as_ref()?
+                .card
+                .cells
+                .get(position)?
+                .index,
+        )
+    });
+    if let Some(index) = index {
+        access::set_focus(hwnd.0 as isize, Some(format!("window:{index}")));
+    }
+}
+
+/// A key while the card was opened from the keyboard (F10 of estudo 0002):
+/// `None` when no such card shows; else whether it still shows after it.
+pub fn key(key: u16) -> Option<bool> {
+    use crate::domain::previews::{CardKey, card_key, card_keys};
+    let (hwnd, cells, chosen, back) = PREVIEW.with_borrow(|preview| {
+        let preview = preview.as_ref()?;
+        let shown = preview.shown.as_ref()?;
+        let chosen = shown.keyboard?;
+        Some((
+            preview.hwnd,
+            shown.card.cells.len(),
+            chosen,
+            card_keys(shown.request.edge).1,
+        ))
+    })?;
+    let window_at = |position: usize| {
+        PREVIEW.with_borrow(|preview| {
+            Some(
+                preview
+                    .as_ref()?
+                    .shown
+                    .as_ref()?
+                    .card
+                    .cells
+                    .get(position)?
+                    .index,
+            )
+        })
+    };
+    match card_key(cells, chosen, key, back) {
+        CardKey::Select(position) => {
+            PREVIEW.with_borrow_mut(|preview| {
+                if let Some(shown) = preview.as_mut().and_then(|preview| preview.shown.as_mut()) {
+                    shown.keyboard = Some(position);
+                    shown.request.keyboard = Some(position);
+                }
+            });
+            focus_cell(hwnd, position);
+            let _ = unsafe { InvalidateRect(Some(hwnd), None, false) };
+            arm_peek(hwnd);
+            Some(true)
+        }
+        CardKey::Open(position) => {
+            if let Some(index) = window_at(position) {
+                act(Hit::Cell(index));
+            }
+            Some(false)
+        }
+        CardKey::Close(position) => {
+            if let Some(index) = window_at(position) {
+                act(Hit::Close(index));
+            }
+            Some(shown_by().is_some())
+        }
+        CardKey::Leave => {
+            hide();
+            Some(false)
+        }
+        CardKey::Nothing => Some(true),
+    }
+}
+
 /// The pointer moved over the card, at `(x, y)` in its pixels.
 fn hover(hwnd: HWND, x: f64, y: f64) {
     let changed = PREVIEW.with_borrow_mut(|preview| {
@@ -573,6 +753,7 @@ fn hover(hwnd: HWND, x: f64, y: f64) {
     });
     if changed == Some(true) {
         let _ = unsafe { InvalidateRect(Some(hwnd), None, false) };
+        arm_peek(hwnd);
     }
 }
 
@@ -698,6 +879,11 @@ extern "system" fn procedure(hwnd: HWND, message: u32, wparam: WPARAM, lparam: L
                 slide(hwnd);
                 LRESULT(0)
             }
+            WM_TIMER if wparam.0 == PEEK_TIMER => {
+                let _ = unsafe { KillTimer(Some(hwnd), PEEK_TIMER) };
+                peek_now(hwnd);
+                LRESULT(0)
+            }
             WM_MEDIA => {
                 media_found(wparam.0 == 2, lparam.0);
                 LRESULT(0)
@@ -743,6 +929,19 @@ const fn rgb(r: u8, g: u8, b: u8, a: f32) -> D2D1_COLOR_F {
         b: b as f32 / 255.0,
         a,
     }
+}
+
+/// The color of the keyboard's focus: Windows' highlight (the accent, or
+/// the contrast theme's).
+fn focus_color() -> D2D1_COLOR_F {
+    use windows::Win32::Graphics::Gdi::{COLOR_HIGHLIGHT, GetSysColor};
+    let color = unsafe { GetSysColor(COLOR_HIGHLIGHT) };
+    rgb(
+        (color & 0xFF) as u8,
+        ((color >> 8) & 0xFF) as u8,
+        ((color >> 16) & 0xFF) as u8,
+        1.0,
+    )
 }
 
 /// Windows' red for a close button under the pointer.
@@ -956,6 +1155,27 @@ impl Painter {
         }
     }
 
+    /// A ring around `area`, `width` wide, in the color Windows uses for
+    /// the keyboard's focus (the accent; contrast mode's highlight).
+    fn ring(&self, target: &ID2D1HwndRenderTarget, area: Area, radius: f64, width: f64) {
+        let Some(brush) = &self.brush else {
+            return;
+        };
+        unsafe {
+            brush.SetColor(&focus_color());
+            target.DrawRoundedRectangle(
+                &D2D1_ROUNDED_RECT {
+                    rect: rect(area),
+                    radiusX: radius as f32,
+                    radiusY: radius as f32,
+                },
+                brush,
+                width as f32,
+                None,
+            );
+        }
+    }
+
     /// Draws the card; false when Direct2D lost the device (the target is
     /// made again at the next paint).
     fn paint(&mut self, shown: &Shown) -> bool {
@@ -968,11 +1188,21 @@ impl Painter {
             target.BeginDraw();
             target.Clear(Some(&c.background));
         }
-        for (cell, title) in shown.card.cells.iter().zip(&shown.titles) {
-            let over_cell =
-                matches!(shown.hovered, Some(Hit::Cell(i) | Hit::Close(i)) if i == cell.index);
+        for (position, (cell, title)) in shown.card.cells.iter().zip(&shown.titles).enumerate() {
+            let chosen = shown.keyboard == Some(position);
+            let over_cell = chosen
+                || matches!(shown.hovered, Some(Hit::Cell(i) | Hit::Close(i)) if i == cell.index);
             if over_cell {
                 self.fill(&target, grown(cell.area, 4.0 * scale), 6.0 * scale, c.hover);
+            }
+            if chosen {
+                // The keyboard's cell, as the dock's focus ring.
+                self.ring(
+                    &target,
+                    grown(cell.area, 4.0 * scale),
+                    6.0 * scale,
+                    2.0 * scale,
+                );
             }
             // Under the thumbnail: seen only where the DWM draws nothing.
             self.fill(&target, cell.thumb, 4.0 * scale, c.well);
