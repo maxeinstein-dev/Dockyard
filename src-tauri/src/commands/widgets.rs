@@ -758,7 +758,11 @@ mod tests {
         let (mut storage, [clock, progress, note]) = open(&dir);
         let first = storage.in_use().unwrap().id;
         let stack = storage
-            .stack_with(&first, &format!("widget:{progress}"), &format!("widget:{clock}"))
+            .stack_with(
+                &first,
+                &format!("widget:{progress}"),
+                &format!("widget:{clock}"),
+            )
             .unwrap();
         storage
             .stack_with(&first, &format!("widget:{note}"), &stack.key())
@@ -775,7 +779,10 @@ mod tests {
             .collect();
         assert_eq!(left, [clock.to_string(), progress.to_string()]);
         let workspace = storage.in_use().unwrap();
-        assert_eq!(workspace.stacks[0].widgets, [clock.to_string(), progress.to_string()]);
+        assert_eq!(
+            workspace.stacks[0].widgets,
+            [clock.to_string(), progress.to_string()]
+        );
         // Removing one more undoes the stack: the clock alone in its place.
         remove(&mut storage, &progress, None).unwrap();
         let workspace = storage.in_use().unwrap();

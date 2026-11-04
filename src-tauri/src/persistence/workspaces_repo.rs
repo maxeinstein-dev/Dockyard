@@ -914,7 +914,10 @@ mod tests {
         assert_eq!(stack.widgets, keys(&["w1", "w3"]));
         assert_eq!(stack.top, 1);
         let all = list(&conn).unwrap();
-        assert_eq!(all[0].items[..3], keys(&["app:a1", &stack.key(), "widget:w2"]));
+        assert_eq!(
+            all[0].items[..3],
+            keys(&["app:a1", &stack.key(), "widget:w2"])
+        );
         assert!(!all[0].items.contains(&"widget:w3".to_owned()));
         assert_eq!(all[0].stacks, vec![stack.clone()]);
         // Still held: in a stack of a workspace.
@@ -970,7 +973,10 @@ mod tests {
             keys(&["app:a1", "widget:w1", "widget:w2", "widget:w3", "app:a2"])
         );
         assert!(all[0].stacks.is_empty());
-        assert_eq!(take_top(&mut conn, &stack.id), Err(WorkspaceError::NotFound));
+        assert_eq!(
+            take_top(&mut conn, &stack.id),
+            Err(WorkspaceError::NotFound)
+        );
     }
 
     #[test]
@@ -982,7 +988,10 @@ mod tests {
         // Removed from the workspace (not loose): the others stay stacked.
         assert!(leave_stacks(&mut conn, &first, "w3").unwrap());
         assert!(!held(&conn, "widget:w3").unwrap());
-        assert_eq!(list(&conn).unwrap()[0].stacks[0].widgets, keys(&["w1", "w2"]));
+        assert_eq!(
+            list(&conn).unwrap()[0].stacks[0].widgets,
+            keys(&["w1", "w2"])
+        );
         assert!(!leave_stacks(&mut conn, &first, "w3").unwrap());
 
         dissolve_stack(&mut conn, &stack.id).unwrap();
@@ -1001,7 +1010,10 @@ mod tests {
         let all = list(&conn).unwrap();
         assert_eq!(all[0].items, keys(&["app:a1", "widget:w1", "app:a2"]));
         assert!(all[0].stacks.is_empty());
-        assert_eq!(dissolve_stack(&mut conn, &again.id), Err(WorkspaceError::NotFound));
+        assert_eq!(
+            dissolve_stack(&mut conn, &again.id),
+            Err(WorkspaceError::NotFound)
+        );
     }
 
     #[test]
