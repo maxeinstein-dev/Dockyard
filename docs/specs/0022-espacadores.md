@@ -46,7 +46,16 @@ Item F2 do [estudo 0002](../estudos/0002-melhorias-e-funcionalidades.md), adiado
 - O lugar do espaçador é o da sua chave em `workspace_items`; `remove_spacer` apaga a linha e a chave numa transação.
 - Memória: um `Option<SpacerSize>` por item na forma do dock e um `Spacer` (id e tamanho) por espaçador. Nenhum bitmap, nenhuma leitura extra.
 
-## 7. Verificação ao vivo: pendente
+## 7. Verificação ao vivo: parcial
+
+Rodada de 2026-11-03, no build de lançamento com uma cópia dos dados do autor e o dock embaixo, centralizado:
+
+- "Adicionar espaçador grande" no menu do Calendário abriu um vão logo depois dele. Nas fotos, a distância entre o Calendário e o Ciclo passou de ~7 px para ~33 px (½ ícone). Como o dock é centralizado, o Ciclo andou só +13 px: a outra metade foi para a esquerda.
+- A árvore de UI Automation continuou com 19 botões: o Narrador não vê o vão.
+- O botão direito no vão mostrou "Remover espaçador", e o item voltou ao lugar exato (x=1373).
+- Sem erro nem pânico no log, e a barra do Windows ficou como estava.
+
+Ainda falta conferir à mão os passos 2, 3, 5, 6 e 7 abaixo e o espaçador pequeno.
 
 Roteiro curto (build e2e com cópia dos dados):
 
