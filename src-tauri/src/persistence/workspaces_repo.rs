@@ -5,14 +5,18 @@
 //! transaction. An item key is kept only if it is one a workspace can hold
 //! (`is_item_key`); a key whose program or widget is gone is skipped by the
 //! dock, not an error.
+//!
+//! The spacers (spec 0022) are rows of `spacers`, named in `workspace_items`
+//! by `spacer:<id>`; one leaves the table when it leaves its workspace.
 
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 
 use super::database::{begin, now_ms, read_failed, write_failed};
 use crate::domain::widgets::WidgetId;
 use crate::domain::workspaces::{
-    FIRST_NAME, MAX_ITEMS, MAX_WORKSPACES, PALETTE, Workspace, WorkspaceError, initial_order,
-    is_item_key, is_palette_color, is_valid_name, next_color, next_name,
+    FIRST_NAME, MAX_ITEMS, MAX_WORKSPACES, PALETTE, SPACER_PREFIX, Spacer, SpacerSize, Workspace,
+    WorkspaceError, initial_order, is_item_key, is_palette_color, is_valid_name, next_color,
+    next_name, spacer_place,
 };
 
 /// Prefix in `meta` of the workspace a monitor shows: `workspace:` and the
@@ -35,6 +39,7 @@ pub fn list(conn: &Connection) -> Result<Vec<Workspace>, WorkspaceError> {
                 name: row.get(1)?,
                 color: row.get(2)?,
                 items: Vec::new(),
+                spacers: Vec::new(),
             })
         })
         .map_err(read_failed)?;
@@ -42,9 +47,34 @@ pub fn list(conn: &Connection) -> Result<Vec<Workspace>, WorkspaceError> {
     for row in rows {
         let mut workspace = row.map_err(read_failed)?;
         workspace.items = items(conn, &workspace.id)?;
+        workspace.spacers = spacers(conn, &workspace.id)?;
         workspaces.push(workspace);
     }
     Ok(workspaces)
+}
+
+/// The spacers of the workspace `id`, in dock order; a row whose size is
+/// not one known is skipped.
+fn spacers(conn: &Connection, id: &str) -> Result<Vec<Spacer>, WorkspaceError> {
+    let mut statement = conn
+        .prepare(
+            "SELECT spacers.id, spacers.size FROM workspace_items              JOIN spacers ON workspace_items.item_key = ?2 || spacers.id              WHERE workspace_items.workspace_id = ?1 ORDER BY workspace_items.position",
+        )
+        .map_err(read_failed)?;
+    let found = statement
+        .query_map(params![id, SPACER_PREFIX], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(read_failed)?
+        .filter_map(Result::ok)
+        .filter_map(|(id, size)| {
+            Some(Spacer {
+                id,
+                size: SpacerSize::parse(&size)?,
+            })
+        })
+        .collect();
+    Ok(found)
 }
 
 /// The keys of the workspace `id`, in dock order.
@@ -179,6 +209,7 @@ pub fn create(conn: &mut Connection, name: Option<&str>) -> Result<Workspace, Wo
         name: name.map_or_else(|| next_name(&names), str::to_owned),
         color: next_color(&colors).to_owned(),
         items: Vec::new(),
+        spacers: Vec::new(),
     };
     tx.execute(
         "INSERT INTO workspaces (id, name, color, position, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -343,6 +374,13 @@ pub fn remove_item(conn: &mut Connection, id: &str, key: &str) -> Result<bool, W
 /// removed for good).
 pub fn forget_item(conn: &mut Connection, key: &str) -> Result<(), WorkspaceError> {
     let tx = begin(conn)?;
+    forget_in(&tx, key)?;
+    tx.commit().map_err(write_failed)?;
+    Ok(())
+}
+
+/// `forget_item` within the transaction `tx`.
+fn forget_in(tx: &Transaction<'_>, key: &str) -> Result<(), WorkspaceError> {
     let holders: Vec<String> = {
         let mut statement = tx
             .prepare("SELECT workspace_id FROM workspace_items WHERE item_key = ?1")
@@ -354,12 +392,58 @@ pub fn forget_item(conn: &mut Connection, key: &str) -> Result<(), WorkspaceErro
             .collect()
     };
     for id in holders {
-        let keys: Vec<String> = items(&tx, &id)?
+        let keys: Vec<String> = items(tx, &id)?
             .into_iter()
             .filter(|known| known != key)
             .collect();
-        write_items(&tx, &id, &keys)?;
+        write_items(tx, &id, &keys)?;
     }
+    Ok(())
+}
+
+/// Makes a spacer of `size` in the workspace `id`, right after its item
+/// `after` (the one the dock's menu opened on), or at its end
+/// (`spacer_place`).
+pub fn add_spacer(
+    conn: &mut Connection,
+    id: &str,
+    size: SpacerSize,
+    after: Option<&str>,
+) -> Result<Spacer, WorkspaceError> {
+    let tx = begin(conn)?;
+    if !exists(&tx, id)? {
+        return Err(WorkspaceError::NotFound);
+    }
+    let mut keys = items(&tx, id)?;
+    if keys.len() >= MAX_ITEMS {
+        return Err(WorkspaceError::LimitReached);
+    }
+    let spacer = Spacer {
+        id: WidgetId::new().as_str().to_owned(),
+        size,
+    };
+    tx.execute(
+        "INSERT INTO spacers (id, size, created_at) VALUES (?1, ?2, ?3)",
+        params![spacer.id, size.as_str(), now_ms()],
+    )
+    .map_err(write_failed)?;
+    keys.insert(spacer_place(&keys, after), spacer.key());
+    write_items(&tx, id, &keys)?;
+    tx.commit().map_err(write_failed)?;
+    Ok(spacer)
+}
+
+/// Removes the spacer `id` for good: out of the workspace that has it, and
+/// its row. `NotFound` when there is no such spacer.
+pub fn remove_spacer(conn: &mut Connection, id: &str) -> Result<(), WorkspaceError> {
+    let tx = begin(conn)?;
+    let removed = tx
+        .execute("DELETE FROM spacers WHERE id = ?1", params![id])
+        .map_err(write_failed)?;
+    if removed == 0 {
+        return Err(WorkspaceError::NotFound);
+    }
+    forget_in(&tx, &format!("{SPACER_PREFIX}{id}"))?;
     tx.commit().map_err(write_failed)?;
     Ok(())
 }
@@ -573,6 +657,62 @@ mod tests {
         add_item(&mut conn, &second, "app:a1").unwrap();
         forget_item(&mut conn, "app:a1").unwrap();
         assert!(!held(&conn, "app:a1").unwrap());
+    }
+
+    #[test]
+    fn a_spacer_goes_after_the_item_or_at_the_end_and_keeps_its_size() {
+        let mut conn = database();
+        ensure_first(&mut conn, &[]).unwrap();
+        let first = list(&conn).unwrap()[0].id.clone();
+
+        let small = add_spacer(&mut conn, &first, SpacerSize::Small, Some("app:a1")).unwrap();
+        let large = add_spacer(&mut conn, &first, SpacerSize::Large, None).unwrap();
+
+        let all = list(&conn).unwrap();
+        assert_eq!(
+            all[0].items,
+            vec![
+                "app:a1".to_owned(),
+                small.key(),
+                "app:a2".to_owned(),
+                "widget:w1".to_owned(),
+                large.key(),
+            ]
+        );
+        assert_eq!(all[0].spacers, vec![small.clone(), large.clone()]);
+        assert_eq!(
+            add_spacer(&mut conn, "nope", SpacerSize::Small, None),
+            Err(WorkspaceError::NotFound)
+        );
+
+        // Dragged before the first program, it stays a spacer of its size.
+        let order = vec![large.key(), "app:a1".to_owned()];
+        reorder(&mut conn, &first, &order).unwrap();
+        let all = list(&conn).unwrap();
+        assert_eq!(all[0].items[0], large.key());
+        assert_eq!(all[0].spacers, vec![large.clone(), small.clone()]);
+
+        remove_spacer(&mut conn, &small.id).unwrap();
+        let all = list(&conn).unwrap();
+        assert_eq!(all[0].spacers, vec![large]);
+        assert!(!held(&conn, &small.key()).unwrap());
+        assert_eq!(
+            remove_spacer(&mut conn, &small.id),
+            Err(WorkspaceError::NotFound)
+        );
+    }
+
+    #[test]
+    fn spacers_are_per_workspace() {
+        let mut conn = database();
+        ensure_first(&mut conn, &[]).unwrap();
+        let second = create(&mut conn, None).unwrap().id;
+        let spacer = add_spacer(&mut conn, &second, SpacerSize::Large, None).unwrap();
+
+        let all = list(&conn).unwrap();
+        assert!(all[0].spacers.is_empty());
+        assert_eq!(all[1].items, vec![spacer.key()]);
+        assert_eq!(all[1].spacers, vec![spacer]);
     }
 
     #[test]

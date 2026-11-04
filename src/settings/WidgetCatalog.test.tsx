@@ -32,6 +32,7 @@ const WORK = {
   name: "Trabalho",
   color: "blue",
   items: ["widget:n1"],
+  spacers: [],
 } satisfies Workspace;
 
 function addButton(name: string) {

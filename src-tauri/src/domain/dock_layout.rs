@@ -11,9 +11,13 @@
 //!   neighbours apart), `gap` apart, `pad` inside the bar;
 //! - a tile grows from the middle of its screen-side edge and moves `lift`
 //!   away from it;
-//! - the label pill sits `TIP_GAP` beyond the tile, on the far side.
+//! - the label pill sits `TIP_GAP` beyond the tile, on the far side;
+//! - a spacer (spec 0022) is an item with no tile of its own: a quarter or
+//!   half of an icon of room (`SpacerSize::length`), that never grows and
+//!   that the pointer never lands on (`hit`).
 
 use super::settings::{DockEdge, HoverEffect, SizePreset};
+use super::workspaces::SpacerSize;
 
 /// A rectangle in logical pixels.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
@@ -292,6 +296,16 @@ pub struct Shape {
     /// How many icons wide each item is, in order (spec 0017: a widget
     /// takes 1 to 4); an item past the list is one icon wide.
     pub spans: Vec<usize>,
+    /// Which items are spacers (spec 0022), and their size, in order; an
+    /// item past the list is not one.
+    pub spacers: Vec<Option<SpacerSize>>,
+}
+
+impl Shape {
+    /// The size of the item at `index` when it is a spacer.
+    pub fn spacer(&self, index: usize) -> Option<SpacerSize> {
+        self.spacers.get(index).copied().flatten()
+    }
 }
 
 /// The width of an item `span` icons wide, at rest: the icons and the gaps
@@ -343,9 +357,18 @@ fn row(shape: &Shape, growth: &dyn Fn(usize) -> Magnification) -> Row {
         }
         for _ in 0..count {
             let index = items.len();
-            let magnification = growth(index);
+            // A spacer keeps its room whatever is magnified beside it.
+            let spacer = shape.spacer(index);
+            let magnification = if spacer.is_some() {
+                REST
+            } else {
+                growth(index)
+            };
             let span = shape.spans.get(index).copied().unwrap_or(1);
-            let width = span_width(icon, gap, span) * magnification.scale;
+            let width = match spacer {
+                Some(size) => size.length(icon),
+                None => span_width(icon, gap, span) * magnification.scale,
+            };
             items.push(RowItem {
                 x,
                 width,
@@ -555,6 +578,39 @@ pub fn tip_center(x: f64, width: f64, window: f64) -> f64 {
     }
 }
 
+/// The item whose column holds the point (logical, in the window), as
+/// placed in `placement`: inside the bar or on a grown tile, from half a gap
+/// before the item to half a gap after it. Spacers included: what the right
+/// button and a drag find.
+pub fn column_at(shape: &Shape, placement: &Placement, x: f64, y: f64) -> Option<usize> {
+    let gap = shape.size.geometry().gap;
+    let on_tile = placement
+        .tiles
+        .iter()
+        .enumerate()
+        .any(|(index, tile)| shape.spacer(index).is_none() && tile.contains(x, y));
+    if !placement.bar.contains(x, y) && !on_tile {
+        return None;
+    }
+    placement
+        .items
+        .iter()
+        .position(|item| x >= item.x - gap / 2.0 && x < item.x + item.width + gap / 2.0)
+}
+
+/// The item under the point: what the pointer hovers, magnifies, labels
+/// and clicks. A spacer is none of these (spec 0022): its room is the
+/// dock's own.
+pub fn hit(shape: &Shape, placement: &Placement, x: f64, y: f64) -> Option<usize> {
+    column_at(shape, placement, x, y).filter(|&index| shape.spacer(index).is_none())
+}
+
+/// The spacer under the point: its own menu on the right button, and its
+/// drag.
+pub fn spacer_hit(shape: &Shape, placement: &Placement, x: f64, y: f64) -> Option<usize> {
+    column_at(shape, placement, x, y).filter(|&index| shape.spacer(index).is_some())
+}
+
 /// How far the pointer goes before a press becomes a drag: a click that
 /// moves a little is still a click.
 pub const DRAG_THRESHOLD: f64 = 6.0;
@@ -697,6 +753,7 @@ mod tests {
             tray: 0,
             switcher: 0,
             spans: vec![],
+            spacers: vec![],
         }
     }
 
@@ -753,6 +810,91 @@ mod tests {
         assert!((wide.tiles[1].height - 48.0).abs() < 1e-9);
         assert!((wide.tiles[1].width - 103.0).abs() < 1e-9);
         assert!((wide.items[2].x - (wide.items[1].x + 103.0 + 7.0)).abs() < 1e-9);
+    }
+
+    /// A program, a small spacer, a program, a large spacer, a program.
+    fn spaced() -> Shape {
+        Shape {
+            groups: vec![5],
+            spacers: vec![None, Some(SpacerSize::Small), None, Some(SpacerSize::Large)],
+            ..shape(DockSize::Medium)
+        }
+    }
+
+    #[test]
+    fn spacers_leave_a_quarter_or_half_an_icon_on_both_edges() {
+        for edge in [DockEdge::Bottom, DockEdge::Top] {
+            let placement = place(&spaced(), edge, (500.0, 123.0), None);
+            let items = &placement.items;
+            // Their room along the bar, the gaps on each side as any item.
+            assert!((items[1].width - 12.0).abs() < 1e-9, "{edge:?}");
+            assert!((items[3].width - 24.0).abs() < 1e-9, "{edge:?}");
+            assert!((items[1].x - (items[0].x + 48.0 + 7.0)).abs() < 1e-9);
+            assert!((items[2].x - (items[1].x + 12.0 + 7.0)).abs() < 1e-9);
+            assert!((items[4].x - (items[3].x + 24.0 + 7.0)).abs() < 1e-9);
+            // The bar: the pads, three icons, the two spacers, four gaps.
+            let width = 7.0 + 3.0 * 48.0 + 12.0 + 24.0 + 4.0 * 7.0 + 7.0;
+            assert!((placement.bar.width - width).abs() < 1e-9);
+            // As tall as an icon, in the bar like the others.
+            assert_eq!(items[1].y, items[0].y);
+            assert_eq!(items[1].height, 48.0);
+        }
+        // On the large size, a quarter and half of 64.
+        let large = place(
+            &Shape {
+                size: DockSize::Large,
+                ..spaced()
+            },
+            DockEdge::Bottom,
+            (600.0, 147.0),
+            None,
+        );
+        assert!((large.items[1].width - 16.0).abs() < 1e-9);
+        assert!((large.items[3].width - 32.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_spacer_never_grows_and_stops_the_magnification() {
+        for edge in [DockEdge::Bottom, DockEdge::Top] {
+            let rest = place(&spaced(), edge, (500.0, 123.0), None);
+            // The program before the small spacer magnified: its neighbour
+            // on that side is the spacer, which keeps its room.
+            let magnified = place(&spaced(), edge, (500.0, 123.0), Some(0));
+            assert_eq!(magnified.scales[0], 1.4);
+            assert_eq!(magnified.scales[1], 1.0);
+            assert!((magnified.items[1].width - rest.items[1].width).abs() < 1e-9);
+            assert_eq!(magnified.tiles[1].y, rest.tiles[1].y);
+            // The program past it does not grow either.
+            assert_eq!(magnified.scales[2], 1.0);
+        }
+    }
+
+    #[test]
+    fn the_pointer_never_lands_on_a_spacer() {
+        let shape = spaced();
+        let placement = place(&shape, DockEdge::Bottom, (500.0, 123.0), None);
+        let y = placement.items[0].y + 10.0;
+        let middle = |index: usize| placement.items[index].center_x();
+
+        assert_eq!(hit(&shape, &placement, middle(0), y), Some(0));
+        assert_eq!(hit(&shape, &placement, middle(2), y), Some(2));
+        assert_eq!(hit(&shape, &placement, middle(1), y), None);
+        assert_eq!(hit(&shape, &placement, middle(3), y), None);
+        // But its own menu and its drag find it.
+        assert_eq!(spacer_hit(&shape, &placement, middle(1), y), Some(1));
+        assert_eq!(spacer_hit(&shape, &placement, middle(3), y), Some(3));
+        assert_eq!(spacer_hit(&shape, &placement, middle(2), y), None);
+        assert_eq!(column_at(&shape, &placement, middle(3), y), Some(3));
+        // Off the bar, nothing.
+        assert_eq!(column_at(&shape, &placement, middle(1), 0.0), None);
+        // On the top edge too.
+        let top = place(&shape, DockEdge::Top, (500.0, 123.0), None);
+        let y = top.items[0].y + 10.0;
+        assert_eq!(hit(&shape, &top, top.items[1].center_x(), y), None);
+        assert_eq!(
+            spacer_hit(&shape, &top, top.items[1].center_x(), y),
+            Some(1)
+        );
     }
 
     #[test]

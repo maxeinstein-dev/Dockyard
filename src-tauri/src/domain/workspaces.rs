@@ -7,6 +7,11 @@
 //! stay one list each, and a workspace says which of them it shows. The same
 //! one may be in several workspaces; it is removed for good only when no
 //! workspace has it any more.
+//!
+//! A spacer (spec 0022) is named `spacer:<id>` the same way: an empty room
+//! between two items, small or large, kept in the `spacers` table. Unlike a
+//! program or a widget it belongs to the one workspace it was made in, and
+//! taking it out of it removes it for good.
 
 use serde::Serialize;
 
@@ -42,6 +47,73 @@ pub struct Workspace {
     pub color: String,
     /// The keys of its items, in dock order.
     pub items: Vec<String>,
+    /// Its spacers (spec 0022), in dock order: what their keys in `items`
+    /// stand for.
+    pub spacers: Vec<Spacer>,
+}
+
+/// What a spacer's key starts with: `spacer:<id>`.
+pub const SPACER_PREFIX: &str = "spacer:";
+
+/// How much room a spacer leaves along the bar (spec 0022): a quarter or
+/// half of an icon, between the gaps that stand on each side of any item.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SpacerSize {
+    Small,
+    Large,
+}
+
+impl SpacerSize {
+    /// The name kept in the `spacers` table and sent to the interface.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            SpacerSize::Small => "small",
+            SpacerSize::Large => "large",
+        }
+    }
+
+    pub fn parse(text: &str) -> Option<SpacerSize> {
+        match text {
+            "small" => Some(SpacerSize::Small),
+            "large" => Some(SpacerSize::Large),
+            _ => None,
+        }
+    }
+
+    /// Its room along the bar for icons `icon` wide (logical pixels): a
+    /// quarter of an icon, or half of one. Along the bar, so a dock on a
+    /// side of the screen would give it in height.
+    pub fn length(self, icon: f64) -> f64 {
+        match self {
+            SpacerSize::Small => icon * 0.25,
+            SpacerSize::Large => icon * 0.5,
+        }
+    }
+}
+
+/// A spacer of a workspace: its id (a UUID v7, as a widget's) and its size.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Spacer {
+    pub id: String,
+    pub size: SpacerSize,
+}
+
+impl Spacer {
+    /// The key a workspace knows it by.
+    pub fn key(&self) -> String {
+        format!("{SPACER_PREFIX}{}", self.id)
+    }
+}
+
+/// Where a spacer made from the dock's menu goes among `items` (spec 0022):
+/// right after the item `after`, the one the menu opened on; at the end when
+/// there is none or the workspace does not have it.
+pub fn spacer_place(items: &[String], after: Option<&str>) -> usize {
+    after
+        .and_then(|after| items.iter().position(|key| key == after))
+        .map_or(items.len(), |at| at + 1)
 }
 
 /// How a change to the workspaces fails: `{ "code": "lastWorkspace" }`.
@@ -113,9 +185,11 @@ pub fn is_palette_color(color: &str) -> bool {
         .any(|known| known.eq_ignore_ascii_case(color))
 }
 
-/// An item key a workspace can hold: a pinned program or a widget.
+/// An item key a workspace can hold: a pinned program, a widget or a
+/// spacer.
 pub fn is_item_key(key: &str) -> bool {
-    key.len() <= MAX_KEY && (key.starts_with("app:") || key.starts_with("widget:"))
+    key.len() <= MAX_KEY
+        && (key.starts_with("app:") || key.starts_with("widget:") || key.starts_with(SPACER_PREFIX))
 }
 
 /// The color a new workspace takes: the first of the palette no workspace
@@ -169,9 +243,13 @@ pub fn initial_order(order: &[String], apps: &[String], widgets: &[String]) -> V
 
 /// `items` with `key` one place up or down among the keys of its own kind
 /// (the lists of Configurações show each kind apart); `None` when it is not
-/// there or already at that end.
+/// there or already at that end. The widgets and the spacers count as one
+/// kind: Itens do dock lists them together (spec 0022).
 pub fn shifted(items: &[String], key: &str, up: bool) -> Option<Vec<String>> {
-    let kind = |key: &str| key.split(':').next().unwrap_or_default().to_owned();
+    let kind = |key: &str| match key.split(':').next().unwrap_or_default() {
+        "spacer" => "widget".to_owned(),
+        other => other.to_owned(),
+    };
     let own = kind(key);
     let from = items.iter().position(|item| item == key)?;
     let same: Vec<usize> = items
@@ -274,6 +352,7 @@ mod tests {
     fn item_keys_are_programs_and_widgets() {
         assert!(is_item_key("app:0192"));
         assert!(is_item_key("widget:0192"));
+        assert!(is_item_key("spacer:0192"));
         assert!(!is_item_key("open:chrome"));
         assert!(!is_item_key("settings"));
         assert!(!is_item_key(&format!("app:{}", "x".repeat(MAX_KEY))));
@@ -313,6 +392,58 @@ mod tests {
         assert_eq!(shifted(&items, "app:a", true), None);
         assert_eq!(shifted(&items, "widget:2", false), None);
         assert_eq!(shifted(&items, "app:z", true), None);
+    }
+
+    #[test]
+    fn widgets_and_spacers_move_among_each_other() {
+        let items = keys(&["app:a", "widget:1", "app:b", "spacer:s", "widget:2"]);
+        assert_eq!(
+            shifted(&items, "spacer:s", true),
+            Some(keys(&[
+                "app:a", "spacer:s", "app:b", "widget:1", "widget:2"
+            ]))
+        );
+        assert_eq!(
+            shifted(&items, "widget:2", true),
+            Some(keys(&[
+                "app:a", "widget:1", "app:b", "widget:2", "spacer:s"
+            ]))
+        );
+        // The programs still move only among the programs.
+        assert_eq!(
+            shifted(&items, "app:b", true),
+            Some(keys(&[
+                "app:b", "widget:1", "app:a", "spacer:s", "widget:2"
+            ]))
+        );
+    }
+
+    #[test]
+    fn a_new_spacer_goes_after_the_item_the_menu_opened_on() {
+        let items = keys(&["app:a", "widget:1", "app:b"]);
+        assert_eq!(spacer_place(&items, Some("widget:1")), 2);
+        assert_eq!(spacer_place(&items, Some("app:b")), 3);
+        // From empty room, or an item it does not have: at the end.
+        assert_eq!(spacer_place(&items, None), 3);
+        assert_eq!(spacer_place(&items, Some("open:00aa")), 3);
+        assert_eq!(spacer_place(&[], None), 0);
+    }
+
+    #[test]
+    fn spacers_take_a_quarter_or_half_of_an_icon() {
+        assert_eq!(SpacerSize::Small.length(48.0), 12.0);
+        assert_eq!(SpacerSize::Large.length(48.0), 24.0);
+        assert_eq!(SpacerSize::Large.length(64.0), 32.0);
+        for size in [SpacerSize::Small, SpacerSize::Large] {
+            assert_eq!(SpacerSize::parse(size.as_str()), Some(size));
+        }
+        assert_eq!(SpacerSize::parse("huge"), None);
+        let spacer = Spacer {
+            id: "0192".into(),
+            size: SpacerSize::Small,
+        };
+        assert_eq!(spacer.key(), "spacer:0192");
+        assert!(is_item_key(&spacer.key()));
     }
 
     #[test]

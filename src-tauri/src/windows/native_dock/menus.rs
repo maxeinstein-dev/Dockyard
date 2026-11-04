@@ -26,6 +26,11 @@ pub(super) enum MenuChoice {
     OpenProgram,
     CloseWindows,
     Unpin,
+    /// A spacer of this size, beside the item the menu opened on (spec
+    /// 0022).
+    AddSpacer(SpacerSize),
+    /// The spacer the menu opened on leaves the dock, for good.
+    RemoveSpacer,
 }
 
 /// One line of the dock's menu: what it does and how it shows (spec 0014
@@ -47,6 +52,8 @@ pub(super) const REMOVE_GLYPH: char = '\u{E711}';
 pub(super) const KEYBOARD_GLYPH: char = '\u{E765}';
 pub(super) const OPEN_GLYPH: char = '\u{E8A7}';
 pub(super) const CLOSE_GLYPH: char = '\u{E8BB}';
+/// "Adicionar espaçador": the font's gap between two bars.
+pub(super) const SPACER_GLYPH: char = '\u{E745}';
 
 impl MenuEntry {
     fn item(choice: MenuChoice, item: menu::Item) -> MenuEntry {
@@ -79,14 +86,17 @@ pub(super) struct MenuWorkspace {
     pub(super) shown: bool,
 }
 
-/// The dock's menu, in order. `workspaces`: with two or more, they come
-/// under a title, with their color and their shortcut, the shown one
-/// checked; "Novo espaço" comes while one more can be made. The tray icon's
-/// menu is this one with no workspaces.
+/// The dock's menu, in order. `spacers`: "Adicionar espaçador pequeno" and
+/// "… grande" (spec 0022), for a dock that shows a workspace. `workspaces`:
+/// with two or more, they come under a title, with their color and their
+/// shortcut, the shown one checked; "Novo espaço" comes while one more can
+/// be made. The tray icon's menu is this one with no workspaces and no
+/// spacers.
 pub(super) fn dock_menu_items(
     auto_hide: bool,
     workspaces: &[MenuWorkspace],
     can_create: bool,
+    spacers: bool,
 ) -> Vec<MenuEntry> {
     let text = &crate::i18n::messages().tray;
     let mut items = vec![
@@ -100,6 +110,19 @@ pub(super) fn dock_menu_items(
         ),
         MenuEntry::separator(),
     ];
+    if spacers {
+        items.extend([
+            MenuEntry::item(
+                MenuChoice::AddSpacer(SpacerSize::Small),
+                menu::Item::new(text.add_small_spacer, SPACER_GLYPH),
+            ),
+            MenuEntry::item(
+                MenuChoice::AddSpacer(SpacerSize::Large),
+                menu::Item::new(text.add_large_spacer, SPACER_GLYPH),
+            ),
+            MenuEntry::separator(),
+        ]);
+    }
     if workspaces.len() >= 2 {
         items.push(MenuEntry::title(text.workspaces));
         for (index, workspace) in workspaces.iter().enumerate() {
@@ -183,6 +206,19 @@ pub(super) fn widget_items(config: &WidgetConfig) -> Vec<MenuEntry> {
     ));
     items.push(MenuEntry::separator());
     items
+}
+
+/// What a spacer's menu has before the dock's (spec 0022): "Remover
+/// espaçador", as a widget's "Remover do dock".
+pub(super) fn spacer_items() -> Vec<MenuEntry> {
+    let text = &crate::i18n::messages().tray;
+    vec![
+        MenuEntry::item(
+            MenuChoice::RemoveSpacer,
+            menu::Item::new(text.remove_spacer, REMOVE_GLYPH),
+        ),
+        MenuEntry::separator(),
+    ]
 }
 
 /// The program a program's own menu is for: a pinned one, by the dock's id
@@ -303,7 +339,7 @@ pub fn tray_menu(app: &AppHandle) {
     let chosen = show_dock_menu(
         app,
         DockEdge::Bottom,
-        dock_menu_items(auto_hide, &[], false),
+        dock_menu_items(auto_hide, &[], false, false),
         None,
     );
     if chosen == Some(MenuChoice::Settings) {
@@ -311,21 +347,32 @@ pub fn tray_menu(app: &AppHandle) {
         show();
     }
     if let Some(choice) = chosen {
-        act(app, choice, "", &[], None, None);
+        act(app, choice, "", &[], MenuOn::default(), None);
     }
 }
 
+/// What the dock's menu opened on: a widget, a spacer, and the key of the
+/// item a new spacer goes after (the one clicked, when it is in the
+/// workspace).
+#[derive(Debug, Clone, Copy, Default)]
+pub(super) struct MenuOn<'a> {
+    pub(super) widget: Option<&'a crate::domain::widgets::WidgetId>,
+    pub(super) spacer: Option<&'a str>,
+    pub(super) after: Option<&'a str>,
+}
+
 /// Does what was chosen in the dock's menu (or the tray icon's): `monitor`
-/// and `ids` are where the workspaces switch and which they are; `widget`
-/// is the widget the menu opened on, if any.
+/// and `ids` are where the workspaces switch and which they are; `on` is
+/// what the menu opened on; `workspace` the one the dock shows.
 pub(super) fn act(
     app: &AppHandle,
     choice: MenuChoice,
     monitor: &str,
     ids: &[String],
-    widget: Option<&crate::domain::widgets::WidgetId>,
+    on: MenuOn<'_>,
     workspace: Option<&str>,
 ) {
+    let widget = on.widget;
     match choice {
         MenuChoice::TaskManager => {
             if let Err(error) = super::super::apps::open_task_manager() {
@@ -363,6 +410,14 @@ pub(super) fn act(
         MenuChoice::RemoveWidget => {
             if let Some(id) = widget {
                 crate::commands::widgets::remove_from_dock(app, id, workspace);
+            }
+        }
+        MenuChoice::AddSpacer(size) => {
+            crate::commands::workspaces::add_spacer(app, workspace, size, on.after);
+        }
+        MenuChoice::RemoveSpacer => {
+            if let Some(id) = on.spacer {
+                crate::commands::workspaces::remove_spacer_from_dock(app, id);
             }
         }
         // A program's own menu: `act_on_program`.

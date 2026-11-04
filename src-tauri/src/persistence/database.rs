@@ -75,10 +75,19 @@ const MIGRATION_3: &str = include_str!("../../migrations/0003_launcher.sql");
 /// SQL of migration 4: the workspaces (spec 0013).
 const MIGRATION_4: &str = include_str!("../../migrations/0004_workspaces.sql");
 
+/// SQL of migration 5: the spacers (spec 0022).
+const MIGRATION_5: &str = include_str!("../../migrations/0005_spacers.sql");
+
 /// The SQL of the schema migrations, in order; the database's
 /// `user_version` is the number of them applied. Never change or reorder one
 /// that has shipped: add the next file in `src-tauri/migrations/` instead.
-pub const MIGRATIONS: &[&str] = &[MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4];
+pub const MIGRATIONS: &[&str] = &[
+    MIGRATION_1,
+    MIGRATION_2,
+    MIGRATION_3,
+    MIGRATION_4,
+    MIGRATION_5,
+];
 
 /// `application_id` of a new database that replaces one set aside, until
 /// the transaction that makes its schema commits with the recovery notice.
@@ -293,6 +302,23 @@ impl Storage {
         workspaces_repo::reorder(self.connection()?, id, &moved)
     }
 
+    /// Makes a spacer of `size` in the workspace `id` (spec 0022), right
+    /// after its item `after`, or at its end.
+    pub fn add_spacer(
+        &mut self,
+        id: &str,
+        size: crate::domain::workspaces::SpacerSize,
+        after: Option<&str>,
+    ) -> Result<crate::domain::workspaces::Spacer, WorkspaceError> {
+        self.workspaces()?;
+        workspaces_repo::add_spacer(self.connection()?, id, size, after)
+    }
+
+    /// Removes the spacer `id` for good.
+    pub fn remove_spacer(&mut self, id: &str) -> Result<(), WorkspaceError> {
+        workspaces_repo::remove_spacer(self.connection()?, id)
+    }
+
     /// Makes a workspace at the end.
     pub fn create_workspace(&mut self, name: Option<&str>) -> Result<Workspace, WorkspaceError> {
         self.workspaces()?;
@@ -329,6 +355,7 @@ impl Storage {
                 Some(("widget", item)) => crate::domain::widgets::WidgetId::parse(item)
                     .ok()
                     .map(|item| widgets_repo::remove(conn, &item).map_err(WorkspaceError::from)),
+                Some(("spacer", item)) => Some(workspaces_repo::remove_spacer(conn, item)),
                 _ => None,
             };
             match removed {
@@ -1135,6 +1162,72 @@ CREATE TRIGGER refuse_seed BEFORE INSERT ON widget_instances          BEGIN SELE
         drop(storage);
         assert_eq!(user_version(&db_path(&dir)), CURRENT);
         assert_eq!(user_version(&dir.path().join("dockmax.db.bak-v1")), 1);
+    }
+
+    #[test]
+    fn a_version_4_database_gets_the_spacers_and_keeps_its_workspaces() {
+        let dir = tempdir().unwrap();
+        // A database of before the spacers, with its first workspace made
+        // (by the rules of then: no `spacers` table to read).
+        let before: Vec<String> = {
+            let mut old = open_with(dir.path(), &MIGRATIONS[..4]);
+            let conn = old.connection().unwrap();
+            workspaces_repo::ensure_first(conn, &[]).unwrap();
+            let mut statement = conn
+                .prepare("SELECT item_key FROM workspace_items ORDER BY position")
+                .unwrap();
+            statement
+                .query_map([], |row| row.get(0))
+                .unwrap()
+                .map(Result::unwrap)
+                .collect()
+        };
+        assert_eq!(user_version(&db_path(&dir)), 4);
+        assert!(!before.is_empty());
+
+        let mut storage = Storage::open(dir.path());
+
+        assert_eq!(storage.status(), StorageStatus::Ok);
+        let after = storage.workspaces().unwrap();
+        assert_eq!(after.len(), 1);
+        assert_eq!(after[0].items, before);
+        assert!(after[0].spacers.is_empty());
+        let spacer = storage
+            .add_spacer(
+                &after[0].id,
+                crate::domain::workspaces::SpacerSize::Large,
+                None,
+            )
+            .unwrap();
+        drop(storage);
+        assert_eq!(user_version(&db_path(&dir)), CURRENT);
+        assert_eq!(user_version(&dir.path().join("dockmax.db.bak-v4")), 4);
+        // Kept across a restart.
+        let mut storage = Storage::open(dir.path());
+        assert_eq!(storage.workspaces().unwrap()[0].spacers, vec![spacer]);
+    }
+
+    #[test]
+    fn deleting_a_workspace_removes_its_spacers() {
+        let dir = tempdir().unwrap();
+        let mut storage = Storage::open(dir.path());
+        let second = storage.create_workspace(None).unwrap().id;
+        let spacer = storage
+            .add_spacer(&second, crate::domain::workspaces::SpacerSize::Small, None)
+            .unwrap();
+
+        storage.delete_workspace(&second).unwrap();
+
+        let left: i64 = storage
+            .connection()
+            .unwrap()
+            .query_row("SELECT COUNT(*) FROM spacers", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(left, 0);
+        assert_eq!(
+            storage.remove_spacer(&spacer.id),
+            Err(WorkspaceError::NotFound)
+        );
     }
 
     #[test]

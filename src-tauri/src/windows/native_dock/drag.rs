@@ -132,7 +132,7 @@ impl Dock {
         let group = self.items.get(..count)?;
         if !group
             .iter()
-            .all(|item| matches!(item, Item::App(_) | Item::Widget(_)))
+            .all(|item| matches!(item, Item::App(_) | Item::Widget(_) | Item::Spacer(_)))
         {
             return None;
         }
@@ -151,8 +151,10 @@ impl Dock {
     }
 
     /// The group an item can be dragged in, as its first index and its size:
-    /// the pinned programs and the widgets, mixed, or the open programs. The
-    /// system items stay where they are.
+    /// the pinned programs, the widgets and the spacers, mixed, or the open
+    /// programs. The system items stay where they are. A spacer goes
+    /// anywhere among the first group, as a widget does (spec 0022), and is
+    /// kept in the workspace's order with them.
     pub(super) fn group_of(&self, index: usize) -> Option<(usize, usize)> {
         if matches!(self.items.get(index)?, Item::System(_)) {
             return None;
@@ -189,8 +191,8 @@ impl Dock {
             }));
             return true;
         }
-        // A program or a widget, among both: the order of the workspace
-        // this dock shows (spec 0013).
+        // A program, a widget or a spacer, among them all: the order of the
+        // workspace this dock shows (spec 0013).
         let group = &self.items[press.range()];
         let Some((order, _)) = dock_items::moved(group, press.local(), target) else {
             return false;

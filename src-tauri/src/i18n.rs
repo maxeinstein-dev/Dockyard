@@ -278,6 +278,12 @@ pub struct TrayMessages {
     pub open_app: &'static str,
     pub close_window: &'static str,
     pub close_windows: &'static str,
+    /// The dock's menu (spec 0022): makes an empty room beside the item
+    /// clicked, a quarter or half of an icon; a spacer's own menu removes
+    /// it.
+    pub add_small_spacer: &'static str,
+    pub add_large_spacer: &'static str,
+    pub remove_spacer: &'static str,
 }
 
 const PT_BR: Messages = Messages {
@@ -297,6 +303,9 @@ const PT_BR: Messages = Messages {
         open_app: "Abrir",
         close_window: "Fechar janela",
         close_windows: "Fechar janelas",
+        add_small_spacer: "Adicionar espaçador pequeno",
+        add_large_spacer: "Adicionar espaçador grande",
+        remove_spacer: "Remover espaçador",
     },
     settings: SettingsMessages {
         window_title: "Configurações do Dockyard",
@@ -509,6 +518,9 @@ const EN: Messages = Messages {
         open_app: "Open",
         close_window: "Close window",
         close_windows: "Close windows",
+        add_small_spacer: "Add small spacer",
+        add_large_spacer: "Add large spacer",
+        remove_spacer: "Remove spacer",
     },
     settings: SettingsMessages {
         window_title: "Dockyard Settings",
@@ -806,5 +818,8 @@ mod tests {
         assert_eq!(tray.auto_hide, "Ocultar automaticamente");
         assert_eq!(tray.open_settings, "Configurações");
         assert_eq!(tray.quit, "Sair");
+        assert_eq!(tray.add_small_spacer, "Adicionar espaçador pequeno");
+        assert_eq!(tray.remove_spacer, "Remover espaçador");
+        assert_eq!(EN.tray.add_large_spacer, "Add large spacer");
     }
 }

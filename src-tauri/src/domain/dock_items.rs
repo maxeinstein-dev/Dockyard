@@ -12,10 +12,14 @@
 //! Configurações comes back only while it carries the attention badge, so
 //! the notice is not lost. The tray's arrow is not an item either: it is in
 //! the strip of small icons at the end (`dock_layout::Shape::tray`).
+//!
+//! The spacers of the workspace shown (spec 0022) are items of the first
+//! group too, where it puts them: room with nothing in it.
 
 use super::apps::{AppsSnapshot, PinnedApp};
 use super::open_apps::{OpenOther, OpenSnapshot};
 use super::widgets::{StorageStatus, WidgetInstance, WidgetKind, WidgetsSnapshot};
+use super::workspaces::{Spacer, SpacerSize, Workspace};
 
 /// The items Dockyard itself puts at the end of the dock.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -34,6 +38,9 @@ pub enum Item {
     /// An open program that is not pinned.
     Other(OpenOther),
     System(SystemItem),
+    /// Room between two items (spec 0022): nothing under the pointer, no
+    /// label, no mark; it is dragged and has a menu of its own.
+    Spacer(Spacer),
 }
 
 impl Item {
@@ -45,6 +52,7 @@ impl Item {
             Item::Widget(widget) => format!("widget:{}", widget.id.as_str()),
             Item::Other(other) => format!("open:{}", other.key),
             Item::System(SystemItem::Settings) => "settings".into(),
+            Item::Spacer(spacer) => spacer.key(),
         }
     }
 
@@ -60,6 +68,14 @@ impl Item {
     /// Whether the item stands for a program (pinned or open).
     pub fn is_program(&self) -> bool {
         matches!(self, Item::App(_) | Item::Other(_))
+    }
+
+    /// The size of a spacer; `None` for any other item.
+    pub fn spacer_size(&self) -> Option<SpacerSize> {
+        match self {
+            Item::Spacer(spacer) => Some(spacer.size),
+            _ => None,
+        }
     }
 }
 
@@ -115,6 +131,8 @@ impl Names {
                 .to_string()
             }),
             Item::System(SystemItem::Settings) => self.settings.into(),
+            // Never shown nor read: a spacer has no label.
+            Item::Spacer(_) => String::new(),
         }
     }
 }
@@ -127,10 +145,11 @@ pub struct Sources<'a> {
     pub open: &'a OpenSnapshot,
     /// Whether the open programs that are not pinned show (a setting).
     pub show_open: bool,
-    /// The keys of the workspace the dock shows (spec 0013), in its order:
-    /// only those programs and widgets show. `None` when the workspaces
-    /// can't be read: then every program, then every widget.
-    pub workspace: Option<&'a [String]>,
+    /// The workspace the dock shows (spec 0013): only the programs and
+    /// widgets its keys name show, in its order, with its spacers. `None`
+    /// when the workspaces can't be read: then every program, then every
+    /// widget, and no spacer.
+    pub workspace: Option<&'a Workspace>,
 }
 
 impl Sources<'_> {
@@ -187,7 +206,11 @@ pub fn items(sources: Sources<'_>) -> Items {
         systems.push(Item::System(SystemItem::Settings));
     }
     let mixed = match sources.workspace {
-        Some(keys) => in_workspace(keys, apps, widgets),
+        Some(workspace) => {
+            let spacers = workspace.spacers.iter().cloned().map(Item::Spacer);
+            let all = apps.into_iter().chain(widgets).chain(spacers).collect();
+            in_workspace(&workspace.items, all)
+        }
         None => apps.into_iter().chain(widgets).collect(),
     };
     let groups = [mixed.len(), others.len(), systems.len()]
@@ -198,10 +221,10 @@ pub fn items(sources: Sources<'_>) -> Items {
     Items { items, groups }
 }
 
-/// The programs and the widgets of a workspace, in its order: `keys` names
-/// them; a key whose program or widget is gone is skipped.
-pub fn in_workspace(keys: &[String], apps: Vec<Item>, widgets: Vec<Item>) -> Vec<Item> {
-    let mut all: Vec<Item> = apps.into_iter().chain(widgets).collect();
+/// The programs, the widgets and the spacers of a workspace, in its order,
+/// of `all` there are: `keys` names them; a key whose item is gone is
+/// skipped.
+pub fn in_workspace(keys: &[String], mut all: Vec<Item>) -> Vec<Item> {
     keys.iter()
         .filter_map(|key| {
             let index = all.iter().position(|item| item.key() == *key)?;
@@ -371,8 +394,8 @@ mod tests {
     #[test]
     fn a_workspace_shows_its_items_in_its_order() {
         let keys = |items: &[Item]| -> Vec<String> { items.iter().map(Item::key).collect() };
-        let apps = vec![Item::App(app(1, "A")), Item::App(app(2, "B"))];
-        let widgets = vec![
+        let apps = [Item::App(app(1, "A")), Item::App(app(2, "B"))];
+        let widgets = [
             Item::Widget(widget(10, WidgetKind::Clock, None)),
             Item::Widget(widget(11, WidgetKind::Note, None)),
         ];
@@ -380,13 +403,101 @@ mod tests {
         let (w1, w2) = (widgets[0].key(), widgets[1].key());
 
         // Widget, program, widget; the other program is not in it.
+        let all: Vec<Item> = apps.iter().chain(&widgets).cloned().collect();
         let order = vec![w2.clone(), a2.clone(), w1.clone()];
-        let shown = in_workspace(&order, apps.clone(), widgets.clone());
+        let shown = in_workspace(&order, all.clone());
         assert_eq!(keys(&shown), [w2.clone(), a2.clone(), w1.clone()]);
 
         // A key whose item is gone is skipped.
         let order = vec!["app:gone".to_string(), a1.clone()];
-        assert_eq!(keys(&in_workspace(&order, apps, widgets)), [a1]);
+        assert_eq!(keys(&in_workspace(&order, all)), [a1]);
+    }
+
+    fn spacer(n: u8, size: SpacerSize) -> Spacer {
+        Spacer {
+            id: id(n).as_str().to_owned(),
+            size,
+        }
+    }
+
+    fn workspace_of(items: Vec<String>, spacers: Vec<Spacer>) -> Workspace {
+        Workspace {
+            id: "w".into(),
+            name: "Principal".into(),
+            color: "#0A84FF".into(),
+            items,
+            spacers,
+        }
+    }
+
+    #[test]
+    fn the_spacers_of_the_workspace_show_where_it_puts_them() {
+        let apps = AppsSnapshot {
+            storage: StorageStatus::Ok,
+            apps: vec![app(1, "Bloco"), app(2, "Paint")],
+        };
+        let open = OpenSnapshot {
+            apps: vec![],
+            others: vec![other("00000000000000aa", false)],
+        };
+        let (small, large) = (spacer(20, SpacerSize::Small), spacer(21, SpacerSize::Large));
+        let a1 = format!("app:{}", id(1).as_str());
+        let a2 = format!("app:{}", id(2).as_str());
+        let workspace = workspace_of(
+            vec![large.key(), a1.clone(), small.key(), a2.clone()],
+            vec![large.clone(), small.clone()],
+        );
+
+        let found = items(Sources {
+            workspace: Some(&workspace),
+            ..sources(None, Some(&apps), &open)
+        });
+
+        let keys: Vec<String> = found.items.iter().map(Item::key).collect();
+        assert_eq!(
+            keys,
+            vec![
+                large.key(),
+                a1,
+                small.key(),
+                a2,
+                "open:00000000000000aa".to_string()
+            ]
+        );
+        // In the group of the programs and the widgets.
+        assert_eq!(found.groups, vec![4, 1]);
+        assert_eq!(found.items[0].spacer_size(), Some(SpacerSize::Large));
+        assert_eq!(found.items[1].spacer_size(), None);
+        assert_eq!(NAMES.of(&found.items[2]), "");
+        assert!(!found.items[0].is_program());
+        assert_eq!(running(&open, &found.items[0]), None);
+    }
+
+    #[test]
+    fn a_spacer_is_dragged_among_the_programs_and_the_widgets() {
+        let items = vec![
+            Item::App(app(1, "A")),
+            Item::Spacer(spacer(20, SpacerSize::Small)),
+            Item::App(app(2, "B")),
+            Item::Widget(widget(10, WidgetKind::Clock, None)),
+        ];
+        // The spacer past the second program.
+        let (order, _) = moved(&items, 1, 2).unwrap();
+        assert_eq!(
+            order,
+            vec![
+                items[0].key(),
+                items[2].key(),
+                items[1].key(),
+                items[3].key()
+            ]
+        );
+        // To the end, after the widget.
+        let (order, _) = moved(&items, 1, 3).unwrap();
+        assert_eq!(order[3], items[1].key());
+        // A program across it.
+        let (order, _) = moved(&items, 0, 1).unwrap();
+        assert_eq!(order[..2], [items[1].key(), items[0].key()]);
     }
 
     #[test]
@@ -529,6 +640,24 @@ mod tests {
             Item::App(app(2, "Paint")),
         ];
         (group, vec![24.0, 96.0, 168.0])
+    }
+
+    #[test]
+    fn files_dropped_beside_a_spacer_go_before_it() {
+        let group = vec![
+            Item::App(app(1, "Bloco")),
+            Item::Spacer(spacer(20, SpacerSize::Large)),
+            Item::App(app(2, "Paint")),
+        ];
+        let centers = [24.0, 67.0, 110.0];
+        assert_eq!(
+            dropped_before(&group, &centers, 50, 0, 1.0),
+            Some(group[1].key())
+        );
+        assert_eq!(
+            dropped_before(&group, &centers, 80, 0, 1.0),
+            Some(group[2].key())
+        );
     }
 
     #[test]

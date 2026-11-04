@@ -239,8 +239,20 @@ describe("AppMenuPanel", () => {
   describe("moving its windows to another workspace (spec 0013 C3)", () => {
     const SPACES: WorkspacesSnapshot = {
       workspaces: [
-        { id: "w-main", name: "Principal", color: "#0A84FF", items: [] },
-        { id: "w-work", name: "Trabalho", color: "#FF9F0A", items: [] },
+        {
+          id: "w-main",
+          name: "Principal",
+          color: "#0A84FF",
+          items: [],
+          spacers: [],
+        },
+        {
+          id: "w-work",
+          name: "Trabalho",
+          color: "#FF9F0A",
+          items: [],
+          spacers: [],
+        },
       ],
       inUse: "w-main",
     };

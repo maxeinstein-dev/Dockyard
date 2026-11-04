@@ -171,6 +171,7 @@ pub fn view() -> Option<View> {
                 let face = match item {
                     Item::App(_) | Item::Other(_) => "app",
                     Item::System(_) => "glyph",
+                    Item::Spacer(_) => "spacer",
                     Item::Widget(widget) => match &widget.config {
                         crate::domain::widgets::WidgetConfig::Clock(clock) => {
                             match clock.icon_style {
