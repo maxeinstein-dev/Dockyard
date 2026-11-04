@@ -104,3 +104,35 @@ Também visto no teste:
 - O selo na UI Automation do dock (o leitor de tela ainda não o anuncia).
 - Selo nos itens da bandeja do dock.
 - O formato exato dos selos sem número de cada app (ícones de status do Teams, por exemplo) não foi visto; podem vir sem texto, e aí não aparecem.
+
+## 8. F11 do estudo 0002 (2026-11-04)
+
+- **Selo pela descrição do ícone sobreposto.**
+  - Uma leitura só de leitura, com o Discord aberto e mensagens não lidas, mostrou que ele **não põe texto sob o botão**. O número vem na descrição do ícone que o programa sobrepõe ao botão (`SetOverlayIcon`), e a barra a expõe como `HelpText` do botão: `"9 notifications"`.
+  - A leitura agora guarda o `HelpText` no cache e se inscreve na mudança dele. O texto vira selo assim (`domain/badges.rs::from_description`):
+    - com um número, é contagem; zero não é selo;
+    - sem número, só vira ponto se tiver uma palavra de novidade (notif, mensag, message, unread, não lid, mention, menç, new). Um status como "Disponível" ou "Busy" não acende selo.
+  - Os textos sob o botão continuam valendo primeiro.
+- **Selo nos ícones da bandeja do dock.**
+  - O ícone ganha o selo do programa dele (`for_tray`): o botão feito do mesmo arquivo, ou o botão cujo programa tem o nome do arquivo (`Discord.exe` e `"Discord - 1 janela em execução"`).
+  - Só quando nenhum item do dock é esse programa, para o selo não aparecer duas vezes.
+  - No ícone pequeno, é um ponto no canto. O número fica para o leitor de tela.
+- **"9+" do Discord.**
+  - A descrição do Discord para de contar no 9 ("9 notifications"), enquanto o ícone que ele desenha diz "9+".
+  - Decisão do autor: com o Discord dizendo 9, o selo é "pelo menos 9" (`Badge::AtLeast`), desenhado "9+" e lido "9+ notificações". Com exatamente 9 não lidas, ele também mostra "9+".
+  - A lista `STOPS_AT` fica em `domain/badges.rs`, pelo AppID.
+- **O leitor de tela diz o selo.** O nome do item, e do ícone da bandeja, ganha "…, 9 notificações", "…, 1 notificação" ou "…, com novidade". O dock publica de novo quando os selos mudam.
+
+## 9. Verificação da F11
+
+- **Testes de unidade:** a descrição do Discord, um status que não é novidade, e o ícone da bandeja casando pelo arquivo e pelo nome.
+- **Teste de unidade com o caso real:** o app aberto acha o botão pelo nome quando as janelas não dizem o AppID dele, como o Discord.
+- **Ao vivo (2026-11-04):** build `.medir`, uma cópia dos dados e o Discord do autor com 9 mensagens não lidas.
+  - **Primeira rodada:** a leitura achou o selo (`7 taskbar buttons, 1 with a badge`), mas o item do Discord ficou sem ele. As janelas do Discord são agrupadas pelo arquivo, e o botão tem AppID próprio (`com.squirrel.discord.discord`). Por isso, quando nada casa por AppID nem por arquivo, o app aberto passou a achar o botão pelo nome.
+  - **Segunda rodada:**
+    - o dock desenhou a pílula "9" no Discord;
+    - o leitor de tela leu "Discord, 9 notificações";
+    - a barra do Windows ficou como estava.
+- **Falta conferir à mão:**
+  - um ícone da bandeja do dock com selo (um programa só na bandeja, sem item no dock);
+  - um selo sem número de verdade (um app que escreva só "New messages").
