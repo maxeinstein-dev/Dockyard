@@ -40,6 +40,7 @@ pub mod media;
 pub mod note;
 mod path;
 pub mod pomodoro;
+pub mod screenshots;
 pub mod shortcut;
 pub mod system;
 pub mod time_progress;
@@ -65,6 +66,7 @@ pub use launcher::LauncherConfig;
 pub use media::MediaConfig;
 pub use note::NoteConfig;
 pub use pomodoro::PomodoroConfig;
+pub use screenshots::ScreenshotsConfig;
 pub use shortcut::ShortcutConfig;
 pub use system::{ActivityConfig, NetworkConfig};
 pub use time_progress::TimeProgressConfig;
@@ -117,6 +119,7 @@ pub enum WidgetKind {
     Launcher,
     Keyboard,
     WorldClock,
+    Screenshots,
 }
 
 closed_set!(WidgetKind {
@@ -139,6 +142,7 @@ closed_set!(WidgetKind {
     Launcher,
     Keyboard,
     WorldClock,
+    Screenshots,
 });
 
 impl WidgetKind {
@@ -164,6 +168,7 @@ impl WidgetKind {
             | WidgetKind::Launcher
             | WidgetKind::Keyboard
             | WidgetKind::WorldClock
+            | WidgetKind::Screenshots
             | WidgetKind::Files => true,
             WidgetKind::Shortcut => false,
         }
@@ -191,7 +196,8 @@ impl WidgetKind {
             | WidgetKind::Weather
             | WidgetKind::Launcher
             | WidgetKind::Keyboard
-            | WidgetKind::WorldClock => 1,
+            | WidgetKind::WorldClock
+            | WidgetKind::Screenshots => 1,
         }
     }
 
@@ -217,6 +223,7 @@ impl WidgetKind {
             WidgetKind::Launcher => "launcher",
             WidgetKind::Keyboard => "keyboard",
             WidgetKind::WorldClock => "world-clock",
+            WidgetKind::Screenshots => "screenshots",
         }
     }
 
@@ -316,6 +323,7 @@ pub enum WidgetConfig {
     Launcher(LauncherConfig),
     Keyboard(KeyboardConfig),
     WorldClock(WorldClockConfig),
+    Screenshots(ScreenshotsConfig),
 }
 
 impl WidgetConfig {
@@ -340,6 +348,7 @@ impl WidgetConfig {
             WidgetConfig::Launcher(_) => WidgetKind::Launcher,
             WidgetConfig::Keyboard(_) => WidgetKind::Keyboard,
             WidgetConfig::WorldClock(_) => WidgetKind::WorldClock,
+            WidgetConfig::Screenshots(_) => WidgetKind::Screenshots,
         }
     }
 
@@ -362,7 +371,8 @@ impl WidgetConfig {
             | WidgetConfig::Todo(_)
             | WidgetConfig::Water(_)
             | WidgetConfig::Launcher(_)
-            | WidgetConfig::Keyboard(_) => 1,
+            | WidgetConfig::Keyboard(_)
+            | WidgetConfig::Screenshots(_) => 1,
             WidgetConfig::TimeProgress(config) => config.width,
             WidgetConfig::Activity(config) => config.width,
             WidgetConfig::Network(config) => config.width,
@@ -388,7 +398,8 @@ impl WidgetConfig {
             | WidgetConfig::Todo(_)
             | WidgetConfig::Water(_)
             | WidgetConfig::Launcher(_)
-            | WidgetConfig::Keyboard(_) => 1..=1,
+            | WidgetConfig::Keyboard(_)
+            | WidgetConfig::Screenshots(_) => 1..=1,
             WidgetConfig::TimeProgress(_)
             | WidgetConfig::Activity(_)
             | WidgetConfig::Network(_) => system::WIDTHS,
@@ -426,7 +437,8 @@ impl WidgetConfig {
             | WidgetConfig::Todo(_)
             | WidgetConfig::Water(_)
             | WidgetConfig::Launcher(_)
-            | WidgetConfig::Keyboard(_) => {}
+            | WidgetConfig::Keyboard(_)
+            | WidgetConfig::Screenshots(_) => {}
         }
         Some(config)
     }
@@ -454,6 +466,7 @@ impl WidgetConfig {
             WidgetKind::Launcher => WidgetConfig::Launcher(LauncherConfig::default()),
             WidgetKind::Keyboard => WidgetConfig::Keyboard(KeyboardConfig::default()),
             WidgetKind::WorldClock => WidgetConfig::WorldClock(WorldClockConfig::default()),
+            WidgetKind::Screenshots => WidgetConfig::Screenshots(ScreenshotsConfig::default()),
         }
     }
 
@@ -479,6 +492,7 @@ impl WidgetConfig {
             WidgetConfig::Launcher(config) => config.validate(),
             WidgetConfig::Keyboard(config) => config.validate(),
             WidgetConfig::WorldClock(config) => config.validate(),
+            WidgetConfig::Screenshots(config) => config.validate(),
         }
     }
 }
@@ -594,6 +608,7 @@ pub fn encode_config(config: &WidgetConfig) -> String {
         WidgetConfig::Launcher(config) => serde_json::to_string(config),
         WidgetConfig::Keyboard(config) => serde_json::to_string(config),
         WidgetConfig::WorldClock(config) => serde_json::to_string(config),
+        WidgetConfig::Screenshots(config) => serde_json::to_string(config),
     };
     // Plain structs with string keys: serializing them can't fail.
     json.expect("widget configs always serialize")
@@ -636,6 +651,7 @@ pub fn decode_config(
         WidgetKind::Launcher => serde_json::from_str(json).map(WidgetConfig::Launcher),
         WidgetKind::Keyboard => serde_json::from_str(json).map(WidgetConfig::Keyboard),
         WidgetKind::WorldClock => serde_json::from_str(json).map(WidgetConfig::WorldClock),
+        WidgetKind::Screenshots => serde_json::from_str(json).map(WidgetConfig::Screenshots),
     }
     .map_err(|_| WidgetError::InvalidConfig)?;
     config.validate()?;
@@ -929,7 +945,8 @@ mod tests {
                 WidgetKind::Weather,
                 WidgetKind::Launcher,
                 WidgetKind::Keyboard,
-                WidgetKind::WorldClock
+                WidgetKind::WorldClock,
+                WidgetKind::Screenshots
             ]
         );
     }
@@ -963,6 +980,7 @@ mod tests {
             "launcher",
             "keyboard",
             "world-clock",
+            "screenshots",
         ];
         for (kind, name) in WidgetKind::ALL.into_iter().zip(names) {
             assert_eq!(to_json(&kind), name);
@@ -1169,6 +1187,7 @@ mod tests {
                 WidgetKind::WorldClock,
                 json!({ "width": 2, "zones": ["Europe/London", "America/New_York"], "hourCycle": "h23" }),
             ),
+            (WidgetKind::Screenshots, json!({})),
         ];
         for (kind, config) in cases {
             let instance = instance(WidgetConfig::default_for(kind));

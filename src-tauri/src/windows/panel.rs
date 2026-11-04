@@ -181,6 +181,8 @@ impl Panel {
                 WidgetKind::Keyboard => (300.0, 170.0),
                 // Title, up to six places with their time and day, footer.
                 WidgetKind::WorldClock => (320.0, 360.0),
+                // Title, three rows of four screenshots, the folder, footer.
+                WidgetKind::Screenshots => (360.0, 420.0),
                 // Never opened in this phase: `toggle_panel` refuses kinds
                 // that can't be created. The Settings card, if one ever is.
                 // Title, up to sixteen files, footer.

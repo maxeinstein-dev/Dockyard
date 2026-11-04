@@ -320,6 +320,12 @@ impl Glaze {
         s: 28.0,
         l: 40.0,
     };
+    /// Lima: as Capturas de tela (F9 of estudo 0002).
+    pub const SCREENSHOTS: Glaze = Glaze {
+        h: 100.0,
+        s: 36.0,
+        l: 34.0,
+    };
     /// Tinta.
     pub const SETTINGS: Glaze = Glaze {
         h: 222.0,
@@ -490,6 +496,7 @@ mod tests {
             ("t-launcher", Glaze::LAUNCHER),
             ("t-keyboard", Glaze::KEYBOARD),
             ("t-world-clock", Glaze::WORLD_CLOCK),
+            ("t-screenshots", Glaze::SCREENSHOTS),
         ];
         for (class, glaze) in glazes {
             let css_glaze = Glaze {

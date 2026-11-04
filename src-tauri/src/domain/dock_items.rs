@@ -165,6 +165,7 @@ pub struct Names {
     pub launcher: &'static str,
     pub keyboard: &'static str,
     pub world_clock: &'static str,
+    pub screenshots: &'static str,
 }
 
 impl Names {
@@ -195,6 +196,7 @@ impl Names {
                     WidgetKind::Launcher => self.launcher,
                     WidgetKind::Keyboard => self.keyboard,
                     WidgetKind::WorldClock => self.world_clock,
+                    WidgetKind::Screenshots => self.screenshots,
                 }
                 .to_string()
             }),
@@ -394,6 +396,7 @@ mod tests {
         launcher: "Lançador",
         keyboard: "Layout do teclado",
         world_clock: "Relógio mundial",
+        screenshots: "Capturas de tela",
     };
 
     fn id(n: u8) -> WidgetId {

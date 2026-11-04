@@ -50,7 +50,8 @@ export type WidgetKind =
   | "weather"
   | "launcher"
   | "keyboard"
-  | "world-clock";
+  | "world-clock"
+  | "screenshots";
 
 /* Each closed set below has a tuple with every value, in the order of the
  * `ALL` of the Rust enum. `widgets.contract.test.ts` checks that each tuple
@@ -78,6 +79,7 @@ export const WIDGET_KINDS = [
   "launcher",
   "keyboard",
   "world-clock",
+  "screenshots",
 ] as const;
 
 /** The kinds `add_widget` accepts in this phase. */
@@ -104,6 +106,7 @@ export const CREATABLE_KINDS: readonly CreatableKind[] = [
   "launcher",
   "keyboard",
   "world-clock",
+  "screenshots",
 ];
 
 /** Stable ID of an instance: a UUID v7 made in Rust, never reused and never
@@ -409,6 +412,11 @@ export type LauncherConfig = {};
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export type KeyboardConfig = {};
 
+/** The Capturas de tela (F9 of estudo 0002): a dock item whose panel shows
+ * the newest screenshots of Windows' folder. Nothing to keep. */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export type ScreenshotsConfig = {};
+
 /** How many icons wide a Relógio mundial may be, and how many places it may
  * hold (F9 of estudo 0002; `world_clock::WIDTHS` and `MAX_ZONES` in Rust). */
 export const WORLD_CLOCK_WIDTHS = [2, 3] as const;
@@ -445,6 +453,7 @@ export interface WidgetConfigs {
   launcher: LauncherConfig;
   keyboard: KeyboardConfig;
   "world-clock": WorldClockConfig;
+  screenshots: ScreenshotsConfig;
 }
 
 /** A kind's config tagged with the kind, as `update_widget` takes it:
