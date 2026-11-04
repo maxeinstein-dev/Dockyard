@@ -39,16 +39,34 @@ export interface CatalogEntry {
 export interface MenuEntry {
   key: number;
   title: string;
+  /** What an entry of a folder is (spec 0025), for its glyph. */
+  kind?: FolderEntryKind;
 }
 
-export type MenuSectionKind = "tasks" | "category" | "recent" | "frequent";
+/** What an entry of a pinned folder is (spec 0025). */
+export type FolderEntryKind =
+  | "folder"
+  | "image"
+  | "video"
+  | "audio"
+  | "document"
+  | "archive"
+  | "program"
+  | "other";
+
+export type MenuSectionKind =
+  "tasks" | "category" | "recent" | "frequent" | "files";
 
 export const MENU_SECTION_KINDS = [
   "tasks",
   "category",
   "recent",
   "frequent",
+  "files",
 ] as const satisfies readonly MenuSectionKind[];
+
+/** What a pinned item opens (spec 0025). */
+export type PinnedPlace = "program" | "folder" | "recycleBin";
 
 export interface MenuSection {
   kind: MenuSectionKind;
@@ -62,6 +80,11 @@ export interface MenuSection {
 export interface AppMenu {
   sections: MenuSection[];
   canReveal: boolean;
+  /** A program, a folder (its newest entries are the "files" section) or the
+   * Recycle Bin. */
+  place: PinnedPlace;
+  /** A folder with more entries than were looked at. */
+  more: boolean;
 }
 
 export type AppErrorCode =
@@ -107,6 +130,7 @@ export const APP_COMMANDS = {
   catalog: "list_catalog",
   icon: "app_icon",
   pin: "pin_app",
+  browse: "browse_app",
   unpin: "unpin_app",
   move: "move_app",
   place: "place_app",
@@ -117,6 +141,7 @@ export const APP_COMMANDS = {
   iconOptions: "app_icon_options",
   setIcon: "set_app_icon",
   chooseIconImage: "choose_app_icon_image",
+  emptyRecycleBin: "empty_recycle_bin",
 } as const;
 
 /** What a program wears instead of the dock's pack (spec 0024). */
@@ -183,6 +208,15 @@ export function pinApp(appId: string, workspace?: string): Promise<PinnedApp> {
   );
 }
 
+/** "Procurar…" (F7 of estudo 0002): the Windows dialog for an `.exe` or a
+ * shortcut, pinned at the end of the workspace `workspace` (or the one in
+ * use); null when the dialog was cancelled. */
+export function browseApp(workspace?: string): Promise<PinnedApp | null> {
+  return run(APP_COMMANDS.browse, inSpace(workspace), (error) =>
+    log.warn(`apps: browse failed: ${errorKind(error)}`),
+  );
+}
+
 /** Takes a program out of the workspace; with no other one showing it, it
  * is unpinned for good. */
 export function unpinApp(id: WidgetId, workspace?: string): Promise<void> {
@@ -230,6 +264,14 @@ export function appMenu(id: WidgetId): Promise<AppMenu> {
 export function runAppEntry(id: WidgetId, key: number): Promise<void> {
   return run(APP_COMMANDS.runEntry, { id, key }, (error) =>
     log.warn(`apps: entry failed: ${errorKind(error)}`),
+  );
+}
+
+/** Empties the Recycle Bin pinned as `id`, after Windows asks the user
+ * (spec 0025): `false` when the answer was no. */
+export function emptyRecycleBin(id: WidgetId): Promise<boolean> {
+  return run(APP_COMMANDS.emptyRecycleBin, { id }, (error) =>
+    log.warn(`apps: empty bin failed: ${errorKind(error)}`),
   );
 }
 

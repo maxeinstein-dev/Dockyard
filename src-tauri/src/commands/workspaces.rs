@@ -115,6 +115,21 @@ pub fn create_workspace(
     })
 }
 
+/// Makes a copy of the workspace `id` right after it (F7 of estudo 0002),
+/// named `name` or the next "Espaço N": the same programs and widgets, its
+/// own spacers and stacks.
+#[tauri::command]
+pub fn duplicate_workspace(
+    app: AppHandle,
+    state: State<'_, Mutex<Storage>>,
+    id: String,
+    name: Option<String>,
+) -> Result<Workspace, WorkspaceCommandError> {
+    change(&app, &state, "duplicate", |storage| {
+        storage.duplicate_workspace(&id, name.as_deref())
+    })
+}
+
 #[tauri::command]
 pub fn rename_workspace(
     app: AppHandle,

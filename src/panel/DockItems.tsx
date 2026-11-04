@@ -93,6 +93,10 @@ const GLYPHS: Readonly<Record<CreatableKind, readonly string[]>> = {
   launcher: [
     "M10.5 4a6.5 6.5 0 1 1 0 13a6.5 6.5 0 1 1 0 -13M15.2 15.7l4.8 4.8",
   ],
+  keyboard: [
+    "M4.5 6.5h15a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1 -1.5 1.5h-15a1.5 1.5 0 0 1 -1.5 -1.5v-8a1.5 1.5 0 0 1 1.5 -1.5z",
+    "M7 10h.01M10 10h.01M13 10h.01M16 10h.01M8 14h8",
+  ],
   countdown: [
     "M7 4h10M7 20h10M8 4c0 4 4 5 4 8s-4 4-4 8M16 4c0 4-4 5-4 8s4 4 4 8",
   ],

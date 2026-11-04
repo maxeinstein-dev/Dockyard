@@ -34,6 +34,7 @@ mod contract_tests;
 pub mod countdown;
 pub mod cycle;
 pub mod files;
+pub mod keyboard;
 pub mod launcher;
 pub mod media;
 pub mod note;
@@ -58,6 +59,7 @@ pub use clock::ClockConfig;
 pub use countdown::CountdownConfig;
 pub use cycle::CycleConfig;
 pub use files::FilesConfig;
+pub use keyboard::KeyboardConfig;
 pub use launcher::LauncherConfig;
 pub use media::MediaConfig;
 pub use note::NoteConfig;
@@ -111,6 +113,7 @@ pub enum WidgetKind {
     Claude,
     Weather,
     Launcher,
+    Keyboard,
 }
 
 closed_set!(WidgetKind {
@@ -131,6 +134,7 @@ closed_set!(WidgetKind {
     Claude,
     Weather,
     Launcher,
+    Keyboard,
 });
 
 impl WidgetKind {
@@ -152,7 +156,8 @@ impl WidgetKind {
             | WidgetKind::Media
             | WidgetKind::Claude
             | WidgetKind::Weather
-            | WidgetKind::Launcher => true,
+            | WidgetKind::Launcher
+            | WidgetKind::Keyboard => true,
             WidgetKind::Shortcut | WidgetKind::Files => false,
         }
     }
@@ -177,7 +182,8 @@ impl WidgetKind {
             | WidgetKind::Media
             | WidgetKind::Claude
             | WidgetKind::Weather
-            | WidgetKind::Launcher => 1,
+            | WidgetKind::Launcher
+            | WidgetKind::Keyboard => 1,
         }
     }
 
@@ -201,6 +207,7 @@ impl WidgetKind {
             WidgetKind::Claude => "claude",
             WidgetKind::Weather => "weather",
             WidgetKind::Launcher => "launcher",
+            WidgetKind::Keyboard => "keyboard",
         }
     }
 
@@ -298,6 +305,7 @@ pub enum WidgetConfig {
     Claude(ClaudeConfig),
     Weather(WeatherConfig),
     Launcher(LauncherConfig),
+    Keyboard(KeyboardConfig),
 }
 
 impl WidgetConfig {
@@ -320,6 +328,7 @@ impl WidgetConfig {
             WidgetConfig::Claude(_) => WidgetKind::Claude,
             WidgetConfig::Weather(_) => WidgetKind::Weather,
             WidgetConfig::Launcher(_) => WidgetKind::Launcher,
+            WidgetConfig::Keyboard(_) => WidgetKind::Keyboard,
         }
     }
 
@@ -341,7 +350,8 @@ impl WidgetConfig {
             | WidgetConfig::Pomodoro(_)
             | WidgetConfig::Todo(_)
             | WidgetConfig::Water(_)
-            | WidgetConfig::Launcher(_) => 1,
+            | WidgetConfig::Launcher(_)
+            | WidgetConfig::Keyboard(_) => 1,
             WidgetConfig::TimeProgress(config) => config.width,
             WidgetConfig::Activity(config) => config.width,
             WidgetConfig::Network(config) => config.width,
@@ -365,7 +375,8 @@ impl WidgetConfig {
             | WidgetConfig::Pomodoro(_)
             | WidgetConfig::Todo(_)
             | WidgetConfig::Water(_)
-            | WidgetConfig::Launcher(_) => 1..=1,
+            | WidgetConfig::Launcher(_)
+            | WidgetConfig::Keyboard(_) => 1..=1,
             WidgetConfig::TimeProgress(_)
             | WidgetConfig::Activity(_)
             | WidgetConfig::Network(_) => system::WIDTHS,
@@ -400,7 +411,8 @@ impl WidgetConfig {
             | WidgetConfig::Pomodoro(_)
             | WidgetConfig::Todo(_)
             | WidgetConfig::Water(_)
-            | WidgetConfig::Launcher(_) => {}
+            | WidgetConfig::Launcher(_)
+            | WidgetConfig::Keyboard(_) => {}
         }
         Some(config)
     }
@@ -426,6 +438,7 @@ impl WidgetConfig {
             WidgetKind::Claude => WidgetConfig::Claude(ClaudeConfig::default()),
             WidgetKind::Weather => WidgetConfig::Weather(WeatherConfig::default()),
             WidgetKind::Launcher => WidgetConfig::Launcher(LauncherConfig::default()),
+            WidgetKind::Keyboard => WidgetConfig::Keyboard(KeyboardConfig::default()),
         }
     }
 
@@ -449,6 +462,7 @@ impl WidgetConfig {
             WidgetConfig::Claude(config) => config.validate(),
             WidgetConfig::Weather(config) => config.validate(),
             WidgetConfig::Launcher(config) => config.validate(),
+            WidgetConfig::Keyboard(config) => config.validate(),
         }
     }
 }
@@ -562,6 +576,7 @@ pub fn encode_config(config: &WidgetConfig) -> String {
         WidgetConfig::Claude(config) => serde_json::to_string(config),
         WidgetConfig::Weather(config) => serde_json::to_string(config),
         WidgetConfig::Launcher(config) => serde_json::to_string(config),
+        WidgetConfig::Keyboard(config) => serde_json::to_string(config),
     };
     // Plain structs with string keys: serializing them can't fail.
     json.expect("widget configs always serialize")
@@ -602,6 +617,7 @@ pub fn decode_config(
         WidgetKind::Claude => serde_json::from_str(json).map(WidgetConfig::Claude),
         WidgetKind::Weather => serde_json::from_str(json).map(WidgetConfig::Weather),
         WidgetKind::Launcher => serde_json::from_str(json).map(WidgetConfig::Launcher),
+        WidgetKind::Keyboard => serde_json::from_str(json).map(WidgetConfig::Keyboard),
     }
     .map_err(|_| WidgetError::InvalidConfig)?;
     config.validate()?;
@@ -892,7 +908,8 @@ mod tests {
                 WidgetKind::Media,
                 WidgetKind::Claude,
                 WidgetKind::Weather,
-                WidgetKind::Launcher
+                WidgetKind::Launcher,
+                WidgetKind::Keyboard
             ]
         );
     }
@@ -924,6 +941,7 @@ mod tests {
             "claude",
             "weather",
             "launcher",
+            "keyboard",
         ];
         for (kind, name) in WidgetKind::ALL.into_iter().zip(names) {
             assert_eq!(to_json(&kind), name);
@@ -1122,6 +1140,7 @@ mod tests {
             (WidgetKind::Claude, json!({ "width": 2 })),
             (WidgetKind::Weather, json!({ "width": 1, "city": null })),
             (WidgetKind::Launcher, json!({})),
+            (WidgetKind::Keyboard, json!({})),
         ];
         for (kind, config) in cases {
             let instance = instance(WidgetConfig::default_for(kind));

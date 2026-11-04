@@ -311,6 +311,13 @@
   --l: 36%;
 }
 
+/* Mostarda: o Layout do teclado (F9 do estudo 0002). */
+.t-keyboard {
+  --h: 50;
+  --sat: 48%;
+  --l: 36%;
+}
+
 /* Argila. */
 .t-calendar {
   --h: 16;

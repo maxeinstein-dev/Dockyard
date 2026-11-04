@@ -133,6 +133,12 @@ const messages = {
       },
       /** The top of the side bar (spec 0014 R1). */
       brand: "Configurações",
+      /** The search at the top of the side bar (estudo 0002 F6). */
+      search: {
+        label: "Buscar nos ajustes",
+        results: "Resultados da busca",
+        none: "Nenhum ajuste com “{query}”.",
+      },
       /** The line under each section's title. */
       leads: {
         general: "Como o Dockyard se encaixa no Windows.",
@@ -619,6 +625,10 @@ const messages = {
     counts: "{apps} apps e {widgets} widgets",
     editApps: "Editar apps",
     editItems: "Editar widgets",
+    /** F7 of estudo 0002. */
+    duplicate: "Duplicar",
+    duplicateLabel: "Duplicar {name}",
+    copyName: "{name} (cópia)",
     moveUp: "Subir {name}",
     moveDown: "Descer {name}",
     remove: "Excluir {name}",
@@ -649,6 +659,9 @@ const messages = {
     listLabel: "Apps na ordem do dock",
     empty: "Nenhum app no dock. Procure um abaixo.",
     add: "Adicionar um app",
+    /** F7 of estudo 0002: the Windows dialog for any program. */
+    browse: "Procurar…",
+    browseLabel: "Procurar um programa no computador",
     /** In place of the count at the limit; pinning turns off. */
     limit: "Limite de {max} apps",
     searchLabel: "Buscar app instalado",
@@ -676,14 +689,16 @@ const messages = {
         category: "Recentes",
         recent: "Recentes",
         frequent: "Frequentes",
+        /** Spec 0025: the newest entries of a pinned folder. */
+        files: "Mais recentes",
       },
       loading: "Lendo o menu…",
       failed: "Não foi possível ler o menu deste app.",
       open: "Abrir",
       reveal: "Mostrar no Explorador de Arquivos",
       remove: "Remover do dock",
-      /** Spec 0009 D3. */
-      newInstance: "Nova instância",
+      /** Spec 0009 D3; "Nova janela" since F7 of estudo 0002. */
+      newWindow: "Nova janela",
       closeWindow: "Fechar janela",
       closeWindows: "Fechar todas as janelas",
       pin: "Fixar no dock",
@@ -700,6 +715,20 @@ const messages = {
       },
       footer: "O menu da barra de tarefas",
       openFooter: "Um app aberto, que não está fixado",
+      /** Spec 0025: a folder pinned to the dock. */
+      folder: {
+        empty: "A pasta está vazia.",
+        unreadable:
+          "Não foi possível ler esta pasta. Ela pode ter sido movida ou apagada.",
+        more: "A pasta tem muitos itens: estes são os mais recentes entre os primeiros 5.000.",
+        open: "Abrir no Explorador",
+        footer: "Uma pasta no dock",
+      },
+      /** Spec 0025: the Recycle Bin pinned to the dock. */
+      bin: {
+        empty: "Esvaziar a Lixeira…",
+        footer: "A Lixeira do Windows",
+      },
     },
     /** Notice of a database that can't be used in this run. */
     unavailableNotice: {
@@ -805,6 +834,7 @@ const messages = {
       claude: "Uso do Claude",
       weather: "Clima",
       launcher: "Lançador",
+      keyboard: "Layout do teclado",
     } satisfies Record<WidgetKind, string>,
     /** Short name of each kind on the add buttons of Itens do dock. */
     addNames: {
@@ -823,6 +853,7 @@ const messages = {
       claude: "Uso do Claude",
       weather: "Clima",
       launcher: "Lançador",
+      keyboard: "Teclado",
     } satisfies Record<CreatableKind, string>,
     /** Parts every widget panel shares. */
     common: {
@@ -1041,6 +1072,8 @@ const messages = {
           "Os dias que faltam para uma data, como um casamento ou as férias.",
         launcher:
           "Um botão no dock que abre o lançador, como o Iniciar: busca apps, páginas e contas.",
+        keyboard:
+          "O layout do teclado da janela da frente, como na barra do Windows; um clique troca para o próximo.",
       } satisfies Record<CreatableKind, string>,
       /** The add button of a card, and its accessible name. */
       add: "Adicionar",
@@ -1113,6 +1146,13 @@ const messages = {
     launcher: {
       settingsTitle: "Ajustes do Lançador",
       hint: "Clique no Lançador, no dock, para abrir ou fechar a busca de apps. O atalho do teclado fica em Configurações › Geral.",
+    },
+    /** The Layout do teclado (F9 of estudo 0002): a click on the dock
+     * switches the layout, so this panel shows only if it is opened some
+     * other way. */
+    keyboard: {
+      settingsTitle: "Ajustes do Layout do teclado",
+      hint: "Clique no Layout do teclado, no dock, para passar ao próximo layout instalado. Os layouts ficam nas configurações de idioma do Windows.",
     },
     /** The Clima (spec 0017 F5). */
     weather: {

@@ -5,6 +5,7 @@ import {
   isAppCommandError,
   listCatalog,
   moveApp,
+  browseApp,
   pinApp,
   unpinApp,
   useAppIcon,
@@ -34,12 +35,16 @@ export interface AppsPanelProps {
    * order, and every change goes to it. Without one (the panel opened from
    * the dock), the whole list and the workspace in use. */
   workspace?: Workspace | null;
-  /** Voltar: back to Configurações, where the "Apps do dock" row takes the
-   * focus. */
+  /** Shows "Procurar…", the Windows dialog for any program (F7 of estudo
+   * 0002): the Configurações app's, whose window the dialog belongs to. */
+  browse?: boolean;
   /** Back to the main view of the panel; none in the Configurações app,
    * where the views are sections. */
   onBack?: () => void;
 }
+
+/** `busy` while the dialog of "Procurar…" is open. */
+const BROWSING = "browse";
 
 /** How many programs of the catalog show at once: the search narrows the
  * rest. */
@@ -86,7 +91,12 @@ function LoadedIcon({ appId }: { appId: string }) {
  * from, with a search. Rust is the source of truth: nothing here changes
  * before `apps-changed` says so.
  */
-function AppsPanel({ snapshot, workspace, onBack }: AppsPanelProps) {
+function AppsPanel({
+  snapshot,
+  workspace,
+  onBack,
+  browse = false,
+}: AppsPanelProps) {
   const t = useT();
   const [error, setError] = useState<AppErrorCode | null>(null);
   /** What the catalog read of one attempt answered; a newer attempt makes
@@ -142,6 +152,18 @@ function AppsPanel({ snapshot, workspace, onBack }: AppsPanelProps) {
         setBusy(null);
         focusSearch();
       },
+      (reason: unknown) => {
+        setBusy(null);
+        fail(reason);
+      },
+    );
+  }
+
+  function browseForProgram() {
+    setError(null);
+    setBusy(BROWSING);
+    browseApp(space).then(
+      () => setBusy(null),
       (reason: unknown) => {
         setBusy(null);
         fail(reason);
@@ -229,6 +251,17 @@ function AppsPanel({ snapshot, workspace, onBack }: AppsPanelProps) {
           <div className="apps-add">
             <div className="apps-add-head">
               <span className="apps-add-label">{t.apps.add}</span>
+              {browse ? (
+                <button
+                  type="button"
+                  className="secondary-button apps-browse"
+                  aria-label={t.apps.browseLabel}
+                  disabled={full || busy !== null}
+                  onClick={browseForProgram}
+                >
+                  {t.apps.browse}
+                </button>
+              ) : null}
               <span className="apps-count">
                 {full
                   ? format(t.apps.limit, { max: MAX_APPS })

@@ -163,6 +163,7 @@ pub struct Names {
     pub claude: &'static str,
     pub weather: &'static str,
     pub launcher: &'static str,
+    pub keyboard: &'static str,
 }
 
 impl Names {
@@ -191,6 +192,7 @@ impl Names {
                     WidgetKind::Claude => self.claude,
                     WidgetKind::Weather => self.weather,
                     WidgetKind::Launcher => self.launcher,
+                    WidgetKind::Keyboard => self.keyboard,
                 }
                 .to_string()
             }),
@@ -388,6 +390,7 @@ mod tests {
         claude: "Uso do Claude",
         weather: "Clima",
         launcher: "Lançador",
+        keyboard: "Layout do teclado",
     };
 
     fn id(n: u8) -> WidgetId {

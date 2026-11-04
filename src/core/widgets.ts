@@ -48,7 +48,8 @@ export type WidgetKind =
   | "media"
   | "claude"
   | "weather"
-  | "launcher";
+  | "launcher"
+  | "keyboard";
 
 /* Each closed set below has a tuple with every value, in the order of the
  * `ALL` of the Rust enum. `widgets.contract.test.ts` checks that each tuple
@@ -74,6 +75,7 @@ export const WIDGET_KINDS = [
   "claude",
   "weather",
   "launcher",
+  "keyboard",
 ] as const;
 
 /** The kinds `add_widget` accepts in this phase. */
@@ -98,6 +100,7 @@ export const CREATABLE_KINDS: readonly CreatableKind[] = [
   "claude",
   "weather",
   "launcher",
+  "keyboard",
 ];
 
 /** Stable ID of an instance: a UUID v7 made in Rust, never reused and never
@@ -397,6 +400,12 @@ export interface WeatherConfig {
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export type LauncherConfig = {};
 
+/** The Layout do teclado (F9 of estudo 0002): a dock item that shows the
+ * keyboard layout of the window in front and goes to the next on a click.
+ * Nothing to keep. */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export type KeyboardConfig = {};
+
 /** The config of each kind. */
 export interface WidgetConfigs {
   clock: ClockConfig;
@@ -416,6 +425,7 @@ export interface WidgetConfigs {
   claude: ClaudeConfig;
   weather: WeatherConfig;
   launcher: LauncherConfig;
+  keyboard: KeyboardConfig;
 }
 
 /** A kind's config tagged with the kind, as `update_widget` takes it:

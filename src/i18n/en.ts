@@ -77,6 +77,11 @@ export const en: Messages = {
         about: "About",
       },
       brand: "Settings",
+      search: {
+        label: "Search settings",
+        results: "Search results",
+        none: "No setting matches “{query}”.",
+      },
       leads: {
         general: "How Dockyard fits into Windows.",
         workspaces: "A dock for each thing you do.",
@@ -505,6 +510,9 @@ export const en: Messages = {
     counts: "{apps} apps and {widgets} widgets",
     editApps: "Edit apps",
     editItems: "Edit widgets",
+    duplicate: "Duplicate",
+    duplicateLabel: "Duplicate {name}",
+    copyName: "{name} (copy)",
     moveUp: "Move {name} up",
     moveDown: "Move {name} down",
     remove: "Delete {name}",
@@ -531,6 +539,8 @@ export const en: Messages = {
     listLabel: "Apps in dock order",
     empty: "No apps in the dock. Search for one below.",
     add: "Add an app",
+    browse: "Browse…",
+    browseLabel: "Browse for a program on the computer",
     limit: "Limit of {max} apps",
     searchLabel: "Search installed apps",
     searchPlaceholder: "Search by name",
@@ -553,13 +563,14 @@ export const en: Messages = {
         category: "Recent",
         recent: "Recent",
         frequent: "Frequent",
+        files: "Newest",
       },
       loading: "Reading the menu…",
       failed: "This app's menu couldn't be read.",
       open: "Open",
       reveal: "Show in File Explorer",
       remove: "Remove from dock",
-      newInstance: "New instance",
+      newWindow: "New window",
       closeWindow: "Close window",
       closeWindows: "Close all windows",
       pin: "Pin to dock",
@@ -573,6 +584,18 @@ export const en: Messages = {
       },
       footer: "The taskbar menu",
       openFooter: "An open app that isn't pinned",
+      folder: {
+        empty: "The folder is empty.",
+        unreadable:
+          "This folder could not be read. It may have been moved or deleted.",
+        more: "The folder has many items: these are the newest of the first 5,000.",
+        open: "Open in File Explorer",
+        footer: "A folder on the dock",
+      },
+      bin: {
+        empty: "Empty Recycle Bin…",
+        footer: "The Windows Recycle Bin",
+      },
     },
     unavailableNotice: {
       title: "Dock apps are unavailable.",
@@ -667,6 +690,7 @@ export const en: Messages = {
       claude: "Claude usage",
       weather: "Weather",
       launcher: "Launcher",
+      keyboard: "Keyboard layout",
     },
     addNames: {
       clock: "Clock",
@@ -684,6 +708,7 @@ export const en: Messages = {
       claude: "Claude usage",
       weather: "Weather",
       launcher: "Launcher",
+      keyboard: "Keyboard",
     },
     common: {
       adjust: "Options",
@@ -853,6 +878,8 @@ export const en: Messages = {
         countdown: "The days left until a date, like a wedding or a vacation.",
         launcher:
           "A dock button that opens the launcher, like Start: search apps, pages and math.",
+        keyboard:
+          "The keyboard layout of the window in front, as on the Windows taskbar; a click goes to the next.",
       },
       add: "Add",
       addNamed: "Add {name}",
@@ -907,6 +934,10 @@ export const en: Messages = {
         "Auto shows the day; after 6 PM, tomorrow's until noon. The card scrolls with the mouse wheel.",
       showTasks: "Google Tasks",
       showTasksOptions: { show: "Show", hide: "Hide" },
+    },
+    keyboard: {
+      settingsTitle: "Keyboard layout options",
+      hint: "Click the Keyboard layout in the dock to go to the next installed layout. The layouts are in the Windows language settings.",
     },
     launcher: {
       settingsTitle: "Launcher options",

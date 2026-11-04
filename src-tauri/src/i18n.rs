@@ -168,6 +168,8 @@ pub struct DockMessages {
     /// The Lançador (spec 0012), and the Space key in its tip's hotkey
     /// ("Lançador (Alt+Espaço)").
     pub launcher: &'static str,
+    /// The Layout do teclado (F9 of estudo 0002).
+    pub keyboard: &'static str,
     pub space_key: &'static str,
     /// The media buttons of a window preview (F4).
     pub media_previous: &'static str,
@@ -286,6 +288,9 @@ pub struct TrayMessages {
     /// it.
     pub add_small_spacer: &'static str,
     pub add_large_spacer: &'static str,
+    /// The dock's menu: the Downloads and the Recycle Bin (spec 0025).
+    pub add_downloads: &'static str,
+    pub add_recycle_bin: &'static str,
     pub remove_spacer: &'static str,
     /// The "Abrir" dialog of "Escolher imagem…" (spec 0024): `{name}` the
     /// program's; the kind of file it shows.
@@ -295,6 +300,12 @@ pub struct TrayMessages {
     pub export_title: &'static str,
     pub import_title: &'static str,
     pub copy_files: &'static str,
+    /// "Procurar…" in Apps do dock (F7 of estudo 0002): the dialog's title
+    /// and its filter.
+    pub browse_title: &'static str,
+    pub program_files: &'static str,
+    /// The program's menu, with windows open: opens one more (F7).
+    pub new_window: &'static str,
     /// A widget's or a stack's menu (spec 0023): the title over the others
     /// it can be stacked with, and taking the one on top out of a stack.
     pub stack_with: &'static str,
@@ -325,12 +336,17 @@ const PT_BR: Messages = Messages {
         close_windows: "Fechar janelas",
         add_small_spacer: "Adicionar espaçador pequeno",
         add_large_spacer: "Adicionar espaçador grande",
+        add_downloads: "Adicionar Downloads",
+        add_recycle_bin: "Adicionar Lixeira",
         remove_spacer: "Remover espaçador",
         choose_icon_title: "Escolher o ícone de {name}",
         image_files: "Imagens (PNG, ICO)",
         export_title: "Exportar as configurações do Dockyard",
         import_title: "Importar as configurações do Dockyard",
         copy_files: "Cópia do Dockyard",
+        browse_title: "Escolher um programa para fixar no dock",
+        program_files: "Programas e atalhos (EXE, LNK)",
+        new_window: "Nova janela",
         stack_with: "Empilhar com",
         take_from_stack: "Tirar da pilha",
         stack_named: "Pilha: {names}",
@@ -372,6 +388,7 @@ const PT_BR: Messages = Messages {
         claude_week_short: "Sem",
         weather: "Clima",
         launcher: "Lançador",
+        keyboard: "Layout do teclado",
         space_key: "Espaço",
         media_previous: "Anterior",
         media_play: "Tocar",
@@ -551,12 +568,17 @@ const EN: Messages = Messages {
         close_windows: "Close windows",
         add_small_spacer: "Add small spacer",
         add_large_spacer: "Add large spacer",
+        add_downloads: "Add Downloads",
+        add_recycle_bin: "Add Recycle Bin",
         remove_spacer: "Remove spacer",
         choose_icon_title: "Choose the icon of {name}",
         image_files: "Images (PNG, ICO)",
         export_title: "Export the Dockyard settings",
         import_title: "Import the Dockyard settings",
         copy_files: "Dockyard copy",
+        browse_title: "Choose a program to pin to the dock",
+        program_files: "Programs and shortcuts (EXE, LNK)",
+        new_window: "New window",
         stack_with: "Stack with",
         take_from_stack: "Take out of the stack",
         stack_named: "Stack: {names}",
@@ -598,6 +620,7 @@ const EN: Messages = Messages {
         claude_week_short: "Wk",
         weather: "Weather",
         launcher: "Launcher",
+        keyboard: "Keyboard layout",
         space_key: "Space",
         media_previous: "Previous",
         media_play: "Play",

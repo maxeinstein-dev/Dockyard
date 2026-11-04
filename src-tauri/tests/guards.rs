@@ -102,6 +102,7 @@ const EXPECTED_CAPABILITIES: &[(&str, &str, &[&str], &[&str])] = &[
             "allow-app-icon-options",
             "allow-set-app-icon",
             "allow-choose-app-icon-image",
+            "allow-empty-recycle-bin",
             "allow-run-app-entry",
             "allow-reveal-app",
             "allow-list-open-apps",
@@ -145,6 +146,7 @@ const EXPECTED_CAPABILITIES: &[(&str, &str, &[&str], &[&str])] = &[
             "allow-list-catalog",
             "allow-app-icon",
             "allow-pin-app",
+            "allow-browse-app",
             "allow-unpin-app",
             "allow-move-app",
             "allow-list-icon-packs",
@@ -171,6 +173,7 @@ const EXPECTED_CAPABILITIES: &[(&str, &str, &[&str], &[&str])] = &[
             // widgets go through the apps and widgets commands above.
             "allow-list-workspaces",
             "allow-create-workspace",
+            "allow-duplicate-workspace",
             "allow-rename-workspace",
             "allow-recolor-workspace",
             "allow-move-workspace",

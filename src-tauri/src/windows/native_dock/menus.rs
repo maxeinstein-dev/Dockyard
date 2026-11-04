@@ -36,6 +36,10 @@ pub(super) enum MenuChoice {
     StackWith(usize),
     /// "Tirar da pilha": the widget on top leaves the stack.
     TakeFromStack,
+    /// The Downloads folder, or the Recycle Bin, pinned beside the item the
+    /// menu opened on (spec 0025).
+    PinDownloads,
+    PinRecycleBin,
 }
 
 /// One line of the dock's menu: what it does and how it shows (spec 0014
@@ -60,6 +64,8 @@ pub(super) const CLOSE_GLYPH: char = '\u{E8BB}';
 /// "Adicionar espaçador": the font's gap between two bars.
 pub(super) const SPACER_GLYPH: char = '\u{E745}';
 pub(super) const STACK_GLYPH: char = '\u{E8FD}';
+pub(super) const DOWNLOADS_GLYPH: char = '\u{E896}';
+pub(super) const BIN_GLYPH: char = '\u{E74D}';
 
 impl MenuEntry {
     fn item(choice: MenuChoice, item: menu::Item) -> MenuEntry {
@@ -167,6 +173,29 @@ pub(super) fn dock_menu_items(
     items
 }
 
+/// "Adicionar Downloads" and "Adicionar Lixeira" (spec 0025), for the ones
+/// the dock does not have yet, then a separator.
+pub(super) fn place_items(downloads: bool, bin: bool) -> Vec<MenuEntry> {
+    let text = &crate::i18n::messages().tray;
+    let mut items = Vec::new();
+    if downloads {
+        items.push(MenuEntry::item(
+            MenuChoice::PinDownloads,
+            menu::Item::new(text.add_downloads, DOWNLOADS_GLYPH),
+        ));
+    }
+    if bin {
+        items.push(MenuEntry::item(
+            MenuChoice::PinRecycleBin,
+            menu::Item::new(text.add_recycle_bin, BIN_GLYPH),
+        ));
+    }
+    if !items.is_empty() {
+        items.push(MenuEntry::separator());
+    }
+    items
+}
+
 /// Glyph of the widths in a widget's menu.
 pub(super) const SIZE_GLYPH: char = '\u{E8A9}';
 
@@ -264,15 +293,21 @@ pub(super) enum Program {
 }
 
 /// A program's own menu, native, for when its panel can't open (its
-/// WebView2 window never came up): "Abrir", "Fechar janela" (or
+/// WebView2 window never came up): "Abrir" ("Nova janela" while it has
+/// windows open), "Fechar janela" (or
 /// "Fechar janelas") while it has `windows` open, and "Remover do dock"
 /// for a pinned one. The panel's other entries (its Jump List, moving its
 /// windows) need the panel.
 pub(super) fn program_items(program: &Program, windows: usize) -> Vec<MenuEntry> {
     let text = &crate::i18n::messages().tray;
+    let open = if windows > 0 {
+        text.new_window
+    } else {
+        text.open_app
+    };
     let mut items = vec![MenuEntry::item(
         MenuChoice::OpenProgram,
-        menu::Item::new(text.open_app, OPEN_GLYPH),
+        menu::Item::new(open, OPEN_GLYPH),
     )];
     if windows > 0 {
         let close = if windows > 1 {
@@ -469,6 +504,12 @@ pub(super) fn act(
             if let Some(id) = on.stack {
                 crate::commands::workspaces::take_from_stack(app, id);
             }
+        }
+        MenuChoice::PinDownloads => {
+            crate::commands::apps::pin_place(app, Place::Folder, workspace, on.after);
+        }
+        MenuChoice::PinRecycleBin => {
+            crate::commands::apps::pin_place(app, Place::RecycleBin, workspace, on.after);
         }
         // A program's own menu: `act_on_program`.
         MenuChoice::OpenProgram | MenuChoice::CloseWindows | MenuChoice::Unpin => {}

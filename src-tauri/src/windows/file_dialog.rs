@@ -1,5 +1,6 @@
 //! The Windows "Abrir" and "Salvar como" dialogs: an image the user picks
-//! (spec 0024: the icon of a program) and the copy of the dock (spec 0026).
+//! (spec 0024: the icon of a program), a program to pin ("Procurar…", F7 of
+//! estudo 0002) and the copy of the dock (spec 0026).
 //! Blocks the caller until the dialog closes: never the dock's thread.
 //!
 //! The dialog runs on a thread of its own, made for it: the shell's dialogs
@@ -12,6 +13,12 @@ use std::path::PathBuf;
 /// the dialog is cancelled or can't open (logged).
 pub fn pick_image(title: &str, filter_name: &str) -> Option<PathBuf> {
     pick_file(title, filter_name, "*.png;*.ico")
+}
+
+/// The program the user picks to pin (an `.exe` or a shortcut), titled
+/// `title`; `None` when the dialog is cancelled or can't open (logged).
+pub fn pick_program(title: &str, filter_name: &str) -> Option<PathBuf> {
+    pick_file(title, filter_name, "*.exe;*.lnk")
 }
 
 /// The file the user picks among `spec` (`*.png;*.ico`), titled `title`;

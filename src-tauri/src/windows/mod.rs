@@ -20,6 +20,7 @@ pub mod drop_target;
 pub mod file_dialog;
 #[cfg(windows)]
 pub mod flyout;
+pub mod folders;
 #[cfg(windows)]
 pub mod fullscreen;
 #[cfg(windows)]
@@ -27,6 +28,7 @@ pub mod google;
 #[cfg(windows)]
 pub mod http;
 pub mod jumplist;
+pub mod keyboard_layout;
 #[cfg(windows)]
 pub mod launcher;
 #[cfg(windows)]
