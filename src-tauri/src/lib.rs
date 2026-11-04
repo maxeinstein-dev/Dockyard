@@ -27,6 +27,9 @@ fn startup() -> TauriPlugin<Wry> {
         .setup(|app, _api| {
             // First, so the settings can report a bad file.
             logging::setup(app);
+            // An import (spec 0026) takes the place of the data before
+            // anything reads it.
+            commands::transfer::apply_pending(app);
             commands::settings::setup(app);
             // After the settings: the dock and Settings work even when the
             // widget database can't be used.
@@ -184,7 +187,15 @@ macro_rules! handler {
             commands::app_icons::app_icon_options,
             commands::app_icons::set_app_icon,
             commands::app_icons::choose_app_icon_image,
+            commands::transfer::export_copy,
+            commands::transfer::choose_import,
+            commands::transfer::confirm_import,
+            commands::transfer::cancel_import,
             commands::apps::empty_recycle_bin,
+            commands::screenshots::list_screenshots,
+            commands::screenshots::open_screenshot,
+            commands::screenshots::open_screenshots_folder,
+            commands::screenshots::drag_screenshot,
             commands::apps::run_app_entry,
             commands::apps::reveal_app,
             commands::icons::list_icon_packs,
@@ -283,7 +294,15 @@ macro_rules! handler {
             commands::app_icons::app_icon_options,
             commands::app_icons::set_app_icon,
             commands::app_icons::choose_app_icon_image,
+            commands::transfer::export_copy,
+            commands::transfer::choose_import,
+            commands::transfer::confirm_import,
+            commands::transfer::cancel_import,
             commands::apps::empty_recycle_bin,
+            commands::screenshots::list_screenshots,
+            commands::screenshots::open_screenshot,
+            commands::screenshots::open_screenshots_folder,
+            commands::screenshots::drag_screenshot,
             commands::apps::run_app_entry,
             commands::apps::reveal_app,
             commands::icons::list_icon_packs,
@@ -377,6 +396,8 @@ pub fn run() {
             previous(info);
         }));
     }
+    // Started by an import (spec 0026): the Dockyard before ends first.
+    commands::transfer::wait_for_previous();
     #[cfg_attr(not(feature = "e2e"), expect(unused_mut))]
     let mut context = tauri::generate_context!();
     // Test build only: before anything reads the identifier or a folder.

@@ -172,6 +172,8 @@ pub struct DockMessages {
     pub keyboard: &'static str,
     /// The Relógio mundial (F9 of estudo 0002).
     pub world_clock: &'static str,
+    /// The Capturas de tela (F9 of estudo 0002).
+    pub screenshots: &'static str,
     pub space_key: &'static str,
     /// The media buttons of a window preview (F4).
     pub media_previous: &'static str,
@@ -298,6 +300,10 @@ pub struct TrayMessages {
     /// program's; the kind of file it shows.
     pub choose_icon_title: &'static str,
     pub image_files: &'static str,
+    /// The copy of the dock (spec 0026): the dialogs' titles and its kind.
+    pub export_title: &'static str,
+    pub import_title: &'static str,
+    pub copy_files: &'static str,
     /// "Procurar…" in Apps do dock (F7 of estudo 0002): the dialog's title
     /// and its filter.
     pub browse_title: &'static str,
@@ -339,6 +345,9 @@ const PT_BR: Messages = Messages {
         remove_spacer: "Remover espaçador",
         choose_icon_title: "Escolher o ícone de {name}",
         image_files: "Imagens (PNG, ICO)",
+        export_title: "Exportar as configurações do Dockyard",
+        import_title: "Importar as configurações do Dockyard",
+        copy_files: "Cópia do Dockyard",
         browse_title: "Escolher um programa para fixar no dock",
         program_files: "Programas e atalhos (EXE, LNK)",
         new_window: "Nova janela",
@@ -385,6 +394,7 @@ const PT_BR: Messages = Messages {
         launcher: "Lançador",
         keyboard: "Layout do teclado",
         world_clock: "Relógio mundial",
+        screenshots: "Capturas de tela",
         space_key: "Espaço",
         media_previous: "Anterior",
         media_play: "Tocar",
@@ -569,6 +579,9 @@ const EN: Messages = Messages {
         remove_spacer: "Remove spacer",
         choose_icon_title: "Choose the icon of {name}",
         image_files: "Images (PNG, ICO)",
+        export_title: "Export the Dockyard settings",
+        import_title: "Import the Dockyard settings",
+        copy_files: "Dockyard copy",
         browse_title: "Choose a program to pin to the dock",
         program_files: "Programs and shortcuts (EXE, LNK)",
         new_window: "New window",
@@ -615,6 +628,7 @@ const EN: Messages = Messages {
         launcher: "Launcher",
         keyboard: "Keyboard layout",
         world_clock: "World clock",
+        screenshots: "Screenshots",
         space_key: "Space",
         media_previous: "Previous",
         media_play: "Play",

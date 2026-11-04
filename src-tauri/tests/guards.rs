@@ -103,6 +103,10 @@ const EXPECTED_CAPABILITIES: &[(&str, &str, &[&str], &[&str])] = &[
             "allow-set-app-icon",
             "allow-choose-app-icon-image",
             "allow-empty-recycle-bin",
+            "allow-list-screenshots",
+            "allow-open-screenshot",
+            "allow-open-screenshots-folder",
+            "allow-drag-screenshot",
             "allow-run-app-entry",
             "allow-reveal-app",
             "allow-list-open-apps",
@@ -204,6 +208,12 @@ const EXPECTED_CAPABILITIES: &[(&str, &str, &[&str], &[&str])] = &[
             "allow-update-status",
             "allow-check-for-update",
             "allow-install-update",
+            // Exporting and importing the dock (spec 0026): Rust shows the
+            // dialogs and reads and writes the files.
+            "allow-export-copy",
+            "allow-choose-import",
+            "allow-confirm-import",
+            "allow-cancel-import",
             "log:allow-log",
         ],
     ),

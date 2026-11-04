@@ -527,6 +527,14 @@ pub fn widget(
         // The layout of the window in front, as the taskbar's button
         // (F9 of estudo 0002): `PTB`, `ENU`.
         WidgetConfig::WorldClock(config) => world_clock(config),
+        // A camera, as the Snipping Tool's.
+        WidgetConfig::Screenshots(_) => Face::Glyph {
+            glaze: Glaze::SCREENSHOTS,
+            paths: &[
+                "M4.5 8.5a2 2 0 0 1 2 -2h2l1.5 -2h4l1.5 2h2a2 2 0 0 1 2 2v9a2 2 0 0 1 -2 2h-11a2 2 0 0 1 -2 -2z",
+                "M9 13a3 3 0 1 0 6 0a3 3 0 1 0 -6 0",
+            ],
+        },
         WidgetConfig::Keyboard(_) => Face::Time {
             glaze: Glaze::KEYBOARD,
             text: crate::windows::keyboard_layout::label()

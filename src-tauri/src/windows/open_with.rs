@@ -102,7 +102,7 @@ fn execute(file: &HSTRING, arguments: Option<&str>, folder: Option<&Path>) -> Re
 }
 
 /// The files of `paths` as the shell's items.
-fn items_of(paths: &[PathBuf]) -> windows::core::Result<IShellItemArray> {
+pub(crate) fn items_of(paths: &[PathBuf]) -> windows::core::Result<IShellItemArray> {
     let mut lists: Vec<*mut ITEMIDLIST> = Vec::new();
     let result = (|| {
         for path in paths {

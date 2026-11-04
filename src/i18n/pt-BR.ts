@@ -69,6 +69,31 @@ const messages = {
     closeHint: { key: "Esc", action: "fecha" },
   },
   settings: {
+    /** Configurações › Sobre › Cópia das configurações (spec 0026). */
+    copy: {
+      title: "Cópia das configurações",
+      lead: "Leva o dock montado para outro computador ou guarda um ponto de volta. As contas conectadas não vão junto: conecte de novo depois de importar.",
+      export: "Exportar…",
+      import: "Importar…",
+      exported: "Cópia exportada.",
+      /** `{date}`, `{version}` and the counts of what the file holds. */
+      summary:
+        "Cópia de {date}, do Dockyard {version}. Espaços: {workspaces} · Apps: {apps} · Widgets: {widgets} · Ícones próprios: {icons}.",
+      replaces:
+        "Importar substitui as configurações, os espaços, os apps e os widgets de agora e reinicia o Dockyard. O que está aqui hoje fica guardado na pasta “Antes-de-importar”, nos dados do Dockyard.",
+      confirm: "Importar e reiniciar",
+      cancel: "Cancelar",
+      restarting: "Reiniciando o Dockyard…",
+      /** By `TransferError` code. */
+      errors: {
+        tooBig: "O arquivo é grande demais para ser uma cópia do Dockyard.",
+        notACopy: "Este arquivo não é uma cópia do Dockyard.",
+        newer:
+          "Esta cópia é de um Dockyard mais novo. Atualize antes de importar.",
+        damaged: "A cópia está danificada. Nada foi mudado.",
+        failed: "Não foi possível ler ou gravar o arquivo. Nada foi mudado.",
+      },
+    },
     /** Label of each option group, by setting. */
     groups: {
       theme: "Modo de cor",
@@ -811,6 +836,7 @@ const messages = {
       launcher: "Lançador",
       keyboard: "Layout do teclado",
       "world-clock": "Relógio mundial",
+      screenshots: "Capturas de tela",
     } satisfies Record<WidgetKind, string>,
     /** Short name of each kind on the add buttons of Itens do dock. */
     addNames: {
@@ -831,6 +857,7 @@ const messages = {
       launcher: "Lançador",
       keyboard: "Teclado",
       "world-clock": "Relógio mundial",
+      screenshots: "Capturas",
     } satisfies Record<CreatableKind, string>,
     /** Parts every widget panel shares. */
     common: {
@@ -1053,6 +1080,8 @@ const messages = {
           "O layout do teclado da janela da frente, como na barra do Windows; um clique troca para o próximo.",
         "world-clock":
           "A hora em várias cidades ao mesmo tempo, num ladrilho largo.",
+        screenshots:
+          "As últimas capturas de tela do Windows, para abrir ou arrastar para uma conversa ou pasta.",
       } satisfies Record<CreatableKind, string>,
       /** The add button of a card, and its accessible name. */
       add: "Adicionar",
@@ -1132,6 +1161,20 @@ const messages = {
     keyboard: {
       settingsTitle: "Ajustes do Layout do teclado",
       hint: "Clique no Layout do teclado, no dock, para passar ao próximo layout instalado. Os layouts ficam nas configurações de idioma do Windows.",
+    },
+    /** The Capturas de tela (F9 of estudo 0002). */
+    screenshots: {
+      settingsTitle: "Ajustes das Capturas de tela",
+      listLabel: "Capturas de tela, da mais nova para a mais antiga",
+      loading: "Lendo as capturas…",
+      failed: "Não foi possível ler a pasta de capturas.",
+      empty: "Nenhuma captura ainda. Print Screen e Win+Shift+S salvam aqui.",
+      noFolder:
+        "O Windows ainda não tem a pasta de capturas. Ela aparece na primeira captura salva.",
+      open: "Abrir {name}",
+      openFolder: "Abrir a pasta",
+      hint: "Clique para abrir; arraste para uma pasta, uma conversa ou um e-mail.",
+      footer: "Imagens › Capturas de Tela",
     },
     /** The Relógio mundial (F9 of estudo 0002). */
     worldClock: {

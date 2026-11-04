@@ -378,6 +378,13 @@ export const WIDGET_FIXTURES = {
     },
   } satisfies WidgetInstance<"world-clock">,
 
+  "screenshots-default": {
+    id: "019a1b2c-3d4e-7f60-8a1b-2c3d4e5f60a6",
+    label: null,
+    kind: "screenshots",
+    config: {},
+  } satisfies WidgetInstance<"screenshots">,
+
   "world-clock-sample": {
     id: "019a1b2c-3d4e-7f60-8a1b-2c3d4e5f60a5",
     label: "Equipe",
