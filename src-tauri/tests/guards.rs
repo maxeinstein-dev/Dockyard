@@ -102,6 +102,7 @@ const EXPECTED_CAPABILITIES: &[(&str, &str, &[&str], &[&str])] = &[
             "allow-app-icon-options",
             "allow-set-app-icon",
             "allow-choose-app-icon-image",
+            "allow-empty-recycle-bin",
             "allow-run-app-entry",
             "allow-reveal-app",
             "allow-list-open-apps",

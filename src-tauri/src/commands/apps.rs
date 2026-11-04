@@ -22,6 +22,7 @@ use crate::domain::apps::{
     AppError, AppErrorCode, AppsSnapshot, PinnedApp, is_pinnable_path, is_valid_app_id,
     is_valid_app_name,
 };
+use crate::domain::folders::{EntryKind, Place, RECYCLE_BIN_ID, kind_of, place_of};
 use crate::domain::icon_pack::is_valid_pack_id;
 use crate::domain::open_apps::OpenSnapshot;
 use crate::domain::settings::DockStyle;
@@ -225,13 +226,14 @@ pub fn place(storage: &mut Storage, id: &str, index: usize) -> Result<(), AppErr
 
 /// The paths of what was dropped on the dock that can be pinned, with no
 /// repeats, in the order dropped: a program or a shortcut on a drive that
-/// exists (`is_pinnable_path`, then the disk).
+/// exists (`is_pinnable_path`, then the disk), or a folder (spec 0025).
 pub fn droppable(paths: &[std::path::PathBuf]) -> Vec<String> {
     let mut found: Vec<String> = Vec::new();
     for path in paths {
         let Some(text) = path.to_str() else { continue };
         let known = found.iter().any(|seen| seen.eq_ignore_ascii_case(text));
-        if is_pinnable_path(text) && path.is_file() && !known {
+        let folder = place_of(text) == Place::Folder && path.is_dir();
+        if ((is_pinnable_path(text) && path.is_file()) || folder) && !known {
             found.push(text.to_owned());
         }
     }
@@ -398,7 +400,7 @@ pub const PREVIEW_APPS: usize = 6;
 
 /// The icons `pack` gives the programs `app_ids`, in that order, as PNG
 /// `data:` URLs (`null` for a program with no icon): the miniature of the
-/// pack's card in Configurações (spec 0007 §3.5). On the bar of `style` (the
+/// pack's card in ConfiguraÃ§Ãµes (spec 0007 Â§3.5). On the bar of `style` (the
 /// dock's own when `None`) in the dock's color mode, and at its size; without
 /// a pack, the programs' own icons. At most
 /// [`PREVIEW_APPS`] programs.
@@ -600,6 +602,71 @@ pub fn pin_dropped(
     if let Err(error) = spawned {
         log::warn!("apps: the drop could not be handled: {error}");
     }
+}
+
+/// "Adicionar Downloads" or "Adicionar Lixeira" in the dock's menu (spec
+/// 0025): pins the Downloads folder (`Place::Folder`) or the Recycle Bin in
+/// the workspace `workspace`, right after the item `after` (its key) or at
+/// the end. Names come from the shell: off the dock's thread.
+pub fn pin_place(app: &AppHandle, place: Place, workspace: Option<&str>, after: Option<&str>) {
+    let (workspace, after) = (workspace.map(str::to_owned), after.map(str::to_owned));
+    let app = app.clone();
+    let spawned = std::thread::Builder::new()
+        .name("dock-place".into())
+        .spawn(move || {
+            let id = match place {
+                Place::RecycleBin => RECYCLE_BIN_ID.to_owned(),
+                Place::Folder => match crate::windows::folders::downloads() {
+                    Some(path) => path.to_string_lossy().into_owned(),
+                    None => {
+                        log::warn!("apps: the Downloads folder is unknown");
+                        return;
+                    }
+                },
+                Place::Program => return,
+            };
+            let Some(name) = apps::name_of(&id).filter(|name| is_valid_app_name(name)) else {
+                log::warn!("apps: a place to pin has no name the shell knows");
+                return;
+            };
+            let state = app.state::<Mutex<Storage>>();
+            let _ = change(&app, &state, "pin a place", |storage| {
+                let pinned = pin_before(storage, &id, &name, workspace.as_deref(), None)?;
+                if let Some(after) = &after {
+                    place_after(storage, workspace.as_deref(), &key_of(&pinned.id), after)?;
+                }
+                Ok(pinned)
+            });
+        });
+    if let Err(error) = spawned {
+        log::warn!("apps: a place could not be pinned: {error}");
+    }
+}
+
+/// Puts the item `key` right after the item `after` in the workspace
+/// `workspace`; nothing changes with no such item there.
+fn place_after(
+    storage: &mut Storage,
+    workspace: Option<&str>,
+    key: &str,
+    after: &str,
+) -> Result<(), AppError> {
+    let workspace = crate::commands::widgets::workspace_of(storage, workspace)?;
+    let Some(found) = storage
+        .workspaces()?
+        .into_iter()
+        .find(|w| w.id == workspace)
+    else {
+        return Ok(());
+    };
+    let mut keys = found.items;
+    keys.retain(|item| item != key);
+    let Some(at) = keys.iter().position(|item| item == after) else {
+        return Ok(());
+    };
+    keys.insert(at + 1, key.to_owned());
+    storage.reorder_workspace(&workspace, &keys)?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -848,6 +915,9 @@ fn is_open_key_text(key: &str) -> bool {
 pub struct MenuEntryView {
     pub key: u32,
     pub title: String,
+    /// What an entry of a folder is (spec 0025), for its glyph.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<EntryKind>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -859,13 +929,18 @@ pub struct MenuSectionView {
     pub entries: Vec<MenuEntryView>,
 }
 
-/// What `app_menu` returns: the Jump List of the program (spec 0006 §6) and
+/// What `app_menu` returns: the Jump List of the program (spec 0006 Â§6) and
 /// whether its file can be shown in Explorer.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppMenuView {
     pub sections: Vec<MenuSectionView>,
     pub can_reveal: bool,
+    /// A program, a folder or the Recycle Bin (spec 0025).
+    pub place: Place,
+    /// A folder with more entries than were looked at: the panel lists the
+    /// newest of those.
+    pub more: bool,
 }
 
 /// The menu last shown and what each of its keys runs. Only an entry of this
@@ -895,6 +970,7 @@ fn view_of(sections: Vec<Section>) -> (Vec<MenuSectionView>, Vec<Runnable>) {
                     MenuEntryView {
                         key,
                         title: entry.title,
+                        kind: None,
                     }
                 })
                 .collect(),
@@ -926,6 +1002,10 @@ pub async fn app_menu(
     let target = target_of(&mut lock(&state), &id).inspect_err(|error| {
         log::warn!("apps: menu rejected: {error}");
     })?;
+    let place = place_of(&target);
+    if place == Place::Folder {
+        return folder_menu(pinned, target).await;
+    }
     let can_reveal = apps::file_of(&target).is_some();
     let read = tauri::async_runtime::spawn_blocking(move || jumplist::menu(&target)).await;
     let Ok(sections) = read else {
@@ -937,7 +1017,76 @@ pub async fn app_menu(
     Ok(AppMenuView {
         sections,
         can_reveal,
+        place,
+        more: false,
     })
+}
+
+/// The menu of a pinned folder (spec 0025): its newest entries, each
+/// opened by its key as an entry of a Jump List is. A folder that is gone
+/// has no section: the panel says it could not be read.
+async fn folder_menu(pinned: WidgetId, target: String) -> Result<AppMenuView, AppCommandError> {
+    let read = tauri::async_runtime::spawn_blocking(move || {
+        let path = apps::folder_of(&target)?;
+        let read = crate::windows::folders::newest_in(&path).ok()?;
+        Some((path, read))
+    })
+    .await;
+    let Ok(Some((path, (entries, more)))) = read else {
+        log::warn!("apps: a pinned folder could not be read");
+        *MENU.lock().unwrap_or_else(PoisonError::into_inner) = None;
+        return Ok(AppMenuView {
+            sections: Vec::new(),
+            can_reveal: false,
+            place: Place::Folder,
+            more: false,
+        });
+    };
+    let mut runs = Vec::new();
+    let entries = entries
+        .into_iter()
+        .map(|entry| {
+            let key = runs.len() as u32;
+            runs.push(Runnable::Open(
+                path.join(&entry.name).to_string_lossy().into_owned(),
+            ));
+            MenuEntryView {
+                key,
+                kind: Some(kind_of(&entry.name, entry.folder)),
+                title: entry.name,
+            }
+        })
+        .collect();
+    *MENU.lock().unwrap_or_else(PoisonError::into_inner) = Some(ShownMenu { app: pinned, runs });
+    Ok(AppMenuView {
+        sections: vec![MenuSectionView {
+            kind: SectionKind::Files,
+            title: None,
+            entries,
+        }],
+        can_reveal: false,
+        place: Place::Folder,
+        more,
+    })
+}
+
+/// Empties the Recycle Bin pinned as `id` (spec 0025), after Windows asks
+/// the user; `false` when the answer was no. The dock's icon of it follows.
+#[tauri::command]
+pub async fn empty_recycle_bin(
+    state: State<'_, Mutex<Storage>>,
+    id: String,
+) -> Result<bool, AppCommandError> {
+    let target = target_of(&mut lock(&state), &id)?;
+    if place_of(&target) != Place::RecycleBin {
+        return Err(AppError::InvalidApp.into());
+    }
+    let emptied = tauri::async_runtime::spawn_blocking(crate::windows::folders::empty_bin)
+        .await
+        .unwrap_or(false);
+    #[cfg(windows)]
+    crate::windows::native_dock::refresh_bin();
+    Ok(emptied)
 }
 
 /// Runs an entry of the menu `app_menu` last returned for the pinned program
@@ -1018,6 +1167,21 @@ mod tests {
     }
 
     #[test]
+    fn a_place_goes_right_after_the_item_the_menu_opened_on() {
+        let (_dir, mut storage) = open();
+        let a = pin(&mut storage, "a!App", "A", None).unwrap();
+        let b = pin(&mut storage, "b!App", "B", None).unwrap();
+        let bin = pin(&mut storage, RECYCLE_BIN_ID, "Lixeira", None).unwrap();
+
+        place_after(&mut storage, None, &key_of(&bin.id), &key_of(&a.id)).unwrap();
+        place_after(&mut storage, None, &key_of(&bin.id), "app:gone").unwrap();
+
+        let mut items = storage.in_use().unwrap().items;
+        items.retain(|item| item.starts_with("app:"));
+        assert_eq!(items, [key_of(&a.id), key_of(&bin.id), key_of(&b.id)]);
+    }
+
+    #[test]
     fn programs_dropped_on_the_dock_go_in_order_where_the_pointer_let_go() {
         let (_dir, mut storage) = open();
         let a = pin(&mut storage, "a!App", "A", None).unwrap();
@@ -1092,7 +1256,8 @@ mod tests {
         ]);
 
         let as_text = |path: &std::path::Path| path.to_string_lossy().into_owned();
-        assert_eq!(taken, [as_text(&exe), as_text(&lnk)]);
+        // The folder too (spec 0025).
+        assert_eq!(taken, [as_text(&exe), as_text(&lnk), as_text(dir.path())]);
     }
 
     #[test]
@@ -1252,6 +1417,8 @@ mod tests {
         let json = serde_json::to_value(AppMenuView {
             sections,
             can_reveal: true,
+            place: Place::Program,
+            more: false,
         })
         .unwrap();
 
