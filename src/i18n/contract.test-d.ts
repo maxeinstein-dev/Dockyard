@@ -197,7 +197,7 @@ export const otherText: Messages = {
     },
     theme: { system: "System", light: "Light", dark: "Dark" },
     language: { system: "System", "pt-BR": "Português", en: "English" },
-    edge: { bottom: "Bottom", top: "Top" },
+    edge: { bottom: "Bottom", top: "Top", left: "Left", right: "Right" },
     size: { small: "Small", medium: "Medium", large: "Large" },
     opacity: { translucent: "Translucent", solid: "Solid" },
     taskbarHints: {

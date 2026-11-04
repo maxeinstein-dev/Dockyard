@@ -479,30 +479,36 @@ pub fn panel_rect(
         .min(width / 2)
         .min(height / 2);
     let end = |start: i32, length: u32| i64::from(start) + i64::from(length);
-    let (left, right) = (
+    let (wl, wr) = (
         i64::from(work_area.x) + margin,
         end(work_area.x, work_area.width) - margin,
     );
-    let (top, bottom) = match edge {
-        Edge::Bottom => (
-            i64::from(work_area.y) + margin,
-            (i64::from(bar.y) - margin).min(end(work_area.y, work_area.height) - margin),
-        ),
-        Edge::Top => (
-            (end(bar.y, bar.height) + margin).max(i64::from(work_area.y) + margin),
-            end(work_area.y, work_area.height) - margin,
-        ),
+    let (wt, wb) = (
+        i64::from(work_area.y) + margin,
+        end(work_area.y, work_area.height) - margin,
+    );
+    // The room on the side of the bar away from the screen edge; on a side
+    // (spec 0028) the card stands beside the column.
+    let (left, right, top, bottom) = match edge {
+        Edge::Bottom => (wl, wr, wt, (i64::from(bar.y) - margin).min(wb)),
+        Edge::Top => (wl, wr, (end(bar.y, bar.height) + margin).max(wt), wb),
+        Edge::Left => ((end(bar.x, bar.width) + margin).max(wl), wr, wt, wb),
+        Edge::Right => (wl, (i64::from(bar.x) - margin).min(wr), wt, wb),
     };
     let card_width = (width - 2 * inset).min(right - left);
     let card_height = (height - 2 * inset).min(bottom - top);
     if card_width < 1 || card_height < 1 {
         return None;
     }
-    let anchor_center = i64::from(anchor.x) + i64::from(anchor.width).div_euclid(2);
-    let card_x = (anchor_center - card_width.div_euclid(2)).clamp(left, right - card_width);
-    let card_y = match edge {
-        Edge::Bottom => bottom - card_height,
-        Edge::Top => top,
+    let anchor_x = i64::from(anchor.x) + i64::from(anchor.width).div_euclid(2);
+    let anchor_y = i64::from(anchor.y) + i64::from(anchor.height).div_euclid(2);
+    let centred_x = (anchor_x - card_width.div_euclid(2)).clamp(left, right - card_width);
+    let centred_y = (anchor_y - card_height.div_euclid(2)).clamp(top, bottom - card_height);
+    let (card_x, card_y) = match edge {
+        Edge::Bottom => (centred_x, bottom - card_height),
+        Edge::Top => (centred_x, top),
+        Edge::Left => (left, centred_y),
+        Edge::Right => (right - card_width, centred_y),
     };
     Some(Rect {
         x: dock::saturate(card_x - inset),
@@ -1977,28 +1983,63 @@ mod tests {
         let mut checked = 0;
         for work_area in work_areas {
             for scale_factor in [1.0, 1.25, 1.5, 1.75] {
-                for edge in [Edge::Bottom, Edge::Top] {
+                for edge in [Edge::Bottom, Edge::Top, Edge::Left, Edge::Right] {
                     // The bar as the dock lays it: flush with the window
-                    // side that faces the screen edge.
-                    let dock = dock::dock_rect(work_area, scale_factor, (240.0, 140.0), edge);
-                    let bar_height = (62.0 * scale_factor).round() as u32;
-                    let bar = Rect {
-                        x: dock.x + 20,
-                        y: match edge {
-                            Edge::Bottom => dock.y + dock.height as i32 - bar_height as i32,
-                            Edge::Top => dock.y,
+                    // side that faces the screen edge; on a side (spec
+                    // 0028), a column.
+                    let standing = matches!(edge, Edge::Left | Edge::Right);
+                    let size = if standing {
+                        (140.0, 240.0)
+                    } else {
+                        (240.0, 140.0)
+                    };
+                    let dock = dock::dock_rect(work_area, scale_factor, size, edge);
+                    let thick = (62.0 * scale_factor).round() as u32;
+                    let bar = match edge {
+                        Edge::Bottom => Rect {
+                            x: dock.x + 20,
+                            y: dock.y + dock.height as i32 - thick as i32,
+                            width: dock.width - 40,
+                            height: thick,
                         },
-                        width: dock.width - 40,
-                        height: bar_height,
+                        Edge::Top => Rect {
+                            x: dock.x + 20,
+                            y: dock.y,
+                            width: dock.width - 40,
+                            height: thick,
+                        },
+                        Edge::Left => Rect {
+                            x: dock.x,
+                            y: dock.y + 20,
+                            width: thick,
+                            height: dock.height - 40,
+                        },
+                        Edge::Right => Rect {
+                            x: dock.x + dock.width as i32 - thick as i32,
+                            y: dock.y + 20,
+                            width: thick,
+                            height: dock.height - 40,
+                        },
                     };
                     let right = work_area.x + work_area.width as i32;
-                    let anchors = [
-                        rect(bar.x + 6, bar.y + 6, 50, 50),
-                        rect(work_area.x - 500, bar.y, 50, 50),
-                        rect(work_area.x, bar.y, 1, 1),
-                        rect(right - 10, bar.y, 50, 50),
-                        rect(right + 500, bar.y, 50, 50),
-                    ];
+                    let bottom = work_area.y + work_area.height as i32;
+                    let anchors = if standing {
+                        [
+                            rect(bar.x + 6, bar.y + 6, 50, 50),
+                            rect(bar.x, work_area.y - 500, 50, 50),
+                            rect(bar.x, work_area.y, 1, 1),
+                            rect(bar.x, bottom - 10, 50, 50),
+                            rect(bar.x, bottom + 500, 50, 50),
+                        ]
+                    } else {
+                        [
+                            rect(bar.x + 6, bar.y + 6, 50, 50),
+                            rect(work_area.x - 500, bar.y, 50, 50),
+                            rect(work_area.x, bar.y, 1, 1),
+                            rect(right - 10, bar.y, 50, 50),
+                            rect(right + 500, bar.y, 50, 50),
+                        ]
+                    };
                     for anchor in anchors {
                         for (width, height) in sizes {
                             for inset in 0..=8 {
@@ -2028,7 +2069,7 @@ mod tests {
                 }
             }
         }
-        assert_eq!(checked, 7 * 4 * 2 * 5 * 6 * 9);
+        assert_eq!(checked, 7 * 4 * 4 * 5 * 6 * 9);
     }
 
     #[test]

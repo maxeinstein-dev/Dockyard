@@ -331,6 +331,10 @@ pub struct Dot {
 pub struct Scene {
     pub palette: Palette,
     pub look: Look,
+    /// On a side (spec 0028) the bar's decoration (its fill, glow, shelf,
+    /// light edge, outline and skin) is painted lying and turned by a
+    /// transposition; what has content (the tiles, their reflection, the
+    /// indicator, the separators, the label) is placed for the column.
     pub edge: DockEdge,
     pub pad: f64,
     pub icon: f64,
@@ -413,6 +417,42 @@ fn then(a: &Matrix3x2, b: &Matrix3x2) -> Matrix3x2 {
         M22: a.M21 * b.M12 + a.M22 * b.M22,
         M31: a.M31 * b.M11 + a.M32 * b.M21 + b.M31,
         M32: a.M31 * b.M12 + a.M32 * b.M22 + b.M32,
+    }
+}
+
+/// x and y swapped: a lying bar painted as a standing one (spec 0028).
+const TRANSPOSE: Matrix3x2 = Matrix3x2 {
+    M11: 0.0,
+    M12: 1.0,
+    M21: 1.0,
+    M22: 0.0,
+    M31: 0.0,
+    M32: 0.0,
+};
+
+/// Whether the dock on `edge` is a column (spec 0028).
+fn standing(edge: DockEdge) -> bool {
+    matches!(edge, DockEdge::Left | DockEdge::Right)
+}
+
+/// The lying edge a side's bar is laid out from: the left as the top, the
+/// right as the bottom (`dock_layout::Side`).
+fn lying(edge: DockEdge) -> DockEdge {
+    match edge {
+        DockEdge::Bottom | DockEdge::Right => DockEdge::Bottom,
+        DockEdge::Top | DockEdge::Left => DockEdge::Top,
+    }
+}
+
+/// The mirror about the vertical line at `x`.
+fn mirror_x(x: f64) -> Matrix3x2 {
+    Matrix3x2 {
+        M11: -1.0,
+        M12: 0.0,
+        M21: 0.0,
+        M22: 1.0,
+        M31: (2.0 * x) as f32,
+        M32: 0.0,
     }
 }
 
@@ -884,24 +924,35 @@ impl Painter {
     }
 
     fn draw(&mut self, scene: &Scene) {
-        self.bar(scene);
-        let separator_top = scene.bar.y + scene.pad + 4.0;
-        let separator_bottom = scene.bar.y + scene.pad + scene.icon - 4.0;
-        for &x in &scene.separators {
-            let brush = self
-                .solid(scene.look.separator.unwrap_or(scene.palette.hair))
-                .clone();
-            unsafe {
-                self.target.FillRectangle(
-                    &rect(Area {
-                        x,
-                        y: separator_top,
-                        width: 1.0,
-                        height: separator_bottom - separator_top,
-                    }),
-                    &brush,
-                )
+        if standing(scene.edge) {
+            // Painted lying, as the bottom's or the top's, and turned.
+            self.transform(&TRANSPOSE);
+            self.bar(scene, scene.bar.transposed(), lying(scene.edge));
+            self.transform(&IDENTITY);
+        } else {
+            self.bar(scene, scene.bar, scene.edge);
+        }
+        let brush = self
+            .solid(scene.look.separator.unwrap_or(scene.palette.hair))
+            .clone();
+        for &along in &scene.separators {
+            // A line across the bar, an icon long less 4 px at each end.
+            let line = if standing(scene.edge) {
+                Area {
+                    x: scene.bar.x + scene.pad + 4.0,
+                    y: along,
+                    width: scene.icon - 8.0,
+                    height: 1.0,
+                }
+            } else {
+                Area {
+                    x: along,
+                    y: scene.bar.y + scene.pad + 4.0,
+                    width: 1.0,
+                    height: scene.icon - 8.0,
+                }
             };
+            unsafe { self.target.FillRectangle(&rect(line), &brush) };
         }
         for dot in &scene.dots {
             self.dot(dot);
@@ -1037,14 +1088,15 @@ impl Painter {
         }
     }
 
-    fn bar(&mut self, scene: &Scene) {
-        let bar = scene.bar;
+    /// The bar `bar`, lying on `edge` (on a side, painted under the
+    /// transposition).
+    fn bar(&mut self, scene: &Scene, bar: Area, edge: DockEdge) {
         if bar.width <= 0.0 {
             return;
         }
         let look = &scene.look;
         if look.skin {
-            self.skin_bar(scene);
+            self.skin_bar(scene, bar);
             return;
         }
         let radius = (look.corners * bar.height / 2.0) as f32;
@@ -1102,11 +1154,11 @@ impl Painter {
             }
         }
         if look.shelf {
-            self.shelf(scene);
+            self.shelf(bar, edge, scene.pad);
         }
         let hi = look.hi.unwrap_or(scene.palette.hi);
         if hi.a > 0.0 {
-            self.light_edge(scene, radius, hi);
+            self.light_edge(bar, edge, radius, hi);
         }
         if let Some((from, to)) = look.outline {
             if let Some(line) = self.gradient(
@@ -1131,7 +1183,7 @@ impl Painter {
     /// The bar as its style's skin (spec 0020 §3): the ends of the image as
     /// they are and the middle in tiles, at the bar's height, without
     /// smoothing for pixel art.
-    fn skin_bar(&mut self, scene: &Scene) {
+    fn skin_bar(&mut self, scene: &Scene, bar: Area) {
         let (key, png, meta) = match (scene.look.style, &scene.custom_skin) {
             (DockStyle::Custom, Some(custom)) => (
                 custom.key.as_str(),
@@ -1159,7 +1211,6 @@ impl Painter {
         let Some(bitmap) = self.skins.get(key) else {
             return;
         };
-        let bar = scene.bar;
         let mode = if meta.pixelated {
             D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR
         } else {
@@ -1199,13 +1250,12 @@ impl Painter {
 
     /// The silver shelf under the tiles (Prateleira Aqua): narrower on the
     /// side away from the screen edge.
-    fn shelf(&mut self, scene: &Scene) {
-        let bar = scene.bar;
-        let height = scene.pad + 9.0;
+    fn shelf(&mut self, bar: Area, edge: DockEdge, pad: f64) {
+        let height = pad + 9.0;
         let inset = bar.width * 0.03;
-        let (near, far) = match scene.edge {
-            DockEdge::Bottom => (bar.y + bar.height, bar.y + bar.height - height),
-            DockEdge::Top => (bar.y, bar.y + height),
+        let (near, far) = match edge {
+            DockEdge::Bottom | DockEdge::Right => (bar.y + bar.height, bar.y + bar.height - height),
+            DockEdge::Top | DockEdge::Left => (bar.y, bar.y + height),
         };
         let Ok(geometry) = (unsafe { self.factory.CreatePathGeometry() }) else {
             return;
@@ -1237,8 +1287,7 @@ impl Painter {
     }
 
     /// The light edge, away from the screen edge (The Light Edge Rule).
-    fn light_edge(&mut self, scene: &Scene, radius: f32, hi: Color) {
-        let bar = scene.bar;
+    fn light_edge(&mut self, bar: Area, edge: DockEdge, radius: f32, hi: Color) {
         let inner = D2D1_ROUNDED_RECT {
             rect: rect(Area {
                 x: bar.x + 1.5,
@@ -1250,9 +1299,9 @@ impl Painter {
             radiusY: (radius - 1.0).max(0.0),
         };
         let lit = 2.0 / bar.height as f32;
-        let (start, end) = match scene.edge {
-            DockEdge::Bottom => (v(0.0, bar.y), v(0.0, bar.y + bar.height)),
-            DockEdge::Top => (v(0.0, bar.y + bar.height), v(0.0, bar.y)),
+        let (start, end) = match edge {
+            DockEdge::Bottom | DockEdge::Right => (v(0.0, bar.y), v(0.0, bar.y + bar.height)),
+            DockEdge::Top | DockEdge::Left => (v(0.0, bar.y + bar.height), v(0.0, bar.y)),
         };
         if let Some(edge) = self.gradient(&[(0.0, hi), (lit, hi.with_alpha(0.0))], start, end) {
             unsafe {
@@ -1350,12 +1399,18 @@ impl Painter {
     /// over 15 % of the tile).
     fn reflection(&mut self, scene: &Scene, tile: &Tile) {
         let area = tile.area;
-        let reach = area.height * 0.15;
-        let (edge, start, end, clip) = match scene.edge {
+        // Toward the screen edge, 15 % of the tile across the bar: below a
+        // bottom dock, beside a column (spec 0028).
+        let reach = if standing(scene.edge) {
+            area.width * 0.15
+        } else {
+            area.height * 0.15
+        };
+        let (mirrored, start, end, clip) = match scene.edge {
             DockEdge::Bottom => {
                 let edge = area.y + area.height;
                 (
-                    edge,
+                    mirror(edge),
                     v(0.0, edge),
                     v(0.0, edge + reach),
                     Area {
@@ -1366,12 +1421,35 @@ impl Painter {
                 )
             }
             DockEdge::Top => (
-                area.y,
+                mirror(area.y),
                 v(0.0, area.y),
                 v(0.0, area.y - reach),
                 Area {
                     y: area.y - reach,
                     height: reach,
+                    ..area
+                },
+            ),
+            DockEdge::Right => {
+                let edge = area.x + area.width;
+                (
+                    mirror_x(edge),
+                    v(edge, 0.0),
+                    v(edge + reach, 0.0),
+                    Area {
+                        x: edge,
+                        width: reach,
+                        ..area
+                    },
+                )
+            }
+            DockEdge::Left => (
+                mirror_x(area.x),
+                v(area.x, 0.0),
+                v(area.x - reach, 0.0),
+                Area {
+                    x: area.x - reach,
+                    width: reach,
                     ..area
                 },
             ),
@@ -1407,7 +1485,7 @@ impl Painter {
             let mut parameters = parameters;
             std::mem::ManuallyDrop::drop(&mut parameters.opacityBrush);
         }
-        self.base = mirror(edge);
+        self.base = mirrored;
         let plain = Tile {
             area,
             face: match &tile.face {
@@ -2711,24 +2789,69 @@ impl Painter {
     /// The marks that sit on the bar, not on the tile: the dot, the badge of
     /// attention and the mark of a drop.
     fn marks(&mut self, scene: &Scene, tile: &Tile) {
-        if let Some((x, opacity)) = tile.dot.filter(|(_, opacity)| *opacity > 0.0) {
+        if let Some((along, opacity)) = tile.dot.filter(|(_, opacity)| *opacity > 0.0) {
             let ink = self
                 .solid(scene.indicator_color.with_alpha(opacity))
                 .clone();
-            let edge_y = match scene.edge {
-                DockEdge::Bottom => scene.bar.y + scene.bar.height - 1.0,
-                DockEdge::Top => scene.bar.y + 1.0,
+            let bar = scene.bar;
+            // On the bar's edge toward the screen edge, 1 px in; `along` is
+            // the item's centre along the bar.
+            let (centre, dash) = match scene.edge {
+                DockEdge::Bottom => {
+                    let edge = bar.y + bar.height - 1.0;
+                    (
+                        v(along, edge - 2.0),
+                        Area {
+                            x: along - 7.0,
+                            y: edge - 3.0,
+                            width: 14.0,
+                            height: 3.0,
+                        },
+                    )
+                }
+                DockEdge::Top => {
+                    let edge = bar.y + 1.0;
+                    (
+                        v(along, edge + 2.0),
+                        Area {
+                            x: along - 7.0,
+                            y: edge,
+                            width: 14.0,
+                            height: 3.0,
+                        },
+                    )
+                }
+                DockEdge::Left => {
+                    let edge = bar.x + 1.0;
+                    (
+                        v(edge + 2.0, along),
+                        Area {
+                            x: edge,
+                            y: along - 7.0,
+                            width: 3.0,
+                            height: 14.0,
+                        },
+                    )
+                }
+                DockEdge::Right => {
+                    let edge = bar.x + bar.width - 1.0;
+                    (
+                        v(edge - 2.0, along),
+                        Area {
+                            x: edge - 3.0,
+                            y: along - 7.0,
+                            width: 3.0,
+                            height: 14.0,
+                        },
+                    )
+                }
             };
             unsafe {
                 match scene.indicator {
                     Indicator::Dot => {
-                        let cy = match scene.edge {
-                            DockEdge::Bottom => edge_y - 2.0,
-                            DockEdge::Top => edge_y + 2.0,
-                        };
                         self.target.FillEllipse(
                             &D2D1_ELLIPSE {
-                                point: v(x, cy),
+                                point: centre,
                                 radiusX: 2.0,
                                 radiusY: 2.0,
                             },
@@ -2736,18 +2859,9 @@ impl Painter {
                         );
                     }
                     Indicator::Dash => {
-                        let top = match scene.edge {
-                            DockEdge::Bottom => edge_y - 3.0,
-                            DockEdge::Top => edge_y,
-                        };
                         self.target.FillRoundedRectangle(
                             &D2D1_ROUNDED_RECT {
-                                rect: rect(Area {
-                                    x: x - 7.0,
-                                    y: top,
-                                    width: 14.0,
-                                    height: 3.0,
-                                }),
+                                rect: rect(dash),
                                 radiusX: 1.5,
                                 radiusY: 1.5,
                             },
@@ -2895,7 +3009,10 @@ impl Painter {
                 )
             };
         }
-        // Two lines, 16 and 14 px, 1 px apart, centered.
+        // Two lines, 16 and 14 px, 1 px apart, centered; in a column (a dock
+        // on a side, spec 0028), smaller, to fit an icon's width.
+        let narrow = area.height > area.width;
+        let (time_size, date_size) = if narrow { (12.0, 10.0) } else { (14.0, 11.0) };
         let top = area.y + (area.height - 31.0) / 2.0;
         let ink = scene.look.ink.unwrap_or(scene.palette.ink);
         // Without a bar behind it, a shadow keeps it legible.
@@ -2912,7 +3029,7 @@ impl Painter {
                     height: 16.0,
                     ..area
                 },
-                14.0,
+                time_size,
                 600,
                 false,
                 ink,
@@ -2924,7 +3041,7 @@ impl Painter {
                     height: 14.0,
                     ..area
                 },
-                11.0,
+                date_size,
                 400,
                 false,
                 ink.with_alpha(ink.a * 0.85),
@@ -3041,23 +3158,43 @@ impl Painter {
     fn tip(&mut self, scene: &Scene, tip: &Tip) {
         let width = self.label_width(&tip.text);
         let (x, y) = tip.anchor;
-        // Moved in to stay whole inside the window, near its sides.
-        let x = match &self.surface {
-            Some(surface) => {
-                let window = f64::from(surface.width) * 96.0 / f64::from(self.dpi);
-                dock_layout::tip_center(x, width, window)
+        // The window in logical pixels, to keep the pill whole inside it.
+        let window = self.surface.as_ref().map(|surface| {
+            (
+                f64::from(surface.width) * 96.0 / f64::from(self.dpi),
+                f64::from(surface.height) * 96.0 / f64::from(self.dpi),
+            )
+        });
+        let pill = match scene.edge {
+            DockEdge::Bottom | DockEdge::Top => {
+                // Moved in along the bar, near the window's sides.
+                let x = window.map_or(x, |(wide, _)| dock_layout::tip_center(x, width, wide));
+                Area {
+                    x: x - width / 2.0,
+                    y: if scene.edge == DockEdge::Bottom {
+                        y - 24.0
+                    } else {
+                        y
+                    },
+                    width,
+                    height: 24.0,
+                }
             }
-            None => x,
-        };
-        let top = match scene.edge {
-            DockEdge::Bottom => y - 24.0,
-            DockEdge::Top => y,
-        };
-        let pill = Area {
-            x: x - width / 2.0,
-            y: top,
-            width,
-            height: 24.0,
+            // Beside the tile on a side (spec 0028), moved in along the
+            // column near the window's ends.
+            DockEdge::Left | DockEdge::Right => {
+                let y = window.map_or(y, |(_, tall)| dock_layout::tip_center(y, 24.0, tall));
+                Area {
+                    x: if scene.edge == DockEdge::Left {
+                        x
+                    } else {
+                        x - width
+                    },
+                    y: y - 12.0,
+                    width,
+                    height: 24.0,
+                }
+            }
         };
         let shape = D2D1_ROUNDED_RECT {
             rect: rect(pill),
