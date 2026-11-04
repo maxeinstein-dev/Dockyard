@@ -5,7 +5,7 @@ Levantamento de 2026-10-30, depois da primeira leva da [spec 0020](../specs/0020
 ## Como ler
 
 - **Melhorias** são ajustes no que já existe. Entram agora, na ordem da lista.
-- **Funcionalidades** são coisas novas. Entram **depois** dos quatro itens já adiados da spec 0020, que não se repetem aqui: os temas Cyberpunk, Arcade e Sci-fi; os widgets no tom do tema (Q9); a pasta `Skins` de terceiros (Q14); e os glifos dos launchers nos pacotes de pixel. *Atualizado em 2026-11-04:* os três primeiros entraram em 2026-11-03 ([spec 0020](../specs/0020-temas.md) §4 a §6). Falta o último: os pacotes de pixel Retrô 8-bit, Game Boy, Fósforo e Clássico 98 seguem com 43 glifos, sem os 12 launchers de jogador que os outros 15 pacotes têm.
+- **Funcionalidades** são coisas novas. Entram **depois** dos quatro itens já adiados da spec 0020, que não se repetem aqui: os temas Cyberpunk, Arcade e Sci-fi; os widgets no tom do tema (Q9); a pasta `Skins` de terceiros (Q14); e os glifos dos launchers nos pacotes de pixel. *Atualizado em 2026-11-04:* os três primeiros entraram em 2026-11-03 ([spec 0020](../specs/0020-temas.md) §4 a §6). O último entrou em 2026-11-04: os pacotes de pixel Retrô 8-bit, Game Boy, Fósforo e Clássico 98 ganharam os 12 launchers de jogador que os outros 15 pacotes tinham (PR #167).
 - **Tamanho:** P (um PR pequeno, até um dia), M (um PR médio, alguns dias), G (uma spec própria e vários PRs).
 - **Risco:** o que pode dar errado e o quanto mexe no que já funciona.
 - A prioridade pesa, nesta ordem: memória e CPU em repouso (o dock fica aberto o dia todo), robustez (o dock substitui a barra do Windows), acessibilidade e o resto.
@@ -17,12 +17,12 @@ Levantamento de 2026-10-30, depois da primeira leva da [spec 0020](../specs/0020
   - F1 Economia de bateria: na main ([spec 0021](../specs/0021-economia-de-bateria.md), PR #151).
   - F2 Espaçadores: na main ([spec 0022](../specs/0022-espacadores.md), PR #153).
   - F3 Pilhas de widgets: na main ([spec 0023](../specs/0023-pilhas-de-widgets.md), PR #155).
-  - F4 Ícone por app: em revisão (spec 0024, PR #162).
+  - F4 Ícone por app: na main (spec 0024, PR #162).
   - F5 Downloads, Lixeira e pastas: em andamento.
-  - F6 Busca dentro de Configurações: em revisão (PR #163).
-  - F7: "Duplicar" um espaço em revisão (PR #164); "Nova janela" e "Procurar…" depois do PR #162, que traz o seletor de arquivos.
+  - F6 Busca dentro de Configurações: na main (PR #163).
+  - F7: "Duplicar" um espaço na main (PR #164); "Nova janela" e "Procurar…" em revisão (PR #168).
   - F8 a F15: a fazer, na ordem da lista. F13 e F14 começam por uma spec, para o autor decidir antes do código; F15 fica por último.
-- **Itens adiados da spec 0020:** falta só pôr os glifos dos launchers nos pacotes de pixel (ver "Como ler").
+- **Itens adiados da spec 0020:** os quatro entraram (ver "Como ler").
 
 ## Resumo
 
@@ -333,7 +333,7 @@ Entram depois dos quatro itens adiados da spec 0020. A ordem pesa o valor no uso
 
 ## O que ficou de fora
 
-- Os quatro itens adiados da spec 0020 (ver "Como ler"); três já entraram.
+- Os quatro itens adiados da spec 0020 (ver "Como ler"), que já entraram.
 - O mascote, o IconStudio, a licença e o widget de Bateria: o autor decidiu deixar de fora (0019 §1, 0004 §3.4, 0017 §1).
 - O Linux: o [estudo 0001](0001-linux.md) recomenda não portar agora.
 - Integrações novas de conta (Notion, iCal, conta Microsoft), já registradas como "para quando fizer falta" na 0017 §6c.

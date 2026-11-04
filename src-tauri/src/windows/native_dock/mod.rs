@@ -78,6 +78,7 @@ use crate::domain::dock_layout::{
     self, Area, DRAG_GROW, DRAG_LIFT, DRAG_THRESHOLD, DockSize, Hover, Magnification, Shape,
     drag_offset, drag_pitch, drop_index, make_room, slide_step,
 };
+use crate::domain::folders::{Place, place_of};
 use crate::domain::open_apps::OpenSnapshot;
 use crate::domain::power::Poll;
 use crate::domain::settings::{DockEdge, MiddleClick, OpenAnimation, Settings, TaskbarMode, Theme};
@@ -187,6 +188,43 @@ static WAKE: AtomicIsize = AtomicIsize::new(0);
 static SHOWN: AtomicBool = AtomicBool::new(false);
 
 static APP: std::sync::OnceLock<AppHandle> = std::sync::OnceLock::new();
+
+/// The Recycle Bin as last looked at (spec 0025): 0 not yet, 1 empty, 2
+/// with something. Part of its picture's key, so the icon follows.
+static BIN: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+/// A look at the Recycle Bin is under way.
+static BIN_LOOKING: AtomicBool = AtomicBool::new(false);
+
+/// Looks at the Recycle Bin again, off the dock's thread (it can take a
+/// moment with many items); when it changed, the docks load its picture
+/// again. After it is emptied, and every minute while a dock shows it.
+pub fn refresh_bin() {
+    if BIN_LOOKING.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    let spawned = std::thread::Builder::new()
+        .name("bin-look".into())
+        .spawn(|| {
+            let now = match super::folders::bin_full() {
+                Some(true) => 2,
+                Some(false) => 1,
+                None => 0,
+            };
+            BIN_LOOKING.store(false, Ordering::SeqCst);
+            if BIN.swap(now, Ordering::SeqCst) != now {
+                queue(Box::new(|docks| {
+                    for dock in docks.iter_mut() {
+                        dock.request_pictures();
+                        dock.paint();
+                    }
+                }));
+            }
+        });
+    if spawned.is_err() {
+        BIN_LOOKING.store(false, Ordering::SeqCst);
+    }
+}
 
 type Work = super::native_window::Work<Vec<Dock>>;
 
@@ -788,7 +826,13 @@ fn icon_key(
         && source
             .as_deref()
             .is_some_and(|source| source.starts_with("pack:"));
-    (source, app_id.to_owned(), dark)
+    // The Recycle Bin's picture changes as it fills (spec 0025).
+    let id = if place_of(app_id) == Place::RecycleBin {
+        format!("{app_id}#{}", BIN.load(Ordering::SeqCst))
+    } else {
+        app_id.to_owned()
+    };
+    (source, id, dark)
 }
 
 fn logical(area: Area) -> LogicalRect {
@@ -2488,6 +2532,15 @@ impl Dock {
     }
 
     /// The Beber água's reminder (spec 0017 F3-2), looked at every minute.
+    fn check_bin(&self) {
+        let shows = self.items.iter().any(
+            |item| matches!(item, Item::App(app) if place_of(&app.app_id) == Place::RecycleBin),
+        );
+        if shows {
+            refresh_bin();
+        }
+    }
+
     fn check_water(&self) {
         let waters: Vec<_> = self
             .items
@@ -2509,7 +2562,8 @@ impl Dock {
     /// an open one. What a folder or files open with (spec 0018).
     fn program_id(&self, index: usize) -> Option<String> {
         match self.items.get(index)? {
-            Item::App(app) => Some(app.app_id.clone()),
+            // A folder or the Recycle Bin opens nothing (spec 0025).
+            Item::App(app) => Some(app.app_id.clone()).filter(|id| place_of(id) == Place::Program),
             Item::Other(other) => Some(other.app_id.clone()).filter(|id| !id.is_empty()),
             _ => None,
         }
@@ -2520,6 +2574,12 @@ impl Dock {
             return;
         };
         match &item {
+            // A pinned folder shows its newest entries, in its panel (spec
+            // 0025).
+            Item::App(app) if place_of(&app.app_id) == Place::Folder => {
+                let anchor = self.rest().items[index];
+                self.toggle(PanelId::App(app.id.clone()), anchor);
+            }
             Item::App(app) => {
                 let id = app.id.as_str().to_string();
                 let key = item.key();
@@ -2780,6 +2840,21 @@ impl Dock {
         }
         if spacer.is_some() {
             items.extend(spacer_items());
+        }
+        if shown.is_some() {
+            // The Downloads and the Recycle Bin the dock does not have yet.
+            let downloads =
+                super::folders::downloads().map(|path| path.to_string_lossy().into_owned());
+            let has = |wanted: &dyn Fn(&str) -> bool| {
+                self.items
+                    .iter()
+                    .any(|item| matches!(item, Item::App(app) if wanted(&app.app_id)))
+            };
+            let no_downloads = downloads
+                .as_deref()
+                .is_some_and(|downloads| !has(&|id: &str| id.eq_ignore_ascii_case(downloads)));
+            let no_bin = !has(&|id: &str| place_of(id) == Place::RecycleBin);
+            items.extend(place_items(no_downloads, no_bin));
         }
         items.extend(dock_menu_items(
             self.data.settings.dock.auto_hide,
@@ -3075,6 +3150,7 @@ fn handle(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
                 dock.paint();
                 dock.arm_clock();
                 dock.check_water();
+                dock.check_bin();
             }),
             STATUS_TIMER => with_dock(hwnd, Dock::read_system),
             LAYOUT_TIMER => with_dock(hwnd, |dock| {

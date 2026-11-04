@@ -288,6 +288,9 @@ pub struct TrayMessages {
     /// it.
     pub add_small_spacer: &'static str,
     pub add_large_spacer: &'static str,
+    /// The dock's menu: the Downloads and the Recycle Bin (spec 0025).
+    pub add_downloads: &'static str,
+    pub add_recycle_bin: &'static str,
     pub remove_spacer: &'static str,
     /// The "Abrir" dialog of "Escolher imagem…" (spec 0024): `{name}` the
     /// program's; the kind of file it shows.
@@ -323,6 +326,8 @@ const PT_BR: Messages = Messages {
         close_windows: "Fechar janelas",
         add_small_spacer: "Adicionar espaçador pequeno",
         add_large_spacer: "Adicionar espaçador grande",
+        add_downloads: "Adicionar Downloads",
+        add_recycle_bin: "Adicionar Lixeira",
         remove_spacer: "Remover espaçador",
         choose_icon_title: "Escolher o ícone de {name}",
         image_files: "Imagens (PNG, ICO)",
@@ -547,6 +552,8 @@ const EN: Messages = Messages {
         close_windows: "Close windows",
         add_small_spacer: "Add small spacer",
         add_large_spacer: "Add large spacer",
+        add_downloads: "Add Downloads",
+        add_recycle_bin: "Add Recycle Bin",
         remove_spacer: "Remove spacer",
         choose_icon_title: "Choose the icon of {name}",
         image_files: "Images (PNG, ICO)",

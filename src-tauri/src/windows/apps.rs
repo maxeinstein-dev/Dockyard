@@ -117,6 +117,14 @@ fn apps_folder_item(id: &str) -> Result<IShellItem, String> {
 /// is then the path, see `domain::apps::is_pinnable_path`).
 #[cfg(windows)]
 pub(super) fn item_of(id: &str) -> Result<IShellItem, String> {
+    // A pinned folder or the Recycle Bin (spec 0025) is the shell's item of
+    // its own name.
+    if let Some(name) = place_name(id) {
+        init_com();
+        let name = HSTRING::from(name);
+        return unsafe { SHCreateItemFromParsingName(&name, None) }
+            .map_err(|error| error.to_string());
+    }
     apps_folder_item(id).or_else(|error| {
         let path = file_of(id).ok_or(error)?;
         let name = HSTRING::from(path.as_os_str());
@@ -249,6 +257,24 @@ pub fn file_of(id: &str) -> Option<std::path::PathBuf> {
     (is_valid_app_id(id) && drive && path.is_file()).then_some(path)
 }
 
+/// The folder pinned as `id` (spec 0025), when it is one that exists.
+pub fn folder_of(id: &str) -> Option<std::path::PathBuf> {
+    use crate::domain::folders::{Place, place_of};
+    let path = std::path::PathBuf::from(id);
+    (place_of(id) == Place::Folder && path.is_dir()).then_some(path)
+}
+
+/// What the shell parses for a pinned folder or the Recycle Bin (spec
+/// 0025); `None` for a program, or a folder that is gone.
+fn place_name(id: &str) -> Option<String> {
+    use crate::domain::folders::{Place, RECYCLE_BIN_ID, place_of};
+    match place_of(id) {
+        Place::RecycleBin => Some(RECYCLE_BIN_ID.to_owned()),
+        Place::Folder => folder_of(id).map(|path| path.to_string_lossy().into_owned()),
+        Place::Program => None,
+    }
+}
+
 /// Shows `path` selected in a File Explorer window.
 #[cfg(windows)]
 pub fn reveal(path: &std::path::Path) -> Result<(), String> {
@@ -366,9 +392,20 @@ pub fn launch(id: &str) -> Result<(), String> {
     init_com();
     // A program of the Apps folder opens as the Start menu opens it; a file
     // the Apps folder doesn't list (dropped on the dock) opens as itself.
-    let target = match apps_folder_item(id) {
-        Ok(_) => HSTRING::from(format!("shell:AppsFolder\\{id}")),
-        Err(error) => HSTRING::from(file_of(id).ok_or(error)?.as_os_str()),
+    // A pinned folder opens in File Explorer, and the Recycle Bin too
+    // (spec 0025).
+    use crate::domain::folders::{Place, place_of};
+    let target = match place_of(id) {
+        Place::RecycleBin => HSTRING::from("shell:RecycleBinFolder"),
+        Place::Folder => HSTRING::from(
+            folder_of(id)
+                .ok_or_else(|| "the folder is gone".to_owned())?
+                .as_os_str(),
+        ),
+        Place::Program => match apps_folder_item(id) {
+            Ok(_) => HSTRING::from(format!("shell:AppsFolder\\{id}")),
+            Err(error) => HSTRING::from(file_of(id).ok_or(error)?.as_os_str()),
+        },
     };
     let result = unsafe {
         ShellExecuteW(

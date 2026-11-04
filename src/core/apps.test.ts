@@ -116,6 +116,8 @@ describe("the menu of a program", () => {
         },
       ],
       canReveal: true,
+      place: "program",
+      more: false,
     };
 
     expect(
