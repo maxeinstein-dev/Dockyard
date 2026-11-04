@@ -48,6 +48,35 @@ pub fn parse(texts: &[&str]) -> Option<Badge> {
     })
 }
 
+/// Words that say a description is about something new to read, in the
+/// languages the apps write it (F11 of estudo 0002): a description without
+/// a number is a badge only with one of them, so a status ("Disponível",
+/// "Busy") is not one.
+const NEWS: [&str; 9] = [
+    "notif", "mensag", "message", "unread", "não lid", "nao lid", "mention", "menç", "new ",
+];
+
+/// The badge in the description of the icon a program puts over its
+/// button (`ITaskbarList3::SetOverlayIcon`), which the taskbar gives as the
+/// button's `HelpText`: Discord writes `"9 notifications"`. A number in it
+/// is a count; with none, a word of news makes it a badge with no number.
+pub fn from_description(text: &str) -> Option<Badge> {
+    let text = text.trim();
+    let digits: String = text
+        .chars()
+        .skip_while(|c| !c.is_ascii_digit())
+        .take_while(char::is_ascii_digit)
+        .collect();
+    if !digits.is_empty() {
+        let count = digits.parse().unwrap_or(u32::MAX);
+        return (count > 0).then_some(Badge::Count(count));
+    }
+    let lower = format!("{} ", text.to_lowercase());
+    NEWS.iter()
+        .any(|word| lower.contains(word))
+        .then_some(Badge::Dot)
+}
+
 /// What `AutomationId` names the program of a button of the taskbar by:
 /// `"Appid: <AppID>"`. The AppID, lowercased; `None` for anything else.
 pub fn app_id_of(automation_id: &str) -> Option<String> {
@@ -129,6 +158,29 @@ pub fn for_other(buttons: &[Button], key: Option<&str>, name: &str) -> Option<Ba
             buttons
                 .iter()
                 .find(|button| button.app_id.is_none() && named(button, name))
+        })?
+        .badge
+}
+
+/// The badge of an icon of the notification area on the dock (F11 of
+/// estudo 0002), whose program is the file `exe` (lowercased): the button
+/// made from that file, else the one whose program has the file's name
+/// (`Discord.exe` and `"Discord - 1 janela em execução"`).
+pub fn for_tray(buttons: &[Button], exe: &str) -> Option<Badge> {
+    let by_path = buttons
+        .iter()
+        .find(|button| button.path.as_deref() == Some(exe));
+    let stem = exe
+        .rsplit(['\\', '/'])
+        .next()
+        .and_then(|file| file.rsplit_once('.').map(|(stem, _)| stem))
+        .unwrap_or_default();
+    by_path
+        .or_else(|| {
+            buttons.iter().find(|button| {
+                let program = button.name.split(" - ").next().unwrap_or_default();
+                !stem.is_empty() && program.trim().eq_ignore_ascii_case(stem)
+            })
         })?
         .badge
 }
@@ -290,5 +342,54 @@ mod tests {
             Some(Badge::Count(4))
         );
         assert_eq!(for_other(&buttons, Some("other"), "Other"), None);
+    }
+
+    #[test]
+    fn the_description_over_a_button_is_a_badge() {
+        // Discord, live on 2026-11-04.
+        assert_eq!(from_description("9 notifications"), Some(Badge::Count(9)));
+        assert_eq!(
+            from_description("1 mensagem não lida"),
+            Some(Badge::Count(1))
+        );
+        assert_eq!(from_description("0 notifications"), None);
+        assert_eq!(from_description("New messages"), Some(Badge::Dot));
+        assert_eq!(from_description("Você tem notificações"), Some(Badge::Dot));
+        // A status is not news.
+        assert_eq!(from_description("Disponível"), None);
+        assert_eq!(from_description("Busy"), None);
+        assert_eq!(from_description(""), None);
+    }
+
+    #[test]
+    fn an_icon_of_the_notification_area_gets_its_programs_badge() {
+        let buttons = [
+            Button {
+                name: "Discord - 1 janela em execução".into(),
+                app_id: Some("com.squirrel.discord.discord".into()),
+                path: None,
+                badge: Some(Badge::Count(9)),
+            },
+            Button {
+                name: "FileZilla fixado".into(),
+                app_id: Some("{6d809377}\\filezilla\\filezilla.exe".into()),
+                path: Some(r"c:\program files\filezilla\filezilla.exe".into()),
+                badge: Some(Badge::Dot),
+            },
+        ];
+
+        assert_eq!(
+            for_tray(
+                &buttons,
+                r"c:\users\me\appdata\local\discord\app-1.0\discord.exe"
+            ),
+            Some(Badge::Count(9))
+        );
+        assert_eq!(
+            for_tray(&buttons, r"c:\program files\filezilla\filezilla.exe"),
+            Some(Badge::Dot)
+        );
+        assert_eq!(for_tray(&buttons, r"c:\tools\other.exe"), None);
+        assert_eq!(for_tray(&buttons, ""), None);
     }
 }

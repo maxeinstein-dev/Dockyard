@@ -104,3 +104,22 @@ Também visto no teste:
 - O selo na UI Automation do dock (o leitor de tela ainda não o anuncia).
 - Selo nos itens da bandeja do dock.
 - O formato exato dos selos sem número de cada app (ícones de status do Teams, por exemplo) não foi visto; podem vir sem texto, e aí não aparecem.
+
+## 8. F11 do estudo 0002 (2026-11-04)
+
+- **Selo pela descrição do ícone sobreposto.**
+  - Uma leitura só de leitura, com o Discord aberto e mensagens não lidas, mostrou que ele **não põe texto sob o botão**. O número vem na descrição do ícone que o programa sobrepõe ao botão (`SetOverlayIcon`), e a barra a expõe como `HelpText` do botão: `"9 notifications"`.
+  - A leitura agora guarda o `HelpText` no cache e se inscreve na mudança dele. O texto vira selo assim (`domain/badges.rs::from_description`):
+    - com um número, é contagem; zero não é selo;
+    - sem número, só vira ponto se tiver uma palavra de novidade (notif, mensag, message, unread, não lid, mention, menç, new). Um status como "Disponível" ou "Busy" não acende selo.
+  - Os textos sob o botão continuam valendo primeiro.
+- **Selo nos ícones da bandeja do dock.**
+  - O ícone ganha o selo do programa dele (`for_tray`): o botão feito do mesmo arquivo, ou o botão cujo programa tem o nome do arquivo (`Discord.exe` e `"Discord - 1 janela em execução"`).
+  - Só quando nenhum item do dock é esse programa, para o selo não aparecer duas vezes.
+  - No ícone pequeno, é um ponto no canto. O número fica para o leitor de tela.
+- **O leitor de tela diz o selo.** O nome do item, e do ícone da bandeja, ganha "…, 9 notificações", "…, 1 notificação" ou "…, com novidade". O dock publica de novo quando os selos mudam.
+
+## 9. Verificação da F11
+
+- **Testes de unidade:** a descrição do Discord, um status que não é novidade, e o ícone da bandeja casando pelo arquivo e pelo nome.
+- **Ao vivo:** pendente.

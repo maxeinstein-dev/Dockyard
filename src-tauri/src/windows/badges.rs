@@ -33,15 +33,15 @@ use windows::Win32::UI::Accessibility::{
     IUIAutomationElement, IUIAutomationPropertyChangedEventHandler,
     IUIAutomationPropertyChangedEventHandler_Impl, IUIAutomationStructureChangedEventHandler,
     IUIAutomationStructureChangedEventHandler_Impl, StructureChangeType, TreeScope_Descendants,
-    TreeScope_Subtree, UIA_AutomationIdPropertyId, UIA_ClassNamePropertyId, UIA_NamePropertyId,
-    UIA_PROPERTY_ID,
+    TreeScope_Subtree, UIA_AutomationIdPropertyId, UIA_ClassNamePropertyId, UIA_HelpTextPropertyId,
+    UIA_NamePropertyId, UIA_PROPERTY_ID,
 };
 use windows::Win32::UI::Shell::{KF_FLAG_DEFAULT, SHGetKnownFolderPath};
 use windows::Win32::UI::WindowsAndMessaging::FindWindowExW;
 use windows::core::{BSTR, GUID, Interface, Ref, Result, implement, w};
 
 use crate::commands::settings::CHANGED_EVENT as SETTINGS_CHANGED_EVENT;
-use crate::domain::badges::{Button, app_id_of, known_folder_path, parse};
+use crate::domain::badges::{Button, app_id_of, from_description, known_folder_path, parse};
 
 /// The class UI Automation gives the program buttons of the taskbar.
 const BUTTON_CLASS: &str = "Taskbar.TaskListButtonAutomationPeer";
@@ -176,6 +176,9 @@ impl Reader {
         unsafe {
             cache.AddProperty(UIA_NamePropertyId)?;
             cache.AddProperty(UIA_AutomationIdPropertyId)?;
+            // The description of the icon over the button (Discord's
+            // "9 notifications", F11 of estudo 0002).
+            cache.AddProperty(UIA_HelpTextPropertyId)?;
             cache.SetTreeScope(TreeScope_Subtree)?;
             cache.SetTreeFilter(&automation.RawViewCondition()?)?;
         }
@@ -205,11 +208,14 @@ impl Reader {
             texts_under(&element, DEPTH, &mut texts);
             let texts: Vec<&str> = texts.iter().map(String::as_str).collect();
             let path = app_id.as_deref().and_then(|id| self.path_of(id));
+            let described = unsafe { element.CachedHelpText() }
+                .ok()
+                .and_then(|text| from_description(&text.to_string()));
             buttons.push(Button {
                 name,
                 app_id,
                 path,
-                badge: parse(&texts),
+                badge: parse(&texts).or(described),
             });
         }
         Ok(buttons)
@@ -364,7 +370,7 @@ fn attach(
             TreeScope_Subtree,
             None,
             property,
-            &[UIA_NamePropertyId],
+            &[UIA_NamePropertyId, UIA_HelpTextPropertyId],
         )?;
     }
     Ok(Attached { hwnd, root })
