@@ -69,7 +69,7 @@ Com o Dockyard 0.9.0. Uma parte rodou por roteiro no build de teste (`dockyard-e
 - [x] Os três efeitos ao passar o mouse (Ampliação, Escala, Nenhum), com o mouse passando devagar e depressa. (Autor, 2026-11-03.)
 - [x] Os oito estilos, um por um, e os reflexos onde o estilo tem. (Autor, 2026-11-03.)
 - [x] O dock na **borda de cima**: posição, faixa reservada, menus abrindo para baixo, arrasto, ocultar automaticamente. (Autor, 2026-11-03.)
-- [ ] **Escala de 150 %** num monitor: o dock nítido, no tamanho certo e com a faixa certa.
+- [x] **Escala de 150 %** num monitor: o dock nítido, no tamanho certo e com a faixa certa. (Autor, 2026-11-04.)
 - [x] As opções novas de Configurações (Dock em todos os monitores, Ocultar automaticamente e os dois tempos), vistas no app de Configurações de verdade. (Autor, 2026-11-03.)
 
 ## 3. Arquivos e janelas (uns 10 minutos)

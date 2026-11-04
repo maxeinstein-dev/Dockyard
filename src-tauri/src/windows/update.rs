@@ -151,8 +151,9 @@ fn notify(version: &str) {
 }
 
 /// Atualizar in Sobre: downloads the new version, showing the progress,
-/// then installs it on the main thread. The app ends there; the passive
-/// installer opens it again when it is done (`/R`).
+/// then installs it on the main thread. The app ends there; the installer
+/// runs with no window (`installMode: quiet`, `/S`; per user, so no UAC
+/// prompt either) and opens it again when it is done (`/R`).
 pub async fn install(app: &AppHandle) -> Result<(), String> {
     if !ENABLED {
         return Err("updates are off in this build".into());

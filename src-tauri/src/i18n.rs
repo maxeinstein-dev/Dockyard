@@ -200,9 +200,12 @@ pub struct DockMessages {
     pub crash_notice_title: &'static str,
     pub crash_notice_line: &'static str,
     /// When the window of a panel or of Configurações can't be made
-    /// (WebView2 can't start, most often a full disk), once per run.
+    /// (WebView2 can't start), once per run; the `_disk` ones when the disk
+    /// is nearly full, its most common cause.
     pub panel_failed: &'static str,
     pub settings_failed: &'static str,
+    pub panel_failed_disk: &'static str,
+    pub settings_failed_disk: &'static str,
     /// The notice of a new version (spec 0019 G3), once per version;
     /// `{version}` is replaced.
     pub update_notice_title: &'static str,
@@ -385,8 +388,10 @@ const PT_BR: Messages = Messages {
         cycle_notice_line: "Abra o Ciclo no Dockyard para ver.",
         crash_notice_title: "O Dockyard fechou",
         crash_notice_line: "O dock falhou várias vezes seguidas. A barra do Windows voltou; abra o Dockyard de novo quando quiser.",
-        panel_failed: "Não foi possível abrir o painel. Verifique o espaço em disco.",
-        settings_failed: "Não foi possível abrir Configurações. Verifique o espaço em disco.",
+        panel_failed: "Não foi possível abrir o painel. Tente de novo em instantes.",
+        settings_failed: "Não foi possível abrir Configurações. Tente de novo em instantes.",
+        panel_failed_disk: "Não foi possível abrir o painel. Verifique o espaço em disco.",
+        settings_failed_disk: "Não foi possível abrir Configurações. Verifique o espaço em disco.",
         update_notice_title: "Dockyard {version} disponível",
         update_notice_line: "Para atualizar, abra Sobre no dock.",
         calendar_busy: "Ocupado",
@@ -606,8 +611,10 @@ const EN: Messages = Messages {
         cycle_notice_line: "Open Cycle in Dockyard to see it.",
         crash_notice_title: "Dockyard closed",
         crash_notice_line: "The dock failed several times in a row. The Windows taskbar is back; open Dockyard again whenever you like.",
-        panel_failed: "The panel could not be opened. Check the free disk space.",
-        settings_failed: "Settings could not be opened. Check the free disk space.",
+        panel_failed: "The panel could not be opened. Try again in a moment.",
+        settings_failed: "Settings could not be opened. Try again in a moment.",
+        panel_failed_disk: "The panel could not be opened. Check the free disk space.",
+        settings_failed_disk: "Settings could not be opened. Check the free disk space.",
         update_notice_title: "Dockyard {version} available",
         update_notice_line: "To update, open About in the dock.",
         calendar_busy: "Busy",
