@@ -60,8 +60,14 @@ Se uma das trocas falhar, tudo volta como estava e o log registra. Um banco de v
 - uma cópia de schema 5 é aceita;
 - um ícone com nome fora do padrão (`../dockmax.db`) é recusado.
 
-**Ao vivo: pendente.** O roteiro:
-1. Exporta pela janela de Configurações.
-2. Remove um app do dock.
-3. Importa o arquivo e confere que a reinicialização devolve o app.
-4. Confere que `Antes-de-importar-…` tem o banco de antes.
+**Ao vivo: feita em 2026-11-04**, com o build de lançamento `.medir` e uma cópia dos dados do autor:
+
+- "Exportar…" gravou a cópia, de 119 KB e schema 6, sem tokens. Sobre disse "Cópia exportada.".
+- O FileZilla foi tirado do dock.
+- "Importar…" mostrou o resumo, e "Importar e reiniciar" funcionou: o Dockyard antigo saiu em uns 15 s e o novo, que esperou por ele, mostrou o dock em uns 2 s.
+- O FileZilla voltou para o dock. O que havia antes ficou em `Antes-de-importar-<hora>` e não sobrou importação pendente.
+- A barra do Windows ficou como estava.
+
+Nas duas primeiras rodadas, o `restart()` do Tauri e depois a saída pedida da linha principal deixaram dois Dockyards vivos ao mesmo tempo, e o novo ficou sem dock. Isso foi corrigido em §1.
+
+Ainda falta conferir à mão: importar num computador sem dados do Dockyard, e importar uma cópia com ícones próprios.
