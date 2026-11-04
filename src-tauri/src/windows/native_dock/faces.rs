@@ -491,6 +491,13 @@ pub fn widget(
             glaze: Glaze::LAUNCHER,
             glyph: super::SEARCH_GLYPH,
         },
+        // The layout of the window in front, as the taskbar's button
+        // (F9 of estudo 0002): `PTB`, `ENU`.
+        WidgetConfig::Keyboard(_) => Face::Time {
+            glaze: Glaze::KEYBOARD,
+            text: crate::windows::keyboard_layout::label()
+                .unwrap_or_else(|| crate::i18n::messages().dock.no_value.to_string()),
+        },
         // Drawn by the dock itself, which holds the cover (`Dock::media_face`).
         WidgetConfig::Media(_) => Face::Glyph {
             glaze: Glaze::MUSIC,

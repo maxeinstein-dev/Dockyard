@@ -669,6 +669,7 @@ export const en: Messages = {
       claude: "Claude usage",
       weather: "Weather",
       launcher: "Launcher",
+      keyboard: "Keyboard layout",
     },
     addNames: {
       clock: "Clock",
@@ -686,6 +687,7 @@ export const en: Messages = {
       claude: "Claude usage",
       weather: "Weather",
       launcher: "Launcher",
+      keyboard: "Keyboard",
     },
     common: {
       adjust: "Options",
@@ -855,6 +857,8 @@ export const en: Messages = {
         countdown: "The days left until a date, like a wedding or a vacation.",
         launcher:
           "A dock button that opens the launcher, like Start: search apps, pages and math.",
+        keyboard:
+          "The keyboard layout of the window in front, as on the Windows taskbar; a click goes to the next.",
       },
       add: "Add",
       addNamed: "Add {name}",
@@ -909,6 +913,10 @@ export const en: Messages = {
         "Auto shows the day; after 6 PM, tomorrow's until noon. The card scrolls with the mouse wheel.",
       showTasks: "Google Tasks",
       showTasksOptions: { show: "Show", hide: "Hide" },
+    },
+    keyboard: {
+      settingsTitle: "Keyboard layout options",
+      hint: "Click the Keyboard layout in the dock to go to the next installed layout. The layouts are in the Windows language settings.",
     },
     launcher: {
       settingsTitle: "Launcher options",

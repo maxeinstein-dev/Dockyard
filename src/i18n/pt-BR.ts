@@ -809,6 +809,7 @@ const messages = {
       claude: "Uso do Claude",
       weather: "Clima",
       launcher: "Lançador",
+      keyboard: "Layout do teclado",
     } satisfies Record<WidgetKind, string>,
     /** Short name of each kind on the add buttons of Itens do dock. */
     addNames: {
@@ -827,6 +828,7 @@ const messages = {
       claude: "Uso do Claude",
       weather: "Clima",
       launcher: "Lançador",
+      keyboard: "Teclado",
     } satisfies Record<CreatableKind, string>,
     /** Parts every widget panel shares. */
     common: {
@@ -1045,6 +1047,8 @@ const messages = {
           "Os dias que faltam para uma data, como um casamento ou as férias.",
         launcher:
           "Um botão no dock que abre o lançador, como o Iniciar: busca apps, páginas e contas.",
+        keyboard:
+          "O layout do teclado da janela da frente, como na barra do Windows; um clique troca para o próximo.",
       } satisfies Record<CreatableKind, string>,
       /** The add button of a card, and its accessible name. */
       add: "Adicionar",
@@ -1117,6 +1121,13 @@ const messages = {
     launcher: {
       settingsTitle: "Ajustes do Lançador",
       hint: "Clique no Lançador, no dock, para abrir ou fechar a busca de apps. O atalho do teclado fica em Configurações › Geral.",
+    },
+    /** The Layout do teclado (F9 of estudo 0002): a click on the dock
+     * switches the layout, so this panel shows only if it is opened some
+     * other way. */
+    keyboard: {
+      settingsTitle: "Ajustes do Layout do teclado",
+      hint: "Clique no Layout do teclado, no dock, para passar ao próximo layout instalado. Os layouts ficam nas configurações de idioma do Windows.",
     },
     /** The Clima (spec 0017 F5). */
     weather: {
