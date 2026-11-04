@@ -291,6 +291,10 @@ pub struct TrayMessages {
     /// program's; the kind of file it shows.
     pub choose_icon_title: &'static str,
     pub image_files: &'static str,
+    /// The copy of the dock (spec 0026): the dialogs' titles and its kind.
+    pub export_title: &'static str,
+    pub import_title: &'static str,
+    pub copy_files: &'static str,
     /// A widget's or a stack's menu (spec 0023): the title over the others
     /// it can be stacked with, and taking the one on top out of a stack.
     pub stack_with: &'static str,
@@ -324,6 +328,9 @@ const PT_BR: Messages = Messages {
         remove_spacer: "Remover espaçador",
         choose_icon_title: "Escolher o ícone de {name}",
         image_files: "Imagens (PNG, ICO)",
+        export_title: "Exportar as configurações do Dockyard",
+        import_title: "Importar as configurações do Dockyard",
+        copy_files: "Cópia do Dockyard",
         stack_with: "Empilhar com",
         take_from_stack: "Tirar da pilha",
         stack_named: "Pilha: {names}",
@@ -547,6 +554,9 @@ const EN: Messages = Messages {
         remove_spacer: "Remove spacer",
         choose_icon_title: "Choose the icon of {name}",
         image_files: "Images (PNG, ICO)",
+        export_title: "Export the Dockyard settings",
+        import_title: "Import the Dockyard settings",
+        copy_files: "Dockyard copy",
         stack_with: "Stack with",
         take_from_stack: "Take out of the stack",
         stack_named: "Stack: {names}",

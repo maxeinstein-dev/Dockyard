@@ -54,6 +54,10 @@
     "allow-update-status",
     "allow-check-for-update",
     "allow-install-update",
+    "allow-export-copy",
+    "allow-choose-import",
+    "allow-confirm-import",
+    "allow-cancel-import",
     "log:allow-log"
   ]
 }

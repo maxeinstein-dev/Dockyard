@@ -27,6 +27,9 @@ fn startup() -> TauriPlugin<Wry> {
         .setup(|app, _api| {
             // First, so the settings can report a bad file.
             logging::setup(app);
+            // An import (spec 0026) takes the place of the data before
+            // anything reads it.
+            commands::transfer::apply_pending(app);
             commands::settings::setup(app);
             // After the settings: the dock and Settings work even when the
             // widget database can't be used.
@@ -182,6 +185,10 @@ macro_rules! handler {
             commands::app_icons::app_icon_options,
             commands::app_icons::set_app_icon,
             commands::app_icons::choose_app_icon_image,
+            commands::transfer::export_copy,
+            commands::transfer::choose_import,
+            commands::transfer::confirm_import,
+            commands::transfer::cancel_import,
             commands::apps::run_app_entry,
             commands::apps::reveal_app,
             commands::icons::list_icon_packs,
@@ -278,6 +285,10 @@ macro_rules! handler {
             commands::app_icons::app_icon_options,
             commands::app_icons::set_app_icon,
             commands::app_icons::choose_app_icon_image,
+            commands::transfer::export_copy,
+            commands::transfer::choose_import,
+            commands::transfer::confirm_import,
+            commands::transfer::cancel_import,
             commands::apps::run_app_entry,
             commands::apps::reveal_app,
             commands::icons::list_icon_packs,

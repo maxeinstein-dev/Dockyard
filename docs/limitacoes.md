@@ -38,7 +38,7 @@ O que o Dockyard (antes DockMax) **não** faz hoje, e o que pode surpreender. Va
 - Os widgets são **Relógio, Progresso do tempo, Nota, Atividade, Atividade de rede, Calendário, Ciclo, Contagem regressiva, Pomodoro, Lista de tarefas, Beber água, Tocando agora, Uso do Claude, Clima e Lançador** ([spec 0017](specs/0017-fase-f-widgets.md)). Atalho e Arquivos ainda não existem como widget, e não há pilhas de widgets.
 - **Calendário e Ciclo pedem uma conta Google** (Configurações › Contas). Não há iCal nem outras agendas.
 - A **Nota** é texto simples, sem formatação.
-- Os dados ficam **só nesta máquina** (`%APPDATA%\dev.maxsueleinstein.dockmax`; a pasta e o banco continuam com o nome antigo de propósito, sem migração): não há nuvem nem sincronização. Para mudar de computador, copie essa pasta com o Dockyard fechado. A conta Google fica no cofre de credenciais do Windows e precisa ser conectada de novo no outro computador.
+- Os dados ficam **só nesta máquina** (`%APPDATA%\dev.maxsueleinstein.dockmax`; a pasta e o banco continuam com o nome antigo de propósito, sem migração): não há nuvem nem sincronização. Para mudar de computador, use Configurações › Sobre › Cópia das configurações ([spec 0026](specs/0026-exportar-importar.md)), ou copie essa pasta com o Dockyard fechado. Os pacotes de ícones e as skins instalados não vão na cópia. A conta Google fica no cofre de credenciais do Windows e precisa ser conectada de novo no outro computador.
 - **Os arquivos de segurança nunca são apagados pelo programa.** Cada migração do banco deixa um `dockmax.db.bak-v<n>` (pequeno) e um banco danificado é renomeado para `dockmax.db.corrompido-<data>`. Apagar esses arquivos é decisão de quem usa.
 
 ## O que usa a rede

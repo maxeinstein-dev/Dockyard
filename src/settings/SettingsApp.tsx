@@ -10,6 +10,7 @@ import { useT } from "../i18n";
 import AboutPanel from "../panel/AboutPanel";
 import AppsPanel from "../panel/AppsPanel";
 import AccountsPanel from "./AccountsPanel";
+import SettingsCopy from "./SettingsCopy";
 import WidgetCatalog from "./WidgetCatalog";
 import DockItems from "../panel/DockItems";
 import LookPanel from "../panel/LookPanel";
@@ -197,7 +198,12 @@ function SettingsApp() {
               </>
             ) : null}
             {section === "accounts" ? <AccountsPanel /> : null}
-            {section === "about" ? <AboutPanel /> : null}
+            {section === "about" ? (
+              <>
+                <AboutPanel />
+                <SettingsCopy />
+              </>
+            ) : null}
           </NamedBySection.Provider>
         </section>
       </main>
