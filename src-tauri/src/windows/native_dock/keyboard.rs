@@ -177,6 +177,16 @@ impl Dock {
     /// dock's.
     pub(super) fn key_down(&mut self, key: u16, shift: bool) -> bool {
         use keys::{KeyAction, key_action};
+        // The card opened from the keyboard takes the keys while it shows
+        // (F10 of estudo 0002); the item stays chosen when it goes.
+        if self.previewing()
+            && let Some(still) = super::super::previews::key(key)
+        {
+            if !still {
+                self.paint();
+            }
+            return true;
+        }
         let ours = matches!(
             key,
             keys::VK_LEFT
@@ -192,6 +202,18 @@ impl Dock {
         ) || (key == keys::VK_F10 && shift);
         if !ours {
             return false;
+        }
+        // The arrow toward the card opens the chosen program's windows.
+        let (toward, _) = crate::domain::previews::card_keys(self.edge());
+        if key == toward
+            && let Some(index) = self
+                .keyboard
+                .as_ref()
+                .and_then(|chosen| self.items.iter().position(|item| item.key() == *chosen))
+            && self.items[index].is_program()
+            && self.show_preview_of(index, Some(0))
+        {
+            return true;
         }
         let all: Vec<String> = self.nav_keys().all().cloned().collect();
         match key_action(all.len(), self.keyboard_index(), key, shift) {
