@@ -323,6 +323,9 @@ pub struct Dock {
     media_art: Option<MediaArt>,
     /// When the track now playing showed: where its long title rolls to.
     media_since: Instant,
+    /// Since when the Calendário's long titles roll: they start over with
+    /// the battery saving, as the Tocando agora's.
+    calendar_since: Instant,
     landing: Option<Landing>,
     /// How far each item is drawn from its place at rest, sideways: the
     /// room made for a dragged item, or the way to a new place, eased.
@@ -512,6 +515,7 @@ fn make_dock(app: &AppHandle, monitor: Monitor) -> Option<Dock> {
         drop_hover: None,
         media_art: None,
         media_since: Instant::now(),
+        calendar_since: Instant::now(),
         landing: None,
         slide: Vec::new(),
         open: None,
@@ -1206,6 +1210,7 @@ impl Dock {
         }
         // A rolling title stops at its start, or starts over.
         self.media_since = Instant::now();
+        self.calendar_since = Instant::now();
         self.paint();
     }
 
@@ -2053,7 +2058,7 @@ impl Dock {
             let calendar = matches!(widget.config, WidgetConfig::Calendar(_))
                 .then(super::calendar::snapshot)
                 .flatten();
-            return faces::widget(
+            let mut face = faces::widget(
                 widget,
                 size,
                 clock,
@@ -2061,6 +2066,13 @@ impl Dock {
                 calendar.as_ref(),
                 self.widen.get(index).copied().unwrap_or(0.0) > 0.5,
             );
+            // Saving the battery, a long title stays at its start.
+            if let Face::Calendar { since, .. } = &mut face
+                && !self.saving
+            {
+                *since = self.calendar_since.elapsed().as_secs_f64();
+            }
+            return face;
         }
         match item {
             Item::App(app) => program(&app.app_id, None),

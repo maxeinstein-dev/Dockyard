@@ -141,9 +141,11 @@ pub fn agenda(
     opened: bool,
 ) -> Face {
     let text = &crate::i18n::messages().dock;
+    // `since` is the dock's (`Dock::calendar_since`), set after.
     let calendar_face = |blocks: Vec<AgendaBlock>, note: Option<&str>| Face::Calendar {
         blocks,
         note: note.map(str::to_owned),
+        since: 0.0,
     };
     let snapshot = match snapshot {
         None => return calendar_face(Vec::new(), Some(text.no_value)),
@@ -580,7 +582,7 @@ mod tests {
             ..CalendarConfig::default()
         };
         match agenda(&config, snapshot, NOW, opened) {
-            Face::Calendar { blocks, note } => blocks
+            Face::Calendar { blocks, note, .. } => blocks
                 .into_iter()
                 .map(|block| format!("{} · {}", block.when, block.title))
                 .chain(note)
