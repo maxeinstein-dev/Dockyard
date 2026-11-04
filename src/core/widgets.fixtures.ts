@@ -360,6 +360,13 @@ export const WIDGET_FIXTURES = {
     config: {},
   } satisfies WidgetInstance<"launcher">,
 
+  "keyboard-default": {
+    id: "019a1b2c-3d4e-7f60-8a1b-2c3d4e5f60a3",
+    label: null,
+    kind: "keyboard",
+    config: {},
+  } satisfies WidgetInstance<"keyboard">,
+
   "snapshot-sample": {
     storage: { state: "ok" },
     widgets: [CLOCK_DEFAULT, { ...NOTE_DEFAULT, label: "Mercado" }],

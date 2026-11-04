@@ -16,7 +16,8 @@
     "media",
     "claude",
     "weather",
-    "launcher"
+    "launcher",
+    "keyboard"
   ],
   "HourCycle": [
     "h23",

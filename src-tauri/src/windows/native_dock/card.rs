@@ -230,10 +230,12 @@ impl Dock {
         self.hovered
             .and_then(|index| self.items.get(index))
             .is_some_and(|item| {
-                // The Lançador opens the launcher, not a panel.
+                // The Lançador opens the launcher, and the Layout do
+                // teclado switches the layout: neither has a card.
                 !item.is_program()
                     && !matches!(item, Item::System(SystemItem::Settings))
                     && !is_launcher(item)
+                    && !is_keyboard(item)
             })
     }
 }

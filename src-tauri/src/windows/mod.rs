@@ -27,6 +27,7 @@ pub mod google;
 #[cfg(windows)]
 pub mod http;
 pub mod jumplist;
+pub mod keyboard_layout;
 #[cfg(windows)]
 pub mod launcher;
 #[cfg(windows)]
