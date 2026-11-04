@@ -130,6 +130,7 @@ pub async fn choose_app_icon_image(
     id: String,
 ) -> Result<bool, AppCommandError> {
     let app_id = app_id_of(&state, &id)?;
+    log::info!("icons: choosing an image for a program");
     let handle = app.clone();
     let lookup = app_id.clone();
     let kept = tauri::async_runtime::spawn_blocking(move || {
@@ -165,6 +166,7 @@ pub async fn choose_app_icon_image(
     })
     .await
     .map_err(|_| AppCommandError::from(AppError::Unavailable))?;
+    log::info!("icons: image chosen: {}", kept.is_some());
     match kept {
         Some(file) => wear(&app, &app_id, Some(AppIcon::Image { file })).map(|()| true),
         None => Ok(false),
