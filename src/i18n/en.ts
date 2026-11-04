@@ -31,11 +31,19 @@ export const en: Messages = {
       opacity: "Dock opacity",
       taskbar: "Windows taskbar",
       middleClick: "Middle button",
+      powerSaver: "Battery saver",
     },
     middleClick: {
       newInstance: "New instance",
       none: "Nothing",
     },
+    powerSaver: {
+      off: "Off",
+      onBattery: "On battery",
+      always: "Always",
+    },
+    powerSaverHint:
+      "Stops the scrolling text and the opening jump, and reads the system less often",
     app: {
       nav: "Settings sections",
       sections: {

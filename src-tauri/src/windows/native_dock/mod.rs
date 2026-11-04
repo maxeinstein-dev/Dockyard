@@ -50,6 +50,7 @@ use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     ReleaseCapture, SetCapture, TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent,
 };
+use windows::Win32::UI::WindowsAndMessaging::PBT_APMPOWERSTATUSCHANGE;
 use windows::Win32::UI::WindowsAndMessaging::{
     CS_DBLCLKS, CreateWindowExW, DefWindowProcW, DestroyCursor, DestroyWindow, GetWindowRect,
     HCURSOR, HWND_MESSAGE, HWND_TOPMOST, IDC_ARROW, KillTimer, LoadCursorW, RegisterClassW,
@@ -58,8 +59,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
     SystemParametersInfoW, WM_ACTIVATE, WM_APP, WM_CAPTURECHANGED, WM_CLOSE, WM_DISPLAYCHANGE,
     WM_DPICHANGED, WM_GETOBJECT, WM_HOTKEY, WM_KEYDOWN, WM_KILLFOCUS, WM_LBUTTONDBLCLK,
     WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEMOVE, WM_MOUSEWHEEL,
-    WM_RBUTTONUP, WM_SETTINGCHANGE, WM_SYSKEYDOWN, WM_TIMER, WNDCLASSW, WS_EX_LAYERED,
-    WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
+    WM_POWERBROADCAST, WM_RBUTTONUP, WM_SETTINGCHANGE, WM_SYSKEYDOWN, WM_TIMER, WNDCLASSW,
+    WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
 };
 use windows::core::{PCWSTR, w};
 
@@ -78,6 +79,7 @@ use crate::domain::dock_layout::{
     drag_offset, drag_pitch, drop_index, make_room, slide_step,
 };
 use crate::domain::open_apps::OpenSnapshot;
+use crate::domain::power::Poll;
 use crate::domain::settings::{DockEdge, MiddleClick, OpenAnimation, Settings, TaskbarMode, Theme};
 use crate::domain::widgets::{WidgetConfig, WidgetsSnapshot};
 use crate::domain::workspaces::{SpacerSize, Workspace};
@@ -113,10 +115,12 @@ const AUTO_HIDE_TIMER: usize = 5;
 const WORKSPACE_KEY: &str = "workspace:";
 const AUTO_HIDE_EVERY: u32 = 100;
 
-/// How often the battery, the network and the volume are read again.
-const STATUS_EVERY: u32 = 3_000;
-/// How often the system widgets read again.
-const ACTIVITY_EVERY: u32 = 2_000;
+/// How often the battery, the network and the volume are read again, and
+/// the system widgets: `domain::power::every`, longer while the battery is
+/// saved (spec 0021), in the milliseconds of `SetTimer`.
+fn timer_every(poll: Poll) -> u32 {
+    u32::try_from(super::power::every(poll).as_millis()).unwrap_or(u32::MAX)
+}
 
 /// A frame of the animations.
 const FRAME: Duration = Duration::from_millis(16);
@@ -327,6 +331,10 @@ pub struct Dock {
     open: Option<PanelId>,
     /// The programs whose icon is animating after a click, by item key.
     opening: HashMap<String, Instant>,
+    /// The battery saver is on (spec 0021): nothing moves on its own (the
+    /// rolling title, the jump of a program opening) and the system is read
+    /// less often.
+    saving: bool,
     icons: HashMap<(Option<String>, String, bool), Loaded>,
     badges: HashMap<String, Loaded>,
     /// The notification badge of each item (spec 0016), as the taskbar
@@ -466,6 +474,7 @@ fn make_dock(app: &AppHandle, monitor: Monitor) -> Option<Dock> {
     // Files dropped on the dock are pinned (spec 0006 B2).
     super::drop_target::install(app, hwnd);
     let data = read_data(app, &monitor.key);
+    let saving = super::power::decide(data.settings.power_saver);
     let dock = Dock {
         app: app.clone(),
         hwnd,
@@ -507,6 +516,7 @@ fn make_dock(app: &AppHandle, monitor: Monitor) -> Option<Dock> {
         slide: Vec::new(),
         open: None,
         opening: HashMap::new(),
+        saving,
         icons: HashMap::new(),
         badges: HashMap::new(),
         notices: Vec::new(),
@@ -525,7 +535,14 @@ fn make_dock(app: &AppHandle, monitor: Monitor) -> Option<Dock> {
         effects: Vec::new(),
     };
     dock.arm_clock();
-    unsafe { SetTimer(Some(dock.hwnd), STATUS_TIMER, STATUS_EVERY, None) };
+    unsafe {
+        SetTimer(
+            Some(dock.hwnd),
+            STATUS_TIMER,
+            timer_every(Poll::Status),
+            None,
+        )
+    };
     Some(dock)
 }
 
@@ -783,6 +800,8 @@ impl Dock {
         };
         let before = position(&self.data);
         self.data = read_data(&self.app, &self.monitor.key);
+        // The battery saver may have been turned on or off.
+        self.check_power();
         let enter = match (before, position(&self.data)) {
             (Some(before), Some(after)) if after > before => SWITCH_SLIDE,
             (Some(before), Some(after)) if after < before => -SWITCH_SLIDE,
@@ -1039,10 +1058,8 @@ impl Dock {
         }
     }
 
-    /// The battery, the network and the volume, read again; laid out again
-    /// when they changed (an icon may come or go).
-    /// Reads the system for its widgets every [`ACTIVITY_EVERY`] while one
-    /// is on the dock, and stops when none is: then nothing is read.
+    /// Reads the system for its widgets every `Poll::Activity` while one is
+    /// on the dock, and stops when none is: then nothing is read.
     fn arm_activity(&mut self) {
         let calendar = self.items.iter().any(|item| {
             matches!(item, Item::Widget(widget) if matches!(widget.config, WidgetConfig::Calendar(_)))
@@ -1094,7 +1111,14 @@ impl Dock {
         match (wanted, self.activity.is_some()) {
             (true, false) => {
                 self.activity = Some(super::system_activity::sample());
-                unsafe { SetTimer(Some(self.hwnd), ACTIVITY_TIMER, ACTIVITY_EVERY, None) };
+                unsafe {
+                    SetTimer(
+                        Some(self.hwnd),
+                        ACTIVITY_TIMER,
+                        timer_every(Poll::Activity),
+                        None,
+                    )
+                };
             }
             (false, true) => {
                 self.activity = None;
@@ -1115,12 +1139,64 @@ impl Dock {
         }
     }
 
+    /// The battery, the network and the volume, read again; laid out again
+    /// when they changed (an icon may come or go). The power line too: the
+    /// battery saver follows it within a tick, should `WM_POWERBROADCAST`
+    /// not come.
     fn read_system(&mut self) {
+        self.check_power();
         let now = Some(super::system_status::read_shared());
         if now != self.system {
             self.system = now;
             self.rebuild();
         }
+    }
+
+    /// Decides the battery saver again (spec 0021), from the setting and the
+    /// power line; when it turned on or off, the readings take their new
+    /// pace and what moved on its own stops, or rolls again.
+    fn check_power(&mut self) {
+        let saving = super::power::decide(self.data.settings.power_saver);
+        if saving == self.saving {
+            return;
+        }
+        self.saving = saving;
+        log::info!("dock: battery saver {}", if saving { "on" } else { "off" });
+        // The same timer set again: its new interval, from now.
+        unsafe {
+            SetTimer(
+                Some(self.hwnd),
+                STATUS_TIMER,
+                timer_every(Poll::Status),
+                None,
+            )
+        };
+        if self.activity.is_some() {
+            unsafe {
+                SetTimer(
+                    Some(self.hwnd),
+                    ACTIVITY_TIMER,
+                    timer_every(Poll::Activity),
+                    None,
+                )
+            };
+        }
+        if saving {
+            self.opening.clear();
+        }
+        // A rolling title stops at its start, or starts over.
+        self.media_since = Instant::now();
+        self.paint();
+    }
+
+    /// Animates `key`'s icon as a program opening, unless the battery is
+    /// saved: then it stays still (spec 0021). Whether it animates.
+    fn start_opening(&mut self, key: String, now: Instant) -> bool {
+        if self.saving {
+            return false;
+        }
+        self.opening.insert(key, now);
+        true
     }
 
     /// The cells of the strip, where they are drawn now.
@@ -1645,8 +1721,9 @@ impl Dock {
         ) {
             log::warn!("dock: could not paint: {error}");
         }
-        // A long title rolls: painted again when it moves next.
-        match self.painter.marquee {
+        // A long title rolls: painted again when it moves next. Not while
+        // the battery is saved (spec 0021): it stays at its start.
+        match self.painter.marquee.filter(|_| !self.saving) {
             Some(next) => {
                 let ms = (next * 1000.0).ceil().clamp(16.0, 60_000.0) as u32;
                 unsafe { SetTimer(Some(self.hwnd), MARQUEE_TIMER, ms, None) };
@@ -2231,7 +2308,12 @@ impl Dock {
             artist,
             idle: now.is_none(),
             controls: width == 3 && now.is_some(),
-            since: self.media_since.elapsed().as_secs_f64(),
+            // Saving the battery, a long title stays at its start.
+            since: if self.saving {
+                0.0
+            } else {
+                self.media_since.elapsed().as_secs_f64()
+            },
         }
     }
 
@@ -2365,15 +2447,21 @@ impl Dock {
 
     /// The widgets `widgets` have a notice (a Ciclo's, F2b-3; a Pomodoro's
     /// stage ended, F2c-2): their badge, and their tile bounces as a
-    /// program's does when it opens.
+    /// program's does when it opens (the badge alone while the battery is
+    /// saved, spec 0021).
     fn nudged(&mut self, widgets: &[String]) {
         let now = Instant::now();
-        for item in &self.items {
-            if let Item::Widget(widget) = item
-                && widgets.iter().any(|each| each == widget.id.as_str())
-            {
-                self.opening.insert(item.key(), now);
-            }
+        let keys: Vec<String> = self
+            .items
+            .iter()
+            .filter(|item| {
+                matches!(item, Item::Widget(widget)
+                    if widgets.iter().any(|each| each == widget.id.as_str()))
+            })
+            .map(Item::key)
+            .collect();
+        for key in keys {
+            self.start_opening(key, now);
         }
         self.notices = self.read_notices();
         self.animate();
@@ -2395,8 +2483,9 @@ impl Dock {
     /// Opens the pinned program and animates its icon a moment; one that
     /// could not be opened stops at once.
     fn launch_pinned(&mut self, key: String, id: String) {
-        self.opening.insert(key.clone(), Instant::now());
-        self.animate();
+        if self.start_opening(key.clone(), Instant::now()) {
+            self.animate();
+        }
         let hwnd = self.hwnd.0 as isize;
         self.effects.push(Box::new(move |app| {
             crate::commands::apps::launch_pinned(app, &id, move || {
@@ -2467,8 +2556,9 @@ impl Dock {
         match item {
             Item::App(app) => self.launch_pinned(key, app.id.as_str().to_string()),
             Item::Other(other) => {
-                self.opening.insert(key.clone(), Instant::now());
-                self.animate();
+                if self.start_opening(key.clone(), Instant::now()) {
+                    self.animate();
+                }
                 let hwnd = self.hwnd.0 as isize;
                 self.effects.push(Box::new(move |_| {
                     crate::commands::apps::launch_other(&other.key, move || {
@@ -2874,6 +2964,11 @@ fn handle(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
             });
         }
         // Alt+F4 hides the dock instead of closing it.
+        // On the battery or back on the charger (or the battery's level,
+        // which changes nothing): the battery saver follows at once.
+        WM_POWERBROADCAST if wparam.0 == PBT_APMPOWERSTATUSCHANGE as usize => {
+            with_dock(hwnd, Dock::check_power);
+        }
         WM_CLOSE => with_dock(hwnd, Dock::hide),
         WM_GETOBJECT => match access::get_object(hwnd, wparam, lparam) {
             Some(result) => return result,

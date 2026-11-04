@@ -1,6 +1,7 @@
 //! The Clima (spec 0017 F5): the forecast of each city a dock's Clima
-//! shows, asked of Open-Meteo every 30 minutes while any dock has one, and
-//! again when its panel opens if the last answer is older than 10 minutes.
+//! shows, asked of Open-Meteo every 30 minutes (every 2 hours saving the
+//! battery, spec 0021) while any dock has one, and again when its panel
+//! opens if the last answer is older than 10 minutes.
 
 use std::collections::HashMap;
 use std::sync::{Condvar, Mutex, Once};
@@ -8,9 +9,9 @@ use std::time::{Duration, Instant};
 
 use serde::Serialize;
 
+use crate::domain::power::{Poll, RECHECK};
 use crate::domain::weather::{self, Forecast, Place};
 
-const EVERY: Duration = Duration::from_secs(30 * 60);
 /// An open panel asks again only past this.
 const FRESH: Duration = Duration::from_secs(10 * 60);
 
@@ -135,10 +136,16 @@ fn run() {
         {
             let (lock, wake) = &WAKE;
             let mut asked = lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-            let wait = last.map_or(Duration::ZERO, |at| EVERY.saturating_sub(at.elapsed()));
-            if !*asked && !wait.is_zero() {
+            // Waits a little at a time: the interval shortens when the
+            // battery saver ends (the charger back in), within `RECHECK`.
+            loop {
+                let every = super::power::every(Poll::Weather);
+                let wait = last.map_or(Duration::ZERO, |at| every.saturating_sub(at.elapsed()));
+                if *asked || wait.is_zero() {
+                    break;
+                }
                 asked = wake
-                    .wait_timeout(asked, wait)
+                    .wait_timeout(asked, wait.min(RECHECK))
                     .unwrap_or_else(|poisoned| poisoned.into_inner())
                     .0;
             }

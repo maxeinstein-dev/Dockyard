@@ -1,6 +1,6 @@
 //! The automatic update (spec 0019 G3): looks for a new version in the
 //! GitHub Releases (`plugins.updater` in `tauri.conf.json`) a moment after
-//! the app opens and every 6 hours, announces it once with a Windows notice,
+//! the app opens and every 6 hours (24 saving the battery), announces it once with a Windows notice,
 //! and installs it only when the user clicks Atualizar in Sobre.
 //!
 //! On Windows the updater's `install` runs the NSIS installer and ends the
@@ -17,6 +17,7 @@ use std::time::Instant;
 use tauri::{AppHandle, Emitter};
 use tauri_plugin_updater::{Update, UpdaterExt};
 
+use crate::domain::power::{Poll, RECHECK};
 use crate::domain::update::{self, Notices, UpdateState};
 
 /// The event every window gets when the state changes.
@@ -69,7 +70,18 @@ pub fn start(app: &AppHandle) {
 fn run(app: &AppHandle) {
     let mut last: Option<Instant> = None;
     loop {
-        std::thread::sleep(update::wait(last.map(|at| at.elapsed())));
+        let wait = update::wait(
+            last.map(|at| at.elapsed()),
+            super::power::every(Poll::Update),
+        );
+        // A long wait goes a little at a time: 6 hours, or 24 saving the
+        // battery (spec 0021), looked at again within `RECHECK` of the
+        // charger coming back.
+        if wait > RECHECK {
+            std::thread::sleep(RECHECK);
+            continue;
+        }
+        std::thread::sleep(wait);
         // A failure (no network, GitHub down) is only logged by `check`.
         let _ = tauri::async_runtime::block_on(check(app, true));
         last = Some(Instant::now());

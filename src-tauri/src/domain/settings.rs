@@ -91,6 +91,10 @@ pub struct Settings {
     /// existed counts as shown.
     #[serde(default = "shown")]
     pub tour_shown: bool,
+    /// When the dock saves battery (spec 0021): it stops what moves on its
+    /// own and reads the system less often. A file from before it saves on
+    /// the battery, the default.
+    pub power_saver: PowerSaver,
 }
 
 fn shown() -> bool {
@@ -110,6 +114,7 @@ impl Default for Settings {
             dock_hotkey: hotkey::DOCK_DEFAULT.to_owned(),
             language: Language::default(),
             tour_shown: false,
+            power_saver: PowerSaver::default(),
         }
     }
 }
@@ -221,6 +226,20 @@ pub enum Language {
     PtBr,
     #[serde(rename = "en")]
     En,
+}
+
+/// When the dock saves battery (spec 0021; `domain::power::saving`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PowerSaver {
+    /// Never: everything moves and is read as often as ever.
+    Off,
+    /// While the computer runs on its battery (the author's decision,
+    /// 2026-11-03).
+    #[default]
+    OnBattery,
+    /// Always, plugged in or not.
+    Always,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -852,7 +871,8 @@ mod tests {
               "launcherHotkey": "Alt+Space",
               "dockHotkey": "Alt+Win+Z",
               "language": "system",
-              "tourShown": false
+              "tourShown": false,
+              "powerSaver": "onBattery"
             }"#,
         )
         .unwrap();
@@ -1171,6 +1191,33 @@ mod tests {
                 ..Settings::default()
             }
         );
+    }
+
+    #[test]
+    fn a_file_from_before_the_battery_saver_saves_on_the_battery() {
+        let settings: Settings =
+            serde_json::from_str(r#"{"version":1,"theme":"dark","tourShown":true}"#).unwrap();
+
+        assert_eq!(settings.power_saver, PowerSaver::OnBattery);
+        assert_eq!(settings.validate(), Ok(()));
+    }
+
+    #[test]
+    fn the_battery_saver_round_trips_with_camel_case_names() {
+        for (mode, name) in [
+            (PowerSaver::Off, "off"),
+            (PowerSaver::OnBattery, "onBattery"),
+            (PowerSaver::Always, "always"),
+        ] {
+            let settings = Settings {
+                power_saver: mode,
+                ..Settings::default()
+            };
+            let json = serde_json::to_value(&settings).unwrap();
+            assert_eq!(json["powerSaver"], name);
+            assert_eq!(serde_json::from_value::<Settings>(json).unwrap(), settings);
+        }
+        assert!(serde_json::from_str::<PowerSaver>("\"battery\"").is_err());
     }
 
     #[test]

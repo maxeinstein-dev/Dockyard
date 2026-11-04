@@ -16,6 +16,7 @@ import type {
   KeywordProblem,
   Language,
   OpenAnimation,
+  PowerSaver,
   SettingsErrorCode,
   SizePreset,
   TaskbarMode,
@@ -77,12 +78,21 @@ const messages = {
       opacity: "Opacidade do dock",
       taskbar: "Barra de tarefas do Windows",
       middleClick: "Botão do meio",
+      powerSaver: "Economia de bateria",
     },
     /** What the middle button does on a program of the dock. */
     middleClick: {
       newInstance: "Nova instância",
       none: "Nada",
     } satisfies Record<MiddleClick, string>,
+    /** When the dock saves battery (spec 0021). */
+    powerSaver: {
+      off: "Desligada",
+      onBattery: "Na bateria",
+      always: "Sempre",
+    } satisfies Record<PowerSaver, string>,
+    powerSaverHint:
+      "Para o letreiro e o pulo ao abrir e lê o sistema com menos frequência",
     /** The Configurações app (spec 0011 H1): its sections, in the side
      * bar. */
     app: {

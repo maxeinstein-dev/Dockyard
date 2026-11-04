@@ -1,12 +1,13 @@
 //! The Tocando agora (spec 0017 F4): the media session Windows shows in its
 //! own controls (`GlobalSystemMediaTransportControlsSessionManager`), read
-//! every second while a dock has the widget, and stopped when none has. Only
-//! what plays now stays, in memory: title, artist, the program, and the
-//! cover once per track.
+//! every second (every 3 saving the battery, spec 0021) while a dock has the
+//! widget, and stopped when none has. Only what plays now stays, in memory:
+//! title, artist, the program, and the cover once per track.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, Once, OnceLock};
-use std::time::Duration;
+
+use crate::domain::power::Poll;
 
 use windows::Media::Control::{
     GlobalSystemMediaTransportControlsSessionManager as Manager,
@@ -53,7 +54,6 @@ static STARTED: Once = Once::new();
 /// The reading thread, woken when a dock wants it again.
 static READER: OnceLock<std::thread::Thread> = OnceLock::new();
 
-const EVERY: Duration = Duration::from_secs(1);
 /// The largest cover kept: 2 MB.
 const MAX_ART: u64 = 2 * 1024 * 1024;
 
@@ -267,7 +267,8 @@ fn run() {
     let _ = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
     let mut found: Option<Manager> = None;
     loop {
-        std::thread::sleep(EVERY);
+        // Every second; every 3 while the battery is saved (spec 0021).
+        std::thread::sleep(super::power::every(Poll::Media));
         if !WANTED.load(Ordering::Relaxed) {
             // Asleep until a dock wants it: `want` wakes it.
             std::thread::park();
