@@ -99,12 +99,14 @@ pub(super) fn at_screen_edge(point: (i32, i32), monitor: Rect, edge: DockEdge) -
     let (x, y) = point;
     let right = monitor.x.saturating_add_unsigned(monitor.width);
     let bottom = monitor.y.saturating_add_unsigned(monitor.height);
-    if x < monitor.x || x >= right {
+    if x < monitor.x || x >= right || y < monitor.y || y >= bottom {
         return false;
     }
     match edge {
-        DockEdge::Bottom => y >= bottom - 2 && y < bottom,
-        DockEdge::Top => y >= monitor.y && y < monitor.y + 2,
+        DockEdge::Bottom => y >= bottom - 2,
+        DockEdge::Top => y < monitor.y + 2,
+        DockEdge::Left => x < monitor.x + 2,
+        DockEdge::Right => x >= right - 2,
     }
 }
 
@@ -113,12 +115,14 @@ pub(super) fn at_screen_edge(point: (i32, i32), monitor: Rect, edge: DockEdge) -
 pub(super) fn near_dock(point: (i32, i32), window: Rect, monitor: Rect, edge: DockEdge) -> bool {
     let (x, y) = point;
     let right = window.x.saturating_add_unsigned(window.width);
-    if x < window.x || x >= right {
-        return false;
-    }
+    let bottom = window.y.saturating_add_unsigned(window.height);
     match edge {
+        DockEdge::Bottom | DockEdge::Top if x < window.x || x >= right => false,
+        DockEdge::Left | DockEdge::Right if y < window.y || y >= bottom => false,
         DockEdge::Bottom => y >= window.y && y < monitor.y.saturating_add_unsigned(monitor.height),
-        DockEdge::Top => y >= monitor.y && y < window.y.saturating_add_unsigned(window.height),
+        DockEdge::Top => y >= monitor.y && y < bottom,
+        DockEdge::Left => x >= monitor.x && x < right,
+        DockEdge::Right => x >= window.x && x < monitor.x.saturating_add_unsigned(monitor.width),
     }
 }
 

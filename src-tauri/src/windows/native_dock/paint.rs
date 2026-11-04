@@ -331,6 +331,10 @@ pub struct Dot {
 pub struct Scene {
     pub palette: Palette,
     pub look: Look,
+    /// On a side (spec 0028) the bar is painted as on the edge it is laid
+    /// out from (the left as the top, the right as the bottom) until step 3
+    /// paints the column: the shelf, the light edge, the reflection, the
+    /// indicator and the label.
     pub edge: DockEdge,
     pub pad: f64,
     pub icon: f64,
@@ -1204,8 +1208,8 @@ impl Painter {
         let height = scene.pad + 9.0;
         let inset = bar.width * 0.03;
         let (near, far) = match scene.edge {
-            DockEdge::Bottom => (bar.y + bar.height, bar.y + bar.height - height),
-            DockEdge::Top => (bar.y, bar.y + height),
+            DockEdge::Bottom | DockEdge::Right => (bar.y + bar.height, bar.y + bar.height - height),
+            DockEdge::Top | DockEdge::Left => (bar.y, bar.y + height),
         };
         let Ok(geometry) = (unsafe { self.factory.CreatePathGeometry() }) else {
             return;
@@ -1251,8 +1255,8 @@ impl Painter {
         };
         let lit = 2.0 / bar.height as f32;
         let (start, end) = match scene.edge {
-            DockEdge::Bottom => (v(0.0, bar.y), v(0.0, bar.y + bar.height)),
-            DockEdge::Top => (v(0.0, bar.y + bar.height), v(0.0, bar.y)),
+            DockEdge::Bottom | DockEdge::Right => (v(0.0, bar.y), v(0.0, bar.y + bar.height)),
+            DockEdge::Top | DockEdge::Left => (v(0.0, bar.y + bar.height), v(0.0, bar.y)),
         };
         if let Some(edge) = self.gradient(&[(0.0, hi), (lit, hi.with_alpha(0.0))], start, end) {
             unsafe {
@@ -1352,7 +1356,7 @@ impl Painter {
         let area = tile.area;
         let reach = area.height * 0.15;
         let (edge, start, end, clip) = match scene.edge {
-            DockEdge::Bottom => {
+            DockEdge::Bottom | DockEdge::Right => {
                 let edge = area.y + area.height;
                 (
                     edge,
@@ -1365,7 +1369,7 @@ impl Painter {
                     },
                 )
             }
-            DockEdge::Top => (
+            DockEdge::Top | DockEdge::Left => (
                 area.y,
                 v(0.0, area.y),
                 v(0.0, area.y - reach),
@@ -2716,15 +2720,15 @@ impl Painter {
                 .solid(scene.indicator_color.with_alpha(opacity))
                 .clone();
             let edge_y = match scene.edge {
-                DockEdge::Bottom => scene.bar.y + scene.bar.height - 1.0,
-                DockEdge::Top => scene.bar.y + 1.0,
+                DockEdge::Bottom | DockEdge::Right => scene.bar.y + scene.bar.height - 1.0,
+                DockEdge::Top | DockEdge::Left => scene.bar.y + 1.0,
             };
             unsafe {
                 match scene.indicator {
                     Indicator::Dot => {
                         let cy = match scene.edge {
-                            DockEdge::Bottom => edge_y - 2.0,
-                            DockEdge::Top => edge_y + 2.0,
+                            DockEdge::Bottom | DockEdge::Right => edge_y - 2.0,
+                            DockEdge::Top | DockEdge::Left => edge_y + 2.0,
                         };
                         self.target.FillEllipse(
                             &D2D1_ELLIPSE {
@@ -2737,8 +2741,8 @@ impl Painter {
                     }
                     Indicator::Dash => {
                         let top = match scene.edge {
-                            DockEdge::Bottom => edge_y - 3.0,
-                            DockEdge::Top => edge_y,
+                            DockEdge::Bottom | DockEdge::Right => edge_y - 3.0,
+                            DockEdge::Top | DockEdge::Left => edge_y,
                         };
                         self.target.FillRoundedRectangle(
                             &D2D1_ROUNDED_RECT {
@@ -3050,8 +3054,8 @@ impl Painter {
             None => x,
         };
         let top = match scene.edge {
-            DockEdge::Bottom => y - 24.0,
-            DockEdge::Top => y,
+            DockEdge::Bottom | DockEdge::Right => y - 24.0,
+            DockEdge::Top | DockEdge::Left => y,
         };
         let pill = Area {
             x: x - width / 2.0,

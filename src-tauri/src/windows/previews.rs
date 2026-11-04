@@ -379,6 +379,9 @@ fn slide_offset(edge: DockEdge, scale: f64, done: f64) -> f64 {
     match edge {
         DockEdge::Bottom => distance,
         DockEdge::Top => -distance,
+        // On a side the card would slide along x: until step 5 of spec 0028
+        // it appears in place.
+        DockEdge::Left | DockEdge::Right => 0.0,
     }
 }
 
