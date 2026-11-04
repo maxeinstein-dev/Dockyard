@@ -208,6 +208,12 @@ const EXPECTED_CAPABILITIES: &[(&str, &str, &[&str], &[&str])] = &[
             "allow-update-status",
             "allow-check-for-update",
             "allow-install-update",
+            // Exporting and importing the dock (spec 0026): Rust shows the
+            // dialogs and reads and writes the files.
+            "allow-export-copy",
+            "allow-choose-import",
+            "allow-confirm-import",
+            "allow-cancel-import",
             "log:allow-log",
         ],
     ),

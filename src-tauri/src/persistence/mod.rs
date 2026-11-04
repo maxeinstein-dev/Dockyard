@@ -9,5 +9,6 @@ pub mod icon_packs;
 pub mod launcher_repo;
 pub mod notes_repo;
 pub mod settings_file;
+pub mod transfer;
 pub mod widgets_repo;
 pub mod workspaces_repo;
