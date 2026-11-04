@@ -3,6 +3,8 @@ import {
   MAX_WORKSPACES,
   WORKSPACE_COLORS,
   createWorkspace,
+  copyName,
+  duplicateWorkspace,
   deleteWorkspace,
   isValidWorkspaceName,
   isWorkspaceCommandError,
@@ -71,6 +73,21 @@ function WorkspacesPanel({
   function create() {
     setError(null);
     createWorkspace().then((made) => onSelect(made.id), fail);
+  }
+
+  function duplicate() {
+    if (!selected) return;
+    setError(null);
+    const name = copyName(
+      selected.name,
+      text.copyName,
+      workspaces.map((each) => each.name),
+    );
+    duplicateWorkspace(selected.id, name).then((made) => {
+      setConfirming(false);
+      setDraft(null);
+      onSelect(made.id);
+    }, fail);
   }
 
   function commitName() {
@@ -217,6 +234,17 @@ function WorkspacesPanel({
                   onClick={onEditItems}
                 >
                   {text.editItems}
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  aria-label={format(text.duplicateLabel, {
+                    name: selected.name,
+                  })}
+                  disabled={workspaces.length >= MAX_WORKSPACES}
+                  onClick={duplicate}
+                >
+                  {text.duplicate}
                 </button>
                 <IconButton
                   icon="up"

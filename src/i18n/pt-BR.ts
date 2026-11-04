@@ -108,6 +108,12 @@ const messages = {
       },
       /** The top of the side bar (spec 0014 R1). */
       brand: "Configurações",
+      /** The search at the top of the side bar (estudo 0002 F6). */
+      search: {
+        label: "Buscar nos ajustes",
+        results: "Resultados da busca",
+        none: "Nenhum ajuste com “{query}”.",
+      },
       /** The line under each section's title. */
       leads: {
         general: "Como o Dockyard se encaixa no Windows.",
@@ -594,6 +600,10 @@ const messages = {
     counts: "{apps} apps e {widgets} widgets",
     editApps: "Editar apps",
     editItems: "Editar widgets",
+    /** F7 of estudo 0002. */
+    duplicate: "Duplicar",
+    duplicateLabel: "Duplicar {name}",
+    copyName: "{name} (cópia)",
     moveUp: "Subir {name}",
     moveDown: "Descer {name}",
     remove: "Excluir {name}",

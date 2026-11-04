@@ -106,6 +106,7 @@ export function isWorkspaceCommandError(
 export const WORKSPACE_COMMANDS = {
   list: "list_workspaces",
   create: "create_workspace",
+  duplicate: "duplicate_workspace",
   rename: "rename_workspace",
   recolor: "recolor_workspace",
   move: "move_workspace",
@@ -139,6 +140,35 @@ export function listWorkspaces(): Promise<WorkspacesSnapshot> {
 /** Makes a workspace at the end, empty, with the next free color. */
 export function createWorkspace(name?: string): Promise<Workspace> {
   return run(WORKSPACE_COMMANDS.create, name === undefined ? {} : { name });
+}
+
+/** A copy of the workspace `id` right after it (F7 of estudo 0002), named
+ * `name`: the same programs and widgets, its own spacers and stacks. */
+export function duplicateWorkspace(
+  id: string,
+  name: string,
+): Promise<Workspace> {
+  return run(WORKSPACE_COMMANDS.duplicate, { id, name });
+}
+
+/** The name of a copy of the workspace `name`: `template` ("{name}
+ * (cópia)") with the name cut to fit, and a number when it is taken
+ * ("Principal (cópia) 2"). */
+export function copyName(
+  name: string,
+  template: string,
+  taken: readonly string[],
+): string {
+  for (let number = 1; ; number += 1) {
+    const suffix = number === 1 ? "" : ` ${number}`;
+    const room =
+      MAX_WORKSPACE_NAME -
+      [...template.replace("{name}", "")].length -
+      [...suffix].length;
+    const cut = [...name].slice(0, Math.max(room, 1)).join("").trimEnd();
+    const made = `${template.replace("{name}", cut)}${suffix}`;
+    if (!taken.includes(made)) return made;
+  }
 }
 
 export function renameWorkspace(id: string, name: string): Promise<void> {

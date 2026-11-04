@@ -175,3 +175,80 @@ body {
   font-size: 13px;
   color: var(--ink-2);
 }
+
+/* The search of the side bar (estudo 0002 F6): the field under the brand,
+   and the results in place of the sections while it holds something. */
+.settings-search {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--field-line);
+  border-radius: var(--r-panel);
+  background: var(--field);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+}
+
+.settings-search:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.settings-results {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+}
+
+.settings-result {
+  display: grid;
+  gap: 1px;
+}
+
+.settings-result-where {
+  font-size: var(--fs-caption);
+  color: var(--ink-2);
+}
+
+.settings-results-none {
+  margin: 4px 10px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.settings-results-none:empty {
+  display: none;
+}
+
+/* The row a result led to, marked for a moment. */
+.search-hit {
+  border-radius: var(--r-panel);
+  animation: search-hit 1.6s ease-out;
+}
+
+@keyframes search-hit {
+  0%,
+  40% {
+    box-shadow: 0 0 0 2px var(--accent);
+    background: var(--hair);
+  }
+  100% {
+    box-shadow: 0 0 0 2px transparent;
+    background: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .search-hit {
+    animation: none;
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+}
+
+@media (forced-colors: active) {
+  .search-hit {
+    outline: 2px solid Highlight;
+  }
+}

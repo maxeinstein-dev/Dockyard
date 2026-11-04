@@ -88,6 +88,7 @@ fn main() {
             "capture_dock_hotkey",
             "list_workspaces",
             "create_workspace",
+            "duplicate_workspace",
             "rename_workspace",
             "recolor_workspace",
             "move_workspace",
