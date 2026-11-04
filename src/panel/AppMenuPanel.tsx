@@ -15,7 +15,6 @@ import {
   type AppErrorCode,
   type AppIconOptions,
   type AppMenu,
-  type FolderEntryKind,
   type PinnedApp,
 } from "../core/apps";
 import { moveAppWindows, type WorkspacesSnapshot } from "../core/workspaces";
@@ -23,20 +22,9 @@ import { format, useT } from "../i18n";
 import PanelFooter from "./PanelFooter";
 import MoveToWorkspace from "./parts/MoveToWorkspace";
 import Icon from "./parts/Icon";
+import { ENTRY_ICONS } from "./parts/entryIcons";
 import PanelHeader from "./parts/PanelHeader";
 import "./AppMenuPanel.css";
-
-/** The glyph of an entry of a pinned folder (spec 0025). */
-const ENTRY_ICONS = {
-  folder: "folder",
-  image: "image",
-  video: "play",
-  audio: "play",
-  document: "file",
-  archive: "archive",
-  program: "launch",
-  other: "file",
-} as const satisfies Record<FolderEntryKind, string>;
 
 /** Props of the menu of a pinned program (spec 0006 §6): what the Windows
  * taskbar shows on right click, its Jump List, and a few actions of the

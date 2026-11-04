@@ -8,6 +8,7 @@ pub mod launcher;
 pub mod media;
 pub mod panel;
 pub mod pomodoro;
+pub mod recent_files;
 pub mod screenshots;
 pub mod settings;
 pub mod skins;

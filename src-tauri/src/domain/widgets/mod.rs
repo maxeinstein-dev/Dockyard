@@ -146,8 +146,9 @@ closed_set!(WidgetKind {
 });
 
 impl WidgetKind {
-    /// Whether `add_widget` may create this kind in this phase. Shortcut and
-    /// Files exist only in the domain until phase 3 (spec 0003 §2.5).
+    /// Whether `add_widget` may create this kind. Shortcut exists only in
+    /// the domain (spec 0003 §2.5); Files became the Arquivos (F9 of estudo
+    /// 0002).
     pub const fn creatable(self) -> bool {
         match self {
             WidgetKind::Clock
@@ -167,8 +168,9 @@ impl WidgetKind {
             | WidgetKind::Launcher
             | WidgetKind::Keyboard
             | WidgetKind::WorldClock
-            | WidgetKind::Screenshots => true,
-            WidgetKind::Shortcut | WidgetKind::Files => false,
+            | WidgetKind::Screenshots
+            | WidgetKind::Files => true,
+            WidgetKind::Shortcut => false,
         }
     }
 
@@ -917,7 +919,7 @@ mod tests {
     }
 
     #[test]
-    fn only_shortcut_and_files_are_not_creatable() {
+    fn only_shortcut_is_not_creatable() {
         let creatable: Vec<_> = WidgetKind::ALL
             .into_iter()
             .filter(|kind| kind.creatable())
@@ -929,6 +931,7 @@ mod tests {
                 WidgetKind::Clock,
                 WidgetKind::TimeProgress,
                 WidgetKind::Note,
+                WidgetKind::Files,
                 WidgetKind::Activity,
                 WidgetKind::Network,
                 WidgetKind::Calendar,
@@ -1121,7 +1124,7 @@ mod tests {
                 WidgetKind::Shortcut,
                 json!({ "target": { "type": "path", "path": "C:\\" } }),
             ),
-            (WidgetKind::Files, json!({ "folder": "C:\\" })),
+            (WidgetKind::Files, json!({})),
             (
                 WidgetKind::Activity,
                 json!({ "show": "both", "style": "bars", "width": 1 }),
@@ -1479,16 +1482,6 @@ mod tests {
                 WidgetKind::Shortcut,
                 r#"{"target":{"type":"url","url":"file:///C:/Windows"}}"#,
                 WidgetError::InvalidTarget,
-            ),
-            (
-                WidgetKind::Files,
-                r#"{"folder":"Downloads"}"#,
-                WidgetError::InvalidFolder,
-            ),
-            (
-                WidgetKind::Files,
-                r#"{"folder":""}"#,
-                WidgetError::InvalidFolder,
             ),
         ];
         for (kind, json, error) in cases {

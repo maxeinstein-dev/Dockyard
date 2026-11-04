@@ -2,7 +2,7 @@
 
 F12 do [estudo 0002](../estudos/0002-melhorias-e-funcionalidades.md). O estudo pedia "os widgets largos viram altos com o dock na esquerda ou na direita". Só que o Dockyard ainda não tem dock na lateral: só existem as bordas de baixo e de cima (`DockEdge { Bottom, Top }`). Por isso a F12 vira o dock lateral inteiro, e os widgets em pé são uma parte dele.
 
-**Status:** proposta, à espera das decisões do autor (§8). Nada de código antes delas.
+**Status:** aprovada em 2026-11-04, com as propostas do §8. Os passos do §5 entram um por PR.
 
 ## 1. O que muda para quem usa
 
@@ -123,6 +123,8 @@ Até o passo 8, a lateral só é alcançada mudando o `settings.json` à mão, p
   - a barra do Windows volta como estava ao fechar.
 
 ## 8. Decisões do autor
+
+O autor aprovou as nove propostas em 2026-11-04 ("pode seguir com as propostas").
 
 | # | Pergunta | Proposta |
 |---|---|---|

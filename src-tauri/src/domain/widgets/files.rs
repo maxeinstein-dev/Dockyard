@@ -1,101 +1,80 @@
-//! Files widget config (spec 0003 §2.5): the folder it lists. Only in the
-//! domain in this phase: it can't be created, and listing comes in phase 3.
+//! The Arquivos (F9 of estudo 0002): an item of the dock whose panel shows
+//! the documents opened last, in any program, as Windows keeps them in its
+//! Recent folder; to open again or drag out.
+//!
+//! Declared in spec 0003 §2.5 as "the list of a folder", which a folder
+//! pinned to the dock does since spec 0025: the kind kept its name and
+//! became the recent files. It has nothing to keep, so the config is empty
+//! and stays `{}`; a config of the old shape (with a `folder`) reads as it.
 
 use serde::{Deserialize, Serialize};
 
 use super::WidgetError;
-use super::path::is_absolute_windows_path;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
-pub struct FilesConfig {
-    /// Absolute Windows path of the folder: drive letter or UNC.
-    pub folder: String,
-}
+/// How many recent files the panel shows.
+pub const MAX_SHOWN: usize = 16;
 
-impl Default for FilesConfig {
-    /// The root of the system drive. It exists only so a stored config that
-    /// can't be read still gives a valid instance (spec 0003 §2.4 item 6).
-    fn default() -> Self {
-        FilesConfig {
-            folder: r"C:\".to_owned(),
-        }
-    }
-}
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct FilesConfig {}
 
 impl FilesConfig {
-    /// Checks the folder's text only, with no disk access: an absolute
-    /// Windows path, the same rule as a shortcut's path (see
-    /// [`is_absolute_windows_path`]). Whether it exists and is a folder is
-    /// for the listing, in phase 3.
+    /// Always valid: there is nothing in it.
     pub fn validate(&self) -> Result<(), WidgetError> {
-        if is_absolute_windows_path(&self.folder) {
-            Ok(())
-        } else {
-            Err(WidgetError::InvalidFolder)
+        Ok(())
+    }
+}
+
+/// The recent files to show from the targets of the Recent folder's links,
+/// the newest first: each file once, at most `MAX_SHOWN`. `keep` says
+/// whether a target is still a file (the caller looks at the disk).
+pub fn recent(targets: Vec<String>, keep: impl Fn(&str) -> bool) -> Vec<String> {
+    let mut shown: Vec<String> = Vec::new();
+    for target in targets {
+        if shown.len() == MAX_SHOWN {
+            break;
+        }
+        let known = shown.iter().any(|seen| seen.eq_ignore_ascii_case(&target));
+        if !target.is_empty() && !known && keep(&target) {
+            shown.push(target);
         }
     }
+    shown
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn with_folder(folder: &str) -> FilesConfig {
-        FilesConfig {
-            folder: folder.to_owned(),
-        }
-    }
-
     #[test]
-    fn default_is_the_system_drive_root_and_valid() {
-        assert_eq!(FilesConfig::default().folder, r"C:\");
-        assert_eq!(FilesConfig::default().validate(), Ok(()));
-    }
-
-    #[test]
-    fn absolute_folders_are_accepted() {
-        for folder in [
-            r"C:\Users\Public\Downloads",
-            "D:/Fotos",
-            r"\\server\share\Downloads",
-        ] {
-            assert_eq!(with_folder(folder).validate(), Ok(()), "{folder:?}");
-        }
-    }
-
-    #[test]
-    fn folders_that_are_not_absolute_windows_paths_are_rejected() {
-        for folder in [
-            "",
-            "Downloads",
-            r".\Downloads",
-            "C:",
-            "C:Downloads",
-            r"\Downloads",
-            r"\\server",
-            r"\\?\C:\Downloads",
-            r"\\.\C:\Downloads",
-            "C:\\Down\0loads",
-            "https://example.com/",
-            "file:///C:/Downloads",
-        ] {
-            assert_eq!(
-                with_folder(folder).validate(),
-                Err(WidgetError::InvalidFolder),
-                "{folder:?}"
-            );
-        }
-        let too_long = format!(r"C:\{}", "a".repeat(32_765));
+    fn the_config_is_empty_and_reads_the_old_shape() {
         assert_eq!(
-            with_folder(&too_long).validate(),
-            Err(WidgetError::InvalidFolder)
+            serde_json::to_string(&FilesConfig::default()).unwrap(),
+            "{}"
+        );
+        let old: FilesConfig = serde_json::from_str(r#"{"folder": "C:\\"}"#).unwrap();
+        assert_eq!(old, FilesConfig::default());
+        assert_eq!(old.validate(), Ok(()));
+    }
+
+    #[test]
+    fn each_file_once_the_newest_first_only_those_kept() {
+        let targets = vec![
+            r"C:\a.txt".to_owned(),
+            String::new(),
+            r"C:\gone.txt".to_owned(),
+            r"c:\A.TXT".to_owned(),
+            r"C:\b.pdf".to_owned(),
+        ];
+        assert_eq!(
+            recent(targets, |target| !target.contains("gone")),
+            vec![r"C:\a.txt".to_owned(), r"C:\b.pdf".to_owned()]
         );
     }
 
     #[test]
-    fn the_error_message_never_names_the_folder() {
-        let message = with_folder("Downloads").validate().unwrap_err().to_string();
-        assert!(!message.contains("Downloads"), "{message}");
+    fn no_more_than_shown() {
+        let targets = (0..40).map(|n| format!(r"C:\{n}.txt")).collect();
+        assert_eq!(recent(targets, |_| true).len(), MAX_SHOWN);
     }
 }
