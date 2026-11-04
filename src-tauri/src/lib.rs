@@ -348,6 +348,8 @@ pub(crate) fn release_on_exit<R: Runtime>(app: &AppHandle<R>) {
     // The edge and the taskbar go back before anything else.
     #[cfg(windows)]
     {
+        // No window may stay hidden by the Espiar (spec 0027).
+        windows::previews::stop_peek();
         windows::tray_host::stop();
         windows::appbar::remove();
         windows::taskbar::release();
