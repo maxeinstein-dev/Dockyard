@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppMenu, PinnedApp } from "../core/apps";
 import type { WorkspacesSnapshot } from "../core/workspaces";
+import { format } from "../i18n";
 import { ptBR } from "../i18n/pt-BR";
 import AppMenuPanel from "./AppMenuPanel";
 import { getAlert } from "../test/alerts";
@@ -332,16 +333,23 @@ describe("AppMenuPanel's icon (spec 0024)", () => {
     answer(MENU, { app_icon_options: () => Promise.resolve(OPTIONS) });
   });
 
+  const line = () => item(format(text.icon.title, { current: "Retrô" }));
   const choice = (name: string) => screen.getByRole("menuitemradio", { name });
 
-  it("offers the dock's pack, the original, each pack and an image, the one worn checked", async () => {
+  it("is one line saying what it wears until opened", async () => {
     await renderMenu();
 
-    const group = screen.getByRole("group", { name: text.icon.title });
+    expect(line()).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryAllByRole("menuitemradio")).toEqual([]);
+  });
+
+  it("opens to the dock's pack, the original, each pack and an image, the one worn checked", async () => {
+    await renderMenu();
+    fireEvent.click(line());
+
+    expect(line()).toHaveAttribute("aria-expanded", "true");
     expect(
-      within(group)
-        .getAllByRole("menuitemradio")
-        .map((button) => button.textContent),
+      screen.getAllByRole("menuitemradio").map((button) => button.textContent),
     ).toEqual([
       text.icon.dock,
       text.icon.original,
@@ -356,6 +364,7 @@ describe("AppMenuPanel's icon (spec 0024)", () => {
   it("asks Rust for the choice by the pinned id and closes", async () => {
     const onDone = vi.fn();
     await renderMenu(onDone);
+    fireEvent.click(line());
 
     fireEvent.click(choice("Pixel"));
     await flush();
@@ -372,6 +381,7 @@ describe("AppMenuPanel's icon (spec 0024)", () => {
   it("leaves the image to Rust's dialog and closes at once", async () => {
     const onDone = vi.fn();
     await renderMenu(onDone);
+    fireEvent.click(line());
 
     fireEvent.click(choice(text.icon.image));
 

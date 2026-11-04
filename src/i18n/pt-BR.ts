@@ -666,7 +666,9 @@ const messages = {
       moveTo: "Mover para {name}",
       /** Spec 0024: what the program wears instead of the dock's pack. */
       icon: {
-        title: "Ícone",
+        /** The line that opens the choices: `{current}` what it wears. */
+        title: "Ícone: {current}",
+        custom: "Imagem própria",
         dock: "O do dock",
         original: "Original do Windows",
         image: "Escolher imagem…",

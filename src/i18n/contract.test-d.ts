@@ -476,7 +476,8 @@ export const otherText: Messages = {
       pin: "Pin to dock",
       moveTo: "Move to {name}",
       icon: {
-        title: "Icon",
+        title: "Icon: {current}",
+        custom: "Own image",
         dock: "The dock's",
         original: "Windows original",
         image: "Choose image…",

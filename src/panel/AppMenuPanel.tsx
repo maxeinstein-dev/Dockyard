@@ -68,8 +68,10 @@ function AppMenuPanel({
     id: string;
     options: AppIconOptions;
   } | null>(null);
+  const [iconsOpen, setIconsOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
-  const iconHeading = useId();
+  /** The last choice of "Ícone": scrolled into view when the list opens. */
+  const lastIcon = useRef<HTMLButtonElement>(null);
 
   const menu = read !== null && read.id === app.id ? read.menu : null;
 
@@ -104,6 +106,23 @@ function AppMenuPanel({
       active = false;
     };
   }, [app.id]);
+
+  // The list of icons opened: all of it in view, the menu scrolling.
+  useEffect(() => {
+    if (iconsOpen) lastIcon.current?.scrollIntoView?.({ block: "nearest" });
+  }, [iconsOpen]);
+
+  /** The name of what the program wears now, for the closed line. */
+  function wornName(options: AppIconOptions): string {
+    const current = options.current;
+    if (current === null) return text.icon.dock;
+    if (current.kind === "original") return text.icon.original;
+    if (current.kind === "image") return text.icon.custom;
+    return (
+      options.packs.find((pack) => pack.id === current.pack)?.name ??
+      current.pack
+    );
+  }
 
   // The first item takes the focus once the menu is there, so the arrow keys
   // work at once; before that, the first action.
@@ -218,60 +237,73 @@ function AppMenuPanel({
           </button>
         </div>
         {icons !== null && icons.id === app.id ? (
-          <div
-            className="app-menu-section"
-            role="group"
-            aria-labelledby={iconHeading}
-          >
-            <h2 id={iconHeading} className="app-menu-heading">
-              {text.icon.title}
-            </h2>
-            {(
-              [
-                [null, text.icon.dock],
-                [{ kind: "original" }, text.icon.original],
-                ...icons.options.packs.map(
-                  (pack) =>
-                    [{ kind: "pack", pack: pack.id }, pack.name] as const,
-                ),
-              ] as const
-            ).map(([choice, label]) => {
-              const current = icons.options.current;
-              const checked =
-                choice === null
-                  ? current === null
-                  : current !== null &&
-                    current.kind === choice.kind &&
-                    (choice.kind !== "pack" ||
-                      (current.kind === "pack" &&
-                        current.pack === choice.pack));
-              return (
-                <button
-                  key={choice === null ? "dock" : `${choice.kind}:${label}`}
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={checked}
-                  className="app-menu-item"
-                  onClick={() => done(setAppIcon(app.id, choice))}
-                >
-                  {label}
-                </button>
-              );
-            })}
+          <div className="app-menu-section" role="group">
+            {/* One line until opened: a pack per line would bury the rest
+                of the menu (there may be twenty). */}
             <button
               type="button"
-              role="menuitemradio"
-              aria-checked={icons.options.current?.kind === "image"}
+              role="menuitem"
+              aria-haspopup="true"
+              aria-expanded={iconsOpen}
               className="app-menu-item"
-              onClick={() => {
-                // The dialog takes the focus and the panel closes; Rust
-                // keeps the image on its own.
-                chooseAppIconImage(app.id).catch(() => {});
-                onDone();
-              }}
+              onClick={() => setIconsOpen((open) => !open)}
             >
-              {text.icon.image}
+              <Icon name="look" />
+              {format(text.icon.title, {
+                current: wornName(icons.options),
+              })}
             </button>
+            {iconsOpen
+              ? (
+                  [
+                    [null, text.icon.dock],
+                    [{ kind: "original" }, text.icon.original],
+                    ...icons.options.packs.map(
+                      (pack) =>
+                        [{ kind: "pack", pack: pack.id }, pack.name] as const,
+                    ),
+                  ] as const
+                ).map(([choice, label]) => {
+                  const current = icons.options.current;
+                  const checked =
+                    choice === null
+                      ? current === null
+                      : current !== null &&
+                        current.kind === choice.kind &&
+                        (choice.kind !== "pack" ||
+                          (current.kind === "pack" &&
+                            current.pack === choice.pack));
+                  return (
+                    <button
+                      key={choice === null ? "dock" : `${choice.kind}:${label}`}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={checked}
+                      className="app-menu-item app-menu-choice"
+                      onClick={() => done(setAppIcon(app.id, choice))}
+                    >
+                      {label}
+                    </button>
+                  );
+                })
+              : null}
+            {iconsOpen ? (
+              <button
+                ref={lastIcon}
+                type="button"
+                role="menuitemradio"
+                aria-checked={icons.options.current?.kind === "image"}
+                className="app-menu-item app-menu-choice"
+                onClick={() => {
+                  // The dialog takes the focus and the panel closes; Rust
+                  // keeps the image on its own.
+                  chooseAppIconImage(app.id).catch(() => {});
+                  onDone();
+                }}
+              >
+                {text.icon.image}
+              </button>
+            ) : null}
           </div>
         ) : null}
         {openCount > 0 ? (
