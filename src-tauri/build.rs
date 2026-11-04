@@ -73,6 +73,7 @@ fn main() {
             "app_icon_options",
             "set_app_icon",
             "choose_app_icon_image",
+            "empty_recycle_bin",
             "run_app_entry",
             "reveal_app",
             "list_icon_packs",

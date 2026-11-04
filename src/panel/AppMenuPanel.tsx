@@ -5,6 +5,7 @@ import {
   appIconOptions,
   appMenu,
   chooseAppIconImage,
+  emptyRecycleBin,
   isAppCommandError,
   launchApp,
   revealApp,
@@ -14,6 +15,7 @@ import {
   type AppErrorCode,
   type AppIconOptions,
   type AppMenu,
+  type FolderEntryKind,
   type PinnedApp,
 } from "../core/apps";
 import { moveAppWindows, type WorkspacesSnapshot } from "../core/workspaces";
@@ -23,6 +25,18 @@ import MoveToWorkspace from "./parts/MoveToWorkspace";
 import Icon from "./parts/Icon";
 import PanelHeader from "./parts/PanelHeader";
 import "./AppMenuPanel.css";
+
+/** The glyph of an entry of a pinned folder (spec 0025). */
+const ENTRY_ICONS = {
+  folder: "folder",
+  image: "image",
+  video: "play",
+  audio: "play",
+  document: "file",
+  archive: "archive",
+  program: "launch",
+  other: "file",
+} as const satisfies Record<FolderEntryKind, string>;
 
 /** Props of the menu of a pinned program (spec 0006 §6): what the Windows
  * taskbar shows on right click, its Jump List, and a few actions of the
@@ -161,6 +175,15 @@ function AppMenuPanel({
 
   const sections = menu !== null && menu !== "failed" ? menu.sections : [];
   const canReveal = menu !== null && menu !== "failed" && menu.canReveal;
+  // A folder or the Recycle Bin pinned like a program (spec 0025).
+  const place = menu !== null && menu !== "failed" ? menu.place : "program";
+  const unreadable = place === "folder" && sections.length === 0;
+  const footer =
+    place === "folder"
+      ? text.folder.footer
+      : place === "recycleBin"
+        ? text.bin.footer
+        : text.footer;
 
   return (
     <>
@@ -182,8 +205,48 @@ function AppMenuPanel({
             {text.failed}
           </p>
         ) : null}
+        {unreadable ? (
+          <p className="app-menu-note" role="alert">
+            {text.folder.unreadable}
+          </p>
+        ) : null}
         {sections.map((section, index) => {
           const heading = `${headings}-${index}`;
+          if (section.kind === "files") {
+            return (
+              <div
+                key={index}
+                className="app-menu-section"
+                role="group"
+                aria-labelledby={heading}
+              >
+                <h2 id={heading} className="app-menu-heading">
+                  {text.sections.files}
+                </h2>
+                {section.entries.length === 0 ? (
+                  <p className="app-menu-note">{text.folder.empty}</p>
+                ) : null}
+                <div className="app-menu-files">
+                  {section.entries.map((entry) => (
+                    <button
+                      key={entry.key}
+                      type="button"
+                      role="menuitem"
+                      className="app-menu-file"
+                      title={entry.title}
+                      onClick={() => done(runAppEntry(app.id, entry.key))}
+                    >
+                      <Icon name={ENTRY_ICONS[entry.kind ?? "other"]} />
+                      <span className="app-menu-file-name">{entry.title}</span>
+                    </button>
+                  ))}
+                </div>
+                {menu !== null && menu !== "failed" && menu.more ? (
+                  <p className="app-menu-note">{text.folder.more}</p>
+                ) : null}
+              </div>
+            );
+          }
           return (
             <div
               key={index}
@@ -215,9 +278,24 @@ function AppMenuPanel({
             className="app-menu-item"
             onClick={() => done(launchApp(app.id))}
           >
-            <Icon name="launch" />
-            {openLabel}
+            <Icon name={place === "program" ? "launch" : "folder"} />
+            {place === "folder"
+              ? text.folder.open
+              : place === "program"
+                ? openLabel
+                : text.open}
           </button>
+          {place === "recycleBin" ? (
+            <button
+              type="button"
+              role="menuitem"
+              className="app-menu-item"
+              onClick={() => done(emptyRecycleBin(app.id))}
+            >
+              <Icon name="trash" />
+              {text.bin.empty}
+            </button>
+          ) : null}
           {canReveal ? (
             <button
               type="button"
@@ -327,9 +405,7 @@ function AppMenuPanel({
           />
         ) : null}
       </div>
-      <PanelFooter alert={error && t.apps.errors[error]}>
-        {text.footer}
-      </PanelFooter>
+      <PanelFooter alert={error && t.apps.errors[error]}>{footer}</PanelFooter>
     </>
   );
 }

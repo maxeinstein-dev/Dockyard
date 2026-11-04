@@ -542,6 +542,7 @@ export const en: Messages = {
         category: "Recent",
         recent: "Recent",
         frequent: "Frequent",
+        files: "Newest",
       },
       loading: "Reading the menu…",
       failed: "This app's menu couldn't be read.",
@@ -562,6 +563,18 @@ export const en: Messages = {
       },
       footer: "The taskbar menu",
       openFooter: "An open app that isn't pinned",
+      folder: {
+        empty: "The folder is empty.",
+        unreadable:
+          "This folder could not be read. It may have been moved or deleted.",
+        more: "The folder has many items: these are the newest of the first 5,000.",
+        open: "Open in File Explorer",
+        footer: "A folder on the dock",
+      },
+      bin: {
+        empty: "Empty Recycle Bin…",
+        footer: "The Windows Recycle Bin",
+      },
     },
     unavailableNotice: {
       title: "Dock apps are unavailable.",

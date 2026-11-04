@@ -664,6 +664,8 @@ const messages = {
         category: "Recentes",
         recent: "Recentes",
         frequent: "Frequentes",
+        /** Spec 0025: the newest entries of a pinned folder. */
+        files: "Mais recentes",
       },
       loading: "Lendo o menu…",
       failed: "Não foi possível ler o menu deste app.",
@@ -688,6 +690,20 @@ const messages = {
       },
       footer: "O menu da barra de tarefas",
       openFooter: "Um app aberto, que não está fixado",
+      /** Spec 0025: a folder pinned to the dock. */
+      folder: {
+        empty: "A pasta está vazia.",
+        unreadable:
+          "Não foi possível ler esta pasta. Ela pode ter sido movida ou apagada.",
+        more: "A pasta tem muitos itens: estes são os mais recentes entre os primeiros 5.000.",
+        open: "Abrir no Explorador",
+        footer: "Uma pasta no dock",
+      },
+      /** Spec 0025: the Recycle Bin pinned to the dock. */
+      bin: {
+        empty: "Esvaziar a Lixeira…",
+        footer: "A Lixeira do Windows",
+      },
     },
     /** Notice of a database that can't be used in this run. */
     unavailableNotice: {

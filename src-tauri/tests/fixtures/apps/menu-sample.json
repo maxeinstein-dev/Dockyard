@@ -19,5 +19,7 @@
       "entries": [{ "key": 3, "title": "New window" }]
     }
   ],
-  "canReveal": true
+  "canReveal": true,
+  "place": "program",
+  "more": false
 }
