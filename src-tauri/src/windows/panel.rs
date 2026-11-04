@@ -185,7 +185,9 @@ impl Panel {
                 WidgetKind::Screenshots => (360.0, 420.0),
                 // Never opened in this phase: `toggle_panel` refuses kinds
                 // that can't be created. The Settings card, if one ever is.
-                WidgetKind::Shortcut | WidgetKind::Files => (320.0, 390.0),
+                // Title, up to sixteen files, footer.
+                WidgetKind::Files => (340.0, 460.0),
+                WidgetKind::Shortcut => (320.0, 390.0),
             },
         }
     }

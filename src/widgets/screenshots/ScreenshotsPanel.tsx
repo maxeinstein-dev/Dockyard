@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent } from "react";
+import { useEffect, useState } from "react";
 import { errorKind, log } from "../../core/log";
 import {
   dragScreenshot,
@@ -13,11 +13,8 @@ import PanelHeader from "../../panel/parts/PanelHeader";
 import type { WidgetPanelProps } from "../contract";
 import { widgetName } from "../names";
 import "../system/system.css";
+import { useDragOut } from "../system/useDragOut";
 import "./screenshots.css";
-
-/** How far, in pixels, the pointer moves with the button held before a
- * press becomes a drag (Windows' own default). */
-const DRAG_DISTANCE = 4;
 
 type Read = ScreenshotsList | "loading" | "failed";
 
@@ -33,10 +30,18 @@ function ScreenshotsPanel({
   const t = useT();
   const text = t.widgets.screenshots;
   const [read, setRead] = useState<Read>("loading");
-  /** Where the button went down, until it moves far enough to drag. */
-  const pressed = useRef<{ key: number; x: number; y: number } | null>(null);
-  /** A drag happened: the click that follows it opens nothing. */
-  const dragged = useRef(false);
+  const handlers = useDragOut(
+    (key) => {
+      dragScreenshot(key).catch((error: unknown) => {
+        log.warn(`screenshots: drag failed: ${errorKind(error)}`);
+      });
+    },
+    (key) => {
+      openScreenshot(key).catch((error: unknown) => {
+        log.warn(`screenshots: open failed: ${errorKind(error)}`);
+      });
+    },
+  );
 
   useEffect(() => {
     let active = true;
@@ -53,36 +58,6 @@ function ScreenshotsPanel({
       active = false;
     };
   }, []);
-
-  function onPointerDown(key: number, event: PointerEvent<HTMLButtonElement>) {
-    if (event.button !== 0) return;
-    dragged.current = false;
-    pressed.current = { key, x: event.clientX, y: event.clientY };
-  }
-
-  function onPointerMove(event: PointerEvent<HTMLButtonElement>) {
-    const start = pressed.current;
-    if (start === null || (event.buttons & 1) === 0) return;
-    const far =
-      Math.abs(event.clientX - start.x) >= DRAG_DISTANCE ||
-      Math.abs(event.clientY - start.y) >= DRAG_DISTANCE;
-    if (!far) return;
-    pressed.current = null;
-    dragged.current = true;
-    dragScreenshot(start.key).catch((error: unknown) => {
-      log.warn(`screenshots: drag failed: ${errorKind(error)}`);
-    });
-  }
-
-  function open(key: number) {
-    if (dragged.current) {
-      dragged.current = false;
-      return;
-    }
-    openScreenshot(key).catch((error: unknown) => {
-      log.warn(`screenshots: open failed: ${errorKind(error)}`);
-    });
-  }
 
   function openFolder() {
     openScreenshotsFolder().catch((error: unknown) => {
@@ -122,13 +97,7 @@ function ScreenshotsPanel({
                   className="shots-item"
                   aria-label={format(text.open, { name: shot.name })}
                   title={shot.name}
-                  onPointerDown={(event) => onPointerDown(shot.key, event)}
-                  onPointerMove={onPointerMove}
-                  onPointerUp={() => {
-                    pressed.current = null;
-                  }}
-                  onDragStart={(event) => event.preventDefault()}
-                  onClick={() => open(shot.key)}
+                  {...handlers(shot.key)}
                 >
                   {shot.picture ? (
                     <img src={shot.picture} alt="" draggable={false} />

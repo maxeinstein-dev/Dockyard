@@ -742,7 +742,7 @@ mod tests {
         let dir = tempdir().unwrap();
         let (mut storage, _) = open(&dir);
 
-        for kind in ["shortcut", "files", "radio", "Clock", "timeProgress", ""] {
+        for kind in ["shortcut", "radio", "Clock", "timeProgress", ""] {
             assert_eq!(
                 add(&mut storage, kind, None).map(|_| ()),
                 Err(WidgetError::NotCreatable),

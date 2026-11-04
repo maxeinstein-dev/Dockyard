@@ -170,7 +170,7 @@ describe("widget commands and event", () => {
 });
 
 describe("widget contract constants", () => {
-  it("every kind but shortcut and files can be created", () => {
+  it("every kind but shortcut can be created", () => {
     expect(CREATABLE_KINDS).toEqual([
       "clock",
       "time-progress",
@@ -190,6 +190,7 @@ describe("widget contract constants", () => {
       "keyboard",
       "world-clock",
       "screenshots",
+      "files",
     ]);
     expect(CREATABLE_KINDS.every((kind) => WIDGET_KINDS.includes(kind))).toBe(
       true,

@@ -64,6 +64,7 @@ pub mod previews;
 pub mod profiles;
 #[cfg(windows)]
 pub mod program_name;
+pub mod recent_files;
 #[cfg(windows)]
 pub mod recovery;
 pub mod screenshots;
