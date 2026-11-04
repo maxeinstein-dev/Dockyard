@@ -27,6 +27,7 @@ const INSTANCES = {
   keyboard: WIDGET_FIXTURES["keyboard-default"],
   "world-clock": WIDGET_FIXTURES["world-clock-sample"],
   screenshots: WIDGET_FIXTURES["screenshots-default"],
+  files: WIDGET_FIXTURES["files-default"],
 } as const;
 
 // 2026-10-15 18:07:05 UTC, a Thursday.
@@ -64,7 +65,6 @@ describe("widget registry", () => {
   it("tells the kinds the dock shows from the others", () => {
     expect(isCreatableInstance(INSTANCES.note)).toBe(true);
     expect(isCreatableInstance(WIDGET_FIXTURES["shortcut-url"])).toBe(false);
-    expect(isCreatableInstance(WIDGET_FIXTURES["files-sample"])).toBe(false);
   });
 });
 

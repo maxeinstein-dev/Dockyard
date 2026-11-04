@@ -447,14 +447,15 @@ mod tests {
     }
 
     #[test]
-    fn shortcut_and_files_cannot_be_created() {
+    fn shortcut_cannot_be_created() {
         let dir = tempdir().unwrap();
         let mut storage = open(&dir);
         let conn = storage.connection().unwrap();
 
-        for kind in [WidgetKind::Shortcut, WidgetKind::Files] {
-            assert_eq!(add(conn, kind), Err(WidgetError::NotCreatable), "{kind}");
-        }
+        assert_eq!(
+            add(conn, WidgetKind::Shortcut),
+            Err(WidgetError::NotCreatable)
+        );
         assert_eq!(count(conn, "widget_instances"), 3);
     }
 
@@ -824,7 +825,7 @@ mod tests {
     }
 
     #[test]
-    fn kinds_not_creatable_yet_are_hidden_like_unknown_ones() {
+    fn kinds_not_creatable_are_hidden_like_unknown_ones() {
         let dir = tempdir().unwrap();
         let mut storage = open(&dir);
         let conn = storage.connection().unwrap();
@@ -834,28 +835,30 @@ mod tests {
             [],
         )
         .unwrap();
+        // A kind that can't be created (Shortcut) and one this build doesn't
+        // know.
         let shortcut = WidgetId::new();
-        let files = WidgetId::new();
+        let unknown = WidgetId::new();
         insert_raw(conn, shortcut.as_str(), "shortcut", 1);
-        insert_raw(conn, files.as_str(), "files", 2);
+        insert_raw(conn, unknown.as_str(), "radio", 2);
 
         assert_eq!(ids(conn), before);
-        for (id, kind) in [
-            (&shortcut, WidgetKind::Shortcut),
-            (&files, WidgetKind::Files),
-        ] {
-            assert_eq!(remove(conn, id), Err(WidgetError::NotFound), "{kind}");
+        for id in [&shortcut, &unknown] {
+            assert_eq!(remove(conn, id), Err(WidgetError::NotFound));
             assert_eq!(
                 move_widget(conn, id, MoveDirection::Up),
-                Err(WidgetError::NotFound),
-                "{kind}"
-            );
-            assert_eq!(
-                update(conn, id, None, WidgetConfig::default_for(kind)),
-                Err(WidgetError::NotFound),
-                "{kind}"
+                Err(WidgetError::NotFound)
             );
         }
+        assert_eq!(
+            update(
+                conn,
+                &shortcut,
+                None,
+                WidgetConfig::default_for(WidgetKind::Shortcut)
+            ),
+            Err(WidgetError::NotFound)
+        );
         move_widget(conn, &before[1], MoveDirection::Up).unwrap();
         assert_eq!(
             ids(conn),

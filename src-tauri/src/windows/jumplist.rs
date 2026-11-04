@@ -569,6 +569,19 @@ fn load_link(blob: &[u8]) -> Option<IShellLinkW> {
     link
 }
 
+/// The path the link file `path` points at (a file of the Recent folder,
+/// for the Arquivos, F9 of estudo 0002); `None` when it gives none. The link
+/// is read only, never resolved: an offline share is not reached.
+#[cfg(windows)]
+pub fn link_target(path: &std::path::Path) -> Option<String> {
+    super::apps::init_com();
+    let link: IShellLinkW =
+        unsafe { CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER) }.ok()?;
+    let file: IPersistFile = link.cast().ok()?;
+    unsafe { file.Load(&HSTRING::from(path.as_os_str()), STGM_READ) }.ok()?;
+    Some(link_path(&link)).filter(|target| !target.is_empty())
+}
+
 /// The path a link points at, when it gives one. A Store app's link gives a
 /// made-up path ending in the AppID, which is not on disk.
 #[cfg(windows)]

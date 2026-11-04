@@ -1,0 +1,72 @@
+/* The Arquivos' panel (F9 of estudo 0002): the files opened last, a row
+   each, with its icon, its name and the folder it is in. Only tokens from
+   tokens.css. */
+
+.recent-list {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recent-item {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  align-items: center;
+  width: 100%;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: var(--r-inset);
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: transparent;
+  cursor: grab;
+}
+
+.recent-item .part-icon {
+  grid-row: 1 / span 2;
+  width: 18px;
+  height: 18px;
+  color: var(--ink-2);
+}
+
+.recent-name,
+.recent-folder {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.recent-name {
+  font-size: var(--fs-label);
+}
+
+.recent-folder {
+  font-size: var(--fs-caption);
+  color: var(--ink-2);
+}
+
+.recent-item:hover,
+.recent-item:focus-visible {
+  outline: none;
+  color: rgb(var(--surface-rgb));
+  background: var(--accent);
+}
+
+.recent-item:hover .part-icon,
+.recent-item:hover .recent-folder,
+.recent-item:focus-visible .part-icon,
+.recent-item:focus-visible .recent-folder {
+  color: inherit;
+}
+
+@media (forced-colors: active) {
+  .recent-item:hover,
+  .recent-item:focus-visible {
+    outline: 2px solid Highlight;
+  }
+}

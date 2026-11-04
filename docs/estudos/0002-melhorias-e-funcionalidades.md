@@ -22,7 +22,7 @@ Levantamento de 2026-10-30, depois da primeira leva da [spec 0020](../specs/0020
   - F6 Busca dentro de Configurações: na main (PR #163).
   - F7: na main. "Duplicar" um espaço entrou no PR #164; "Nova janela" e "Procurar…", no PR #168.
   - F8 Exportar e importar: em andamento (spec 0026). O teste ao vivo achou um problema no reinício depois de importar, já corrigido no código e à espera de um novo teste ao vivo.
-  - F9 Widgets que faltam: Layout do teclado em revisão (PR #169); Relógio mundial em andamento.
+  - F9 Widgets que faltam: Layout do teclado (PR #169) e Relógio mundial (PR #171) na main; Capturas de tela (PR #173) e Arquivos em revisão. O Arquivos virou **Arquivos recentes** (decisão do autor, 2026-11-04): a lista de uma pasta, como a spec 0003 o previa, já é a pasta fixada da F5.
   - F10 a F15: a fazer, na ordem da lista. F13 e F14 começam por uma spec, para o autor decidir antes do código; F15 fica por último.
 - **Itens adiados da spec 0020:** os quatro entraram (ver "Como ler"). Os pacotes de pixel ganharam os launchers de jogos (PR #167).
 

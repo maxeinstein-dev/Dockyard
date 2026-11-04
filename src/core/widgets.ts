@@ -82,12 +82,11 @@ export const WIDGET_KINDS = [
   "screenshots",
 ] as const;
 
-/** The kinds `add_widget` accepts in this phase. */
-export type CreatableKind = Exclude<WidgetKind, "shortcut" | "files">;
+/** The kinds `add_widget` accepts. */
+export type CreatableKind = Exclude<WidgetKind, "shortcut">;
 
-/** The kinds `add_widget` accepts in this phase, in the order of the add
- * buttons; Shortcut and Files exist only in the domain until phase 3. Must
- * match `WidgetKind::creatable`. */
+/** The kinds `add_widget` accepts, in the order of the add buttons;
+ * Shortcut exists only in the domain. Must match `WidgetKind::creatable`. */
 export const CREATABLE_KINDS: readonly CreatableKind[] = [
   "clock",
   "time-progress",
@@ -107,6 +106,7 @@ export const CREATABLE_KINDS: readonly CreatableKind[] = [
   "keyboard",
   "world-clock",
   "screenshots",
+  "files",
 ];
 
 /** Stable ID of an instance: a UUID v7 made in Rust, never reused and never
@@ -177,10 +177,10 @@ export interface ShortcutConfig {
   target: ShortcutTarget;
 }
 
-export interface FilesConfig {
-  /** Absolute Windows path of the folder. */
-  folder: string;
-}
+/** The Arquivos (F9 of estudo 0002): a dock item whose panel shows the
+ * files opened last, as Windows keeps them. Nothing to keep. */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export type FilesConfig = {};
 
 /** What the Atividade shows (spec 0017 F1). */
 export type ActivityShow = "both" | "cpu" | "memory";

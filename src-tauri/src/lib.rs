@@ -196,6 +196,9 @@ macro_rules! handler {
             commands::screenshots::open_screenshot,
             commands::screenshots::open_screenshots_folder,
             commands::screenshots::drag_screenshot,
+            commands::recent_files::list_recent_files,
+            commands::recent_files::open_recent_file,
+            commands::recent_files::drag_recent_file,
             commands::apps::run_app_entry,
             commands::apps::reveal_app,
             commands::icons::list_icon_packs,
@@ -303,6 +306,9 @@ macro_rules! handler {
             commands::screenshots::open_screenshot,
             commands::screenshots::open_screenshots_folder,
             commands::screenshots::drag_screenshot,
+            commands::recent_files::list_recent_files,
+            commands::recent_files::open_recent_file,
+            commands::recent_files::drag_recent_file,
             commands::apps::run_app_entry,
             commands::apps::reveal_app,
             commands::icons::list_icon_packs,
@@ -348,6 +354,8 @@ pub(crate) fn release_on_exit<R: Runtime>(app: &AppHandle<R>) {
     // The edge and the taskbar go back before anything else.
     #[cfg(windows)]
     {
+        // No window may stay hidden by the Espiar (spec 0027).
+        windows::previews::stop_peek();
         windows::tray_host::stop();
         windows::appbar::remove();
         windows::taskbar::release();
