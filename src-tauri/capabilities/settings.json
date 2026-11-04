@@ -35,6 +35,7 @@
     "allow-capture-dock-hotkey",
     "allow-list-workspaces",
     "allow-create-workspace",
+    "allow-duplicate-workspace",
     "allow-rename-workspace",
     "allow-recolor-workspace",
     "allow-move-workspace",

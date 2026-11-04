@@ -63,6 +63,11 @@ export const otherText: Messages = {
         about: "About",
       },
       brand: "Settings",
+      search: {
+        label: "Search settings",
+        results: "Search results",
+        none: "No setting matches “{query}”.",
+      },
       leads: {
         general: "How Dockyard fits into Windows.",
         workspaces: "A dock for each thing you do.",
@@ -417,6 +422,9 @@ export const otherText: Messages = {
     counts: "{apps} apps and {widgets} widgets",
     editApps: "Edit apps",
     editItems: "Edit widgets",
+    duplicate: "Duplicate",
+    duplicateLabel: "Duplicate {name}",
+    copyName: "{name} (copy)",
     moveUp: "Move {name} up",
     moveDown: "Move {name} down",
     remove: "Delete {name}",
