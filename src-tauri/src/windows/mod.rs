@@ -66,6 +66,7 @@ pub mod profiles;
 pub mod program_name;
 #[cfg(windows)]
 pub mod recovery;
+pub mod screenshots;
 pub mod settings_window;
 #[cfg(windows)]
 pub mod shell_target;

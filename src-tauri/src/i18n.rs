@@ -172,6 +172,8 @@ pub struct DockMessages {
     pub keyboard: &'static str,
     /// The Relógio mundial (F9 of estudo 0002).
     pub world_clock: &'static str,
+    /// The Capturas de tela (F9 of estudo 0002).
+    pub screenshots: &'static str,
     pub space_key: &'static str,
     /// The media buttons of a window preview (F4).
     pub media_previous: &'static str,
@@ -385,6 +387,7 @@ const PT_BR: Messages = Messages {
         launcher: "Lançador",
         keyboard: "Layout do teclado",
         world_clock: "Relógio mundial",
+        screenshots: "Capturas de tela",
         space_key: "Espaço",
         media_previous: "Anterior",
         media_play: "Tocar",
@@ -615,6 +618,7 @@ const EN: Messages = Messages {
         launcher: "Launcher",
         keyboard: "Keyboard layout",
         world_clock: "World clock",
+        screenshots: "Screenshots",
         space_key: "Space",
         media_previous: "Previous",
         media_play: "Play",

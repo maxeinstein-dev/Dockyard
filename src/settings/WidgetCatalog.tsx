@@ -35,7 +35,7 @@ const SHELVES: readonly { category: Category; kinds: CreatableKind[] }[] = [
     category: "productivity",
     kinds: ["todo", "note", "water", "claude", "weather"],
   },
-  { category: "media", kinds: ["media"] },
+  { category: "media", kinds: ["media", "screenshots"] },
   { category: "personal", kinds: ["cycle"] },
 ];
 
@@ -58,6 +58,7 @@ const WIDTHS: Readonly<Record<CreatableKind, number>> = {
   launcher: 1,
   keyboard: 1,
   "world-clock": 2,
+  screenshots: 1,
 };
 
 /** Text compared without case or accents: "relogio" finds "Relógio". */

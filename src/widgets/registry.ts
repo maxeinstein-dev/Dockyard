@@ -55,6 +55,9 @@ import KeyboardTile from "./keyboard/KeyboardTile";
 import WorldClockPanel from "./world-clock/WorldClockPanel";
 import WorldClockSettings from "./world-clock/WorldClockSettings";
 import WorldClockTile from "./world-clock/WorldClockTile";
+import ScreenshotsPanel from "./screenshots/ScreenshotsPanel";
+import ScreenshotsSettings from "./screenshots/ScreenshotsSettings";
+import ScreenshotsTile from "./screenshots/ScreenshotsTile";
 import NotePanel from "./notes/NotePanel";
 import NoteSettings from "./notes/NoteSettings";
 import NoteTile from "./notes/NoteTile";
@@ -86,7 +89,8 @@ export type GlazeClass =
   | "t-weather"
   | "t-launcher"
   | "t-keyboard"
-  | "t-world-clock";
+  | "t-world-clock"
+  | "t-screenshots";
 
 export interface WidgetDefinition<K extends CreatableKind> {
   kind: K;
@@ -263,6 +267,15 @@ export const WIDGET_REGISTRY: {
     Panel: WorldClockPanel,
     panelTick: MINUTE_MS,
     Settings: WorldClockSettings,
+  },
+  screenshots: {
+    kind: "screenshots",
+    nameKey: "screenshots",
+    glaze: "t-screenshots",
+    Tile: ScreenshotsTile,
+    Panel: ScreenshotsPanel,
+    panelTick: null,
+    Settings: ScreenshotsSettings,
   },
 };
 

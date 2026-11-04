@@ -1,0 +1,53 @@
+/* The Capturas de tela's panel (F9 of estudo 0002): a grid of the newest
+   screenshots, four to a row. Only tokens from tokens.css. */
+
+.shots-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shots-item {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 2px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-segment);
+  background: var(--track);
+  cursor: grab;
+  overflow: hidden;
+}
+
+.shots-item:hover {
+  border-color: var(--ink-2);
+}
+
+.shots-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.shots-item img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 2px;
+  user-select: none;
+}
+
+.shots-missing {
+  width: 40%;
+  aspect-ratio: 1;
+  border-radius: 2px;
+  background: var(--hair);
+}
+
+@media (forced-colors: active) {
+  .shots-item {
+    border-color: CanvasText;
+  }
+}

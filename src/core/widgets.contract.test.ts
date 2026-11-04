@@ -189,6 +189,7 @@ describe("widget contract constants", () => {
       "launcher",
       "keyboard",
       "world-clock",
+      "screenshots",
     ]);
     expect(CREATABLE_KINDS.every((kind) => WIDGET_KINDS.includes(kind))).toBe(
       true,

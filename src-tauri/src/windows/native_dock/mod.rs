@@ -756,6 +756,7 @@ fn names() -> Names {
         launcher: dock.launcher,
         keyboard: dock.keyboard,
         world_clock: dock.world_clock,
+        screenshots: dock.screenshots,
     }
 }
 
