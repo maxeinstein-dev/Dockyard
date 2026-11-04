@@ -1546,7 +1546,7 @@ impl Dock {
     /// Puts the window where the settings say, the size its content needs.
     fn place(&mut self) {
         let shape = self.shape();
-        let size = dock_layout::window_size(&shape, self.motion, &self.label_widths);
+        let size = dock_layout::window_size(&shape, self.edge(), self.motion, &self.label_widths);
         let bar_height = {
             let geometry = shape.size.geometry();
             geometry.icon + 2.0 * geometry.pad
