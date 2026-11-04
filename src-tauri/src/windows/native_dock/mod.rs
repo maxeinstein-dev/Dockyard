@@ -755,6 +755,7 @@ fn names() -> Names {
         weather: dock.weather,
         launcher: dock.launcher,
         keyboard: dock.keyboard,
+        world_clock: dock.world_clock,
     }
 }
 

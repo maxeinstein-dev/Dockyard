@@ -314,6 +314,12 @@ impl Glaze {
         s: 48.0,
         l: 36.0,
     };
+    /// Malva: o Relógio mundial (F9 of estudo 0002).
+    pub const WORLD_CLOCK: Glaze = Glaze {
+        h: 292.0,
+        s: 28.0,
+        l: 40.0,
+    };
     /// Tinta.
     pub const SETTINGS: Glaze = Glaze {
         h: 222.0,
@@ -483,6 +489,7 @@ mod tests {
             ("t-weather", Glaze::WEATHER),
             ("t-launcher", Glaze::LAUNCHER),
             ("t-keyboard", Glaze::KEYBOARD),
+            ("t-world-clock", Glaze::WORLD_CLOCK),
         ];
         for (class, glaze) in glazes {
             let css_glaze = Glaze {

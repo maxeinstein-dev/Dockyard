@@ -668,6 +668,7 @@ export const en: Messages = {
       weather: "Weather",
       launcher: "Launcher",
       keyboard: "Keyboard layout",
+      "world-clock": "World clock",
     },
     addNames: {
       clock: "Clock",
@@ -686,6 +687,7 @@ export const en: Messages = {
       weather: "Weather",
       launcher: "Launcher",
       keyboard: "Keyboard",
+      "world-clock": "World clock",
     },
     common: {
       adjust: "Options",
@@ -857,6 +859,7 @@ export const en: Messages = {
           "A dock button that opens the launcher, like Start: search apps, pages and math.",
         keyboard:
           "The keyboard layout of the window in front, as on the Windows taskbar; a click goes to the next.",
+        "world-clock": "The time in several cities at once, on a wide tile.",
       },
       add: "Add",
       addNamed: "Add {name}",
@@ -911,6 +914,23 @@ export const en: Messages = {
         "Auto shows the day; after 6 PM, tomorrow's until noon. The card scrolls with the mouse wheel.",
       showTasks: "Google Tasks",
       showTasksOptions: { show: "Show", hide: "Hide" },
+    },
+    worldClock: {
+      settingsTitle: "World clock options",
+      places: "Cities",
+      placesHint: "The tile shows the first ones, one per icon of width.",
+      add: "Add city",
+      addPlaceholder: "Choose a time zone…",
+      full: "Up to {max} cities.",
+      moveUp: "Move {city} up",
+      moveDown: "Move {city} down",
+      remove: "Remove {city}",
+      dayBefore: "yesterday",
+      dayAfter: "tomorrow",
+      offset: "{offset} from you",
+      sameTime: "same time as you",
+      listLabel: "Cities and times",
+      footer: "Compared with your computer's time",
     },
     keyboard: {
       settingsTitle: "Keyboard layout options",

@@ -179,6 +179,8 @@ impl Panel {
                 WidgetKind::Launcher => (300.0, 170.0),
                 // The same for the Layout do teclado: its click switches.
                 WidgetKind::Keyboard => (300.0, 170.0),
+                // Title, up to six places with their time and day, footer.
+                WidgetKind::WorldClock => (320.0, 360.0),
                 // Never opened in this phase: `toggle_panel` refuses kinds
                 // that can't be created. The Settings card, if one ever is.
                 WidgetKind::Shortcut | WidgetKind::Files => (320.0, 390.0),

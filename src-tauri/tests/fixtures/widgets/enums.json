@@ -17,7 +17,8 @@
     "claude",
     "weather",
     "launcher",
-    "keyboard"
+    "keyboard",
+    "world-clock"
   ],
   "HourCycle": [
     "h23",

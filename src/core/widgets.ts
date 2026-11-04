@@ -49,7 +49,8 @@ export type WidgetKind =
   | "claude"
   | "weather"
   | "launcher"
-  | "keyboard";
+  | "keyboard"
+  | "world-clock";
 
 /* Each closed set below has a tuple with every value, in the order of the
  * `ALL` of the Rust enum. `widgets.contract.test.ts` checks that each tuple
@@ -76,6 +77,7 @@ export const WIDGET_KINDS = [
   "weather",
   "launcher",
   "keyboard",
+  "world-clock",
 ] as const;
 
 /** The kinds `add_widget` accepts in this phase. */
@@ -101,6 +103,7 @@ export const CREATABLE_KINDS: readonly CreatableKind[] = [
   "weather",
   "launcher",
   "keyboard",
+  "world-clock",
 ];
 
 /** Stable ID of an instance: a UUID v7 made in Rust, never reused and never
@@ -406,6 +409,21 @@ export type LauncherConfig = {};
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export type KeyboardConfig = {};
 
+/** How many icons wide a Relógio mundial may be, and how many places it may
+ * hold (F9 of estudo 0002; `world_clock::WIDTHS` and `MAX_ZONES` in Rust). */
+export const WORLD_CLOCK_WIDTHS = [2, 3] as const;
+export type WorldClockWidth = (typeof WORLD_CLOCK_WIDTHS)[number];
+export const MAX_WORLD_ZONES = 6;
+
+/** The Relógio mundial (F9 of estudo 0002): the time in a few places. The
+ * tile shows as many as it is icons wide; the panel, all of them. */
+export interface WorldClockConfig {
+  width: WorldClockWidth;
+  /** IANA names, in the order shown; one to `MAX_WORLD_ZONES`, none twice. */
+  zones: string[];
+  hourCycle: HourCycle;
+}
+
 /** The config of each kind. */
 export interface WidgetConfigs {
   clock: ClockConfig;
@@ -426,6 +444,7 @@ export interface WidgetConfigs {
   weather: WeatherConfig;
   launcher: LauncherConfig;
   keyboard: KeyboardConfig;
+  "world-clock": WorldClockConfig;
 }
 
 /** A kind's config tagged with the kind, as `update_widget` takes it:
