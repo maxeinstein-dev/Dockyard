@@ -93,7 +93,10 @@ function AppMenuPanel({
     let active = true;
     appIconOptions(app.id).then(
       (options) => {
-        if (active) setIcons({ id: app.id, options });
+        // An answer without the packs (an older Rust) leaves it out too.
+        if (active && Array.isArray(options?.packs)) {
+          setIcons({ id: app.id, options });
+        }
       },
       () => {},
     );
