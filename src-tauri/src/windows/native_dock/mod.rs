@@ -3530,13 +3530,16 @@ mod tests {
     }
 
     #[test]
-    fn a_pinned_program_menu_opens_closes_and_unpins() {
+    fn a_pinned_program_menu_opens_another_window_closes_and_unpins() {
         let pinned = Program::Pinned("01a1a2d0-5d5d-70a1-be42-91ab4f4ea892".into());
         let closed = program_items(&pinned, 0);
         assert_eq!(labels(&closed), ["Abrir", "Remover do dock"]);
         assert_eq!(closed[1].choice, Some(MenuChoice::Unpin));
         let open = program_items(&pinned, 1);
-        assert_eq!(labels(&open), ["Abrir", "Fechar janela", "Remover do dock"]);
+        assert_eq!(
+            labels(&open),
+            ["Nova janela", "Fechar janela", "Remover do dock"]
+        );
         assert_eq!(open[0].choice, Some(MenuChoice::OpenProgram));
         assert_eq!(open[1].choice, Some(MenuChoice::CloseWindows));
         assert_eq!(labels(&program_items(&pinned, 3))[1], "Fechar janelas");
@@ -3547,7 +3550,7 @@ mod tests {
         let other = Program::Open("open-key".into());
         assert_eq!(
             labels(&program_items(&other, 2)),
-            ["Abrir", "Fechar janelas"]
+            ["Nova janela", "Fechar janelas"]
         );
     }
 

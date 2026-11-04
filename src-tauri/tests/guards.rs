@@ -146,6 +146,7 @@ const EXPECTED_CAPABILITIES: &[(&str, &str, &[&str], &[&str])] = &[
             "allow-list-catalog",
             "allow-app-icon",
             "allow-pin-app",
+            "allow-browse-app",
             "allow-unpin-app",
             "allow-move-app",
             "allow-list-icon-packs",
