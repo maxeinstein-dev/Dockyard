@@ -171,6 +171,7 @@ const EXPECTED_CAPABILITIES: &[(&str, &str, &[&str], &[&str])] = &[
             // widgets go through the apps and widgets commands above.
             "allow-list-workspaces",
             "allow-create-workspace",
+            "allow-duplicate-workspace",
             "allow-rename-workspace",
             "allow-recolor-workspace",
             "allow-move-workspace",
