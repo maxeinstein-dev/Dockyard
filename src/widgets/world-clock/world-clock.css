@@ -1,0 +1,30 @@
+/* The Relógio mundial's settings (F9 of estudo 0002): the places, each with
+   its offset and the buttons to move and remove it. Only tokens from
+   tokens.css. */
+
+.world-places-title {
+  margin: 0;
+  font-size: var(--fs-label);
+  font-weight: 600;
+}
+
+.world-places {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.world-places li {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto auto;
+  gap: 6px;
+  align-items: center;
+  font-size: var(--fs-label);
+}
+
+.world-place-offset {
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}

@@ -46,6 +46,7 @@ pub mod time_progress;
 pub mod todo;
 pub mod water;
 pub mod weather;
+pub mod world_clock;
 
 use std::fmt;
 
@@ -70,6 +71,7 @@ pub use time_progress::TimeProgressConfig;
 pub use todo::TodoConfig;
 pub use water::WaterConfig;
 pub use weather::WeatherConfig;
+pub use world_clock::WorldClockConfig;
 
 /// Most widget instances the dock holds (spec 0003 §2.1 item 3).
 pub const MAX_WIDGETS: usize = 12;
@@ -114,6 +116,7 @@ pub enum WidgetKind {
     Weather,
     Launcher,
     Keyboard,
+    WorldClock,
 }
 
 closed_set!(WidgetKind {
@@ -135,6 +138,7 @@ closed_set!(WidgetKind {
     Weather,
     Launcher,
     Keyboard,
+    WorldClock,
 });
 
 impl WidgetKind {
@@ -157,7 +161,8 @@ impl WidgetKind {
             | WidgetKind::Claude
             | WidgetKind::Weather
             | WidgetKind::Launcher
-            | WidgetKind::Keyboard => true,
+            | WidgetKind::Keyboard
+            | WidgetKind::WorldClock => true,
             WidgetKind::Shortcut | WidgetKind::Files => false,
         }
     }
@@ -183,7 +188,8 @@ impl WidgetKind {
             | WidgetKind::Claude
             | WidgetKind::Weather
             | WidgetKind::Launcher
-            | WidgetKind::Keyboard => 1,
+            | WidgetKind::Keyboard
+            | WidgetKind::WorldClock => 1,
         }
     }
 
@@ -208,6 +214,7 @@ impl WidgetKind {
             WidgetKind::Weather => "weather",
             WidgetKind::Launcher => "launcher",
             WidgetKind::Keyboard => "keyboard",
+            WidgetKind::WorldClock => "world-clock",
         }
     }
 
@@ -306,6 +313,7 @@ pub enum WidgetConfig {
     Weather(WeatherConfig),
     Launcher(LauncherConfig),
     Keyboard(KeyboardConfig),
+    WorldClock(WorldClockConfig),
 }
 
 impl WidgetConfig {
@@ -329,6 +337,7 @@ impl WidgetConfig {
             WidgetConfig::Weather(_) => WidgetKind::Weather,
             WidgetConfig::Launcher(_) => WidgetKind::Launcher,
             WidgetConfig::Keyboard(_) => WidgetKind::Keyboard,
+            WidgetConfig::WorldClock(_) => WidgetKind::WorldClock,
         }
     }
 
@@ -359,6 +368,7 @@ impl WidgetConfig {
             WidgetConfig::Media(config) => config.width,
             WidgetConfig::Claude(config) => config.width,
             WidgetConfig::Weather(config) => config.width,
+            WidgetConfig::WorldClock(config) => config.width,
         }
     }
 
@@ -384,6 +394,7 @@ impl WidgetConfig {
             WidgetConfig::Media(_) => media::WIDTHS,
             WidgetConfig::Claude(_) => claude::WIDTHS,
             WidgetConfig::Weather(_) => weather::WIDTHS,
+            WidgetConfig::WorldClock(_) => world_clock::WIDTHS,
         }
     }
 
@@ -402,6 +413,7 @@ impl WidgetConfig {
             WidgetConfig::Media(config) => config.width = width,
             WidgetConfig::Claude(config) => config.width = width,
             WidgetConfig::Weather(config) => config.width = width,
+            WidgetConfig::WorldClock(config) => config.width = width,
             WidgetConfig::Clock(_)
             | WidgetConfig::Note(_)
             | WidgetConfig::Shortcut(_)
@@ -439,6 +451,7 @@ impl WidgetConfig {
             WidgetKind::Weather => WidgetConfig::Weather(WeatherConfig::default()),
             WidgetKind::Launcher => WidgetConfig::Launcher(LauncherConfig::default()),
             WidgetKind::Keyboard => WidgetConfig::Keyboard(KeyboardConfig::default()),
+            WidgetKind::WorldClock => WidgetConfig::WorldClock(WorldClockConfig::default()),
         }
     }
 
@@ -463,6 +476,7 @@ impl WidgetConfig {
             WidgetConfig::Weather(config) => config.validate(),
             WidgetConfig::Launcher(config) => config.validate(),
             WidgetConfig::Keyboard(config) => config.validate(),
+            WidgetConfig::WorldClock(config) => config.validate(),
         }
     }
 }
@@ -577,6 +591,7 @@ pub fn encode_config(config: &WidgetConfig) -> String {
         WidgetConfig::Weather(config) => serde_json::to_string(config),
         WidgetConfig::Launcher(config) => serde_json::to_string(config),
         WidgetConfig::Keyboard(config) => serde_json::to_string(config),
+        WidgetConfig::WorldClock(config) => serde_json::to_string(config),
     };
     // Plain structs with string keys: serializing them can't fail.
     json.expect("widget configs always serialize")
@@ -618,6 +633,7 @@ pub fn decode_config(
         WidgetKind::Weather => serde_json::from_str(json).map(WidgetConfig::Weather),
         WidgetKind::Launcher => serde_json::from_str(json).map(WidgetConfig::Launcher),
         WidgetKind::Keyboard => serde_json::from_str(json).map(WidgetConfig::Keyboard),
+        WidgetKind::WorldClock => serde_json::from_str(json).map(WidgetConfig::WorldClock),
     }
     .map_err(|_| WidgetError::InvalidConfig)?;
     config.validate()?;
@@ -909,7 +925,8 @@ mod tests {
                 WidgetKind::Claude,
                 WidgetKind::Weather,
                 WidgetKind::Launcher,
-                WidgetKind::Keyboard
+                WidgetKind::Keyboard,
+                WidgetKind::WorldClock
             ]
         );
     }
@@ -942,6 +959,7 @@ mod tests {
             "weather",
             "launcher",
             "keyboard",
+            "world-clock",
         ];
         for (kind, name) in WidgetKind::ALL.into_iter().zip(names) {
             assert_eq!(to_json(&kind), name);
@@ -1038,9 +1056,12 @@ mod tests {
                 // Three was too small to read: two rise to three under
                 // the pointer instead.
                 WidgetKind::Calendar | WidgetKind::Claude | WidgetKind::Weather => 2,
+                // One icon is too narrow for a place: two or three.
+                WidgetKind::WorldClock => 3,
                 _ => 1,
             };
-            assert_eq!(config.widths(), 1..=most, "{kind}");
+            let least = if kind == WidgetKind::WorldClock { 2 } else { 1 };
+            assert_eq!(config.widths(), least..=most, "{kind}");
             assert_eq!(config.with_width(most + 1), None, "{kind}");
             assert_eq!(config.with_width(0), None, "{kind}");
             let widest = config.with_width(most).unwrap();
@@ -1141,6 +1162,10 @@ mod tests {
             (WidgetKind::Weather, json!({ "width": 1, "city": null })),
             (WidgetKind::Launcher, json!({})),
             (WidgetKind::Keyboard, json!({})),
+            (
+                WidgetKind::WorldClock,
+                json!({ "width": 2, "zones": ["Europe/London", "America/New_York"], "hourCycle": "h23" }),
+            ),
         ];
         for (kind, config) in cases {
             let instance = instance(WidgetConfig::default_for(kind));

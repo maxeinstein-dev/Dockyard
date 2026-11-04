@@ -367,6 +367,33 @@ export const WIDGET_FIXTURES = {
     config: {},
   } satisfies WidgetInstance<"keyboard">,
 
+  "world-clock-default": {
+    id: "019a1b2c-3d4e-7f60-8a1b-2c3d4e5f60a4",
+    label: null,
+    kind: "world-clock",
+    config: {
+      width: 2,
+      zones: ["Europe/London", "America/New_York"],
+      hourCycle: "h23",
+    },
+  } satisfies WidgetInstance<"world-clock">,
+
+  "world-clock-sample": {
+    id: "019a1b2c-3d4e-7f60-8a1b-2c3d4e5f60a5",
+    label: "Equipe",
+    kind: "world-clock",
+    config: {
+      width: 3,
+      zones: [
+        "America/Sao_Paulo",
+        "Europe/Lisbon",
+        "Asia/Tokyo",
+        "Australia/Sydney",
+      ],
+      hourCycle: "h12",
+    },
+  } satisfies WidgetInstance<"world-clock">,
+
   "snapshot-sample": {
     storage: { state: "ok" },
     widgets: [CLOCK_DEFAULT, { ...NOTE_DEFAULT, label: "Mercado" }],
