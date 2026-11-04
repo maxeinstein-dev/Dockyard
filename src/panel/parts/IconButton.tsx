@@ -3,7 +3,7 @@ import Icon, { type IconName } from "./Icon";
 import "./parts.css";
 
 export interface IconButtonProps {
-  icon: Extract<IconName, "up" | "down" | "back" | "trash">;
+  icon: Extract<IconName, "up" | "down" | "back" | "trash" | "close">;
   /** Accessible name, such as `Subir Relógio` or `Voltar`: the button has
    * no visible text. */
   label: string;
@@ -17,7 +17,7 @@ export interface IconButtonProps {
 }
 
 /** Icon button (DESIGN.md "Buttons": Ícone, 26 × 26 px): Voltar, subir,
- * descer and remover. */
+ * descer, remover and desfazer (a stack of widgets, spec 0023). */
 function IconButton({
   icon,
   label,

@@ -94,6 +94,8 @@ fn main() {
             "delete_workspace",
             "remove_spacer",
             "move_spacer",
+            "move_stack",
+            "dissolve_stack",
             "move_app_windows",
             "move_open_windows",
             "share_widget",

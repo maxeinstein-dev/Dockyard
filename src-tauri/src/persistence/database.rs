@@ -78,6 +78,9 @@ const MIGRATION_4: &str = include_str!("../../migrations/0004_workspaces.sql");
 /// SQL of migration 5: the spacers (spec 0022).
 const MIGRATION_5: &str = include_str!("../../migrations/0005_spacers.sql");
 
+/// SQL of migration 6: the stacks of widgets (spec 0023).
+const MIGRATION_6: &str = include_str!("../../migrations/0006_stacks.sql");
+
 /// The SQL of the schema migrations, in order; the database's
 /// `user_version` is the number of them applied. Never change or reorder one
 /// that has shipped: add the next file in `src-tauri/migrations/` instead.
@@ -87,6 +90,7 @@ pub const MIGRATIONS: &[&str] = &[
     MIGRATION_3,
     MIGRATION_4,
     MIGRATION_5,
+    MIGRATION_6,
 ];
 
 /// `application_id` of a new database that replaces one set aside, until
@@ -317,6 +321,46 @@ impl Storage {
     /// Removes the spacer `id` for good.
     pub fn remove_spacer(&mut self, id: &str) -> Result<(), WorkspaceError> {
         workspaces_repo::remove_spacer(self.connection()?, id)
+    }
+
+    /// Puts the widget or the stack `moving` of the workspace `id` on the
+    /// widget or the stack `target` ("Empilhar com", spec 0023).
+    pub fn stack_with(
+        &mut self,
+        id: &str,
+        moving: &str,
+        target: &str,
+    ) -> Result<crate::domain::workspaces::Stack, WorkspaceError> {
+        self.workspaces()?;
+        workspaces_repo::stack_with(self.connection()?, id, moving, target)
+    }
+
+    /// Another widget on top of the stack `id`, `step` turns of the wheel
+    /// away.
+    pub fn turn_stack(&mut self, id: &str, step: i32) -> Result<(), WorkspaceError> {
+        workspaces_repo::turn_stack(self.connection()?, id, step)
+    }
+
+    /// The widget on top of the stack `id` out of it, loose right after it.
+    pub fn take_from_stack(&mut self, id: &str) -> Result<(), WorkspaceError> {
+        workspaces_repo::take_top(self.connection()?, id)
+    }
+
+    /// The stack `id` undone: its widgets loose in its place.
+    pub fn dissolve_stack(&mut self, id: &str) -> Result<(), WorkspaceError> {
+        workspaces_repo::dissolve_stack(self.connection()?, id)
+    }
+
+    /// The widget `widget` out of the stack of the workspace `id` that has
+    /// it (it is being removed from there); whether one had it.
+    pub fn leave_stacks(&mut self, id: &str, widget: &str) -> Result<bool, WorkspaceError> {
+        workspaces_repo::leave_stacks(self.connection()?, id, widget)
+    }
+
+    /// Whether any workspace still has the item `key`, loose or (a widget)
+    /// in a stack.
+    pub fn held(&mut self, key: &str) -> Result<bool, WorkspaceError> {
+        workspaces_repo::held(self.connection()?, key)
     }
 
     /// Makes a workspace at the end.
@@ -1205,6 +1249,38 @@ CREATE TRIGGER refuse_seed BEFORE INSERT ON widget_instances          BEGIN SELE
         // Kept across a restart.
         let mut storage = Storage::open(dir.path());
         assert_eq!(storage.workspaces().unwrap()[0].spacers, vec![spacer]);
+    }
+
+    #[test]
+    fn a_version_5_database_gets_the_stacks_and_keeps_its_spacers() {
+        let dir = tempdir().unwrap();
+        let spacer = {
+            let mut old = open_with(dir.path(), &MIGRATIONS[..5]);
+            let conn = old.connection().unwrap();
+            workspaces_repo::ensure_first(conn, &[]).unwrap();
+            // By the rules of then: no `stacks` table to read.
+            let first: String = conn
+                .query_row("SELECT id FROM workspaces", [], |row| row.get(0))
+                .unwrap();
+            workspaces_repo::add_spacer(
+                conn,
+                &first,
+                crate::domain::workspaces::SpacerSize::Small,
+                None,
+            )
+            .unwrap()
+        };
+        assert_eq!(user_version(&db_path(&dir)), 5);
+
+        let mut storage = Storage::open(dir.path());
+
+        assert_eq!(storage.status(), StorageStatus::Ok);
+        let after = storage.workspaces().unwrap();
+        assert_eq!(after[0].spacers, vec![spacer]);
+        assert!(after[0].stacks.is_empty());
+        drop(storage);
+        assert_eq!(user_version(&db_path(&dir)), CURRENT);
+        assert_eq!(user_version(&dir.path().join("dockmax.db.bak-v5")), 5);
     }
 
     #[test]

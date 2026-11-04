@@ -288,6 +288,15 @@ pub struct TrayMessages {
     /// program's; the kind of file it shows.
     pub choose_icon_title: &'static str,
     pub image_files: &'static str,
+    /// A widget's or a stack's menu (spec 0023): the title over the others
+    /// it can be stacked with, and taking the one on top out of a stack.
+    pub stack_with: &'static str,
+    pub take_from_stack: &'static str,
+    /// A stack's name in "Empilhar com": `{names}` its widgets', with commas.
+    pub stack_named: &'static str,
+    /// What the Narrator says of a stack: `{name}` the widget on top, `{n}`
+    /// its place, `{count}` how many.
+    pub stack_position: &'static str,
 }
 
 const PT_BR: Messages = Messages {
@@ -312,6 +321,10 @@ const PT_BR: Messages = Messages {
         remove_spacer: "Remover espaçador",
         choose_icon_title: "Escolher o ícone de {name}",
         image_files: "Imagens (PNG, ICO)",
+        stack_with: "Empilhar com",
+        take_from_stack: "Tirar da pilha",
+        stack_named: "Pilha: {names}",
+        stack_position: "{name}, {n} de {count} na pilha",
     },
     settings: SettingsMessages {
         window_title: "Configurações do Dockyard",
@@ -529,6 +542,10 @@ const EN: Messages = Messages {
         remove_spacer: "Remove spacer",
         choose_icon_title: "Choose the icon of {name}",
         image_files: "Images (PNG, ICO)",
+        stack_with: "Stack with",
+        take_from_stack: "Take out of the stack",
+        stack_named: "Stack: {names}",
+        stack_position: "{name}, {n} of {count} in the stack",
     },
     settings: SettingsMessages {
         window_title: "Dockyard Settings",

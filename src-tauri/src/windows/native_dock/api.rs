@@ -168,11 +168,12 @@ pub fn view() -> Option<View> {
             .iter()
             .zip(&dock.names)
             .map(|(item, name)| {
-                let face = match item {
-                    Item::App(_) | Item::Other(_) => "app",
-                    Item::System(_) => "glyph",
-                    Item::Spacer(_) => "spacer",
-                    Item::Widget(widget) => match &widget.config {
+                let face = match (item, item.widget()) {
+                    (Item::App(_) | Item::Other(_), _) => "app",
+                    (Item::System(_), _) => "glyph",
+                    (Item::Spacer(_), _) => "spacer",
+                    (_, None) => "glyph",
+                    (_, Some(widget)) => match &widget.config {
                         crate::domain::widgets::WidgetConfig::Clock(clock) => {
                             match clock.icon_style {
                                 crate::domain::widgets::clock::ClockIconStyle::Analog => "dial",

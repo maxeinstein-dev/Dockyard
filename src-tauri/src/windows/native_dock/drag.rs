@@ -130,10 +130,12 @@ impl Dock {
     pub(super) fn dropped_before(&self, x: i32) -> Option<String> {
         let count = self.groups.first().copied().unwrap_or(0);
         let group = self.items.get(..count)?;
-        if !group
-            .iter()
-            .all(|item| matches!(item, Item::App(_) | Item::Widget(_) | Item::Spacer(_)))
-        {
+        if !group.iter().all(|item| {
+            matches!(
+                item,
+                Item::App(_) | Item::Widget(_) | Item::Spacer(_) | Item::Stack(_)
+            )
+        }) {
             return None;
         }
         let mut origin = POINT::default();

@@ -58,9 +58,9 @@ use windows::Win32::UI::WindowsAndMessaging::{
     SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS, SetCursor, SetTimer, SetWindowPos, ShowWindow,
     SystemParametersInfoW, WM_ACTIVATE, WM_APP, WM_CAPTURECHANGED, WM_CLOSE, WM_DISPLAYCHANGE,
     WM_DPICHANGED, WM_GETOBJECT, WM_HOTKEY, WM_KEYDOWN, WM_KILLFOCUS, WM_LBUTTONDBLCLK,
-    WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEMOVE, WM_MOUSEWHEEL,
-    WM_POWERBROADCAST, WM_RBUTTONUP, WM_SETTINGCHANGE, WM_SYSKEYDOWN, WM_TIMER, WNDCLASSW,
-    WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
+    WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEHWHEEL, WM_MOUSEMOVE,
+    WM_MOUSEWHEEL, WM_POWERBROADCAST, WM_RBUTTONUP, WM_SETTINGCHANGE, WM_SYSKEYDOWN, WM_TIMER,
+    WNDCLASSW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
 };
 use windows::core::{PCWSTR, w};
 
@@ -706,10 +706,33 @@ fn names() -> Names {
     }
 }
 
+/// `MK_CONTROL` of a wheel message's keys: Ctrl is held.
+const MK_CONTROL: usize = 0x0008;
+
+/// The name of `item` in "Empilhar com" (spec 0023): a stack's says the
+/// names of its widgets.
+fn stack_name(names: &Names, item: &Item) -> String {
+    match item.stack() {
+        Some(stack) => {
+            let each: Vec<String> = stack
+                .widgets
+                .iter()
+                .map(|widget| names.of(&Item::Widget(widget.clone())))
+                .collect();
+            crate::i18n::messages()
+                .tray
+                .stack_named
+                .replace("{names}", &each.join(", "))
+        }
+        None => names.of(item),
+    }
+}
+
 /// Whether `item` is a Lançador (spec 0012): a click opens the launcher,
 /// not a panel.
 fn is_launcher(item: &Item) -> bool {
-    matches!(item, Item::Widget(widget) if matches!(widget.config, WidgetConfig::Launcher(_)))
+    item.widget()
+        .is_some_and(|widget| matches!(widget.config, WidgetConfig::Launcher(_)))
 }
 
 /// The panel an item opens: a program's is its menu. A spacer has none.
@@ -717,6 +740,7 @@ fn panel_of(item: &Item) -> Option<PanelId> {
     match item {
         Item::App(app) => Some(PanelId::App(app.id.clone())),
         Item::Widget(widget) => Some(PanelId::Widget(widget.id.clone())),
+        Item::Stack(stack) => Some(PanelId::Widget(stack.shown().id.clone())),
         Item::Other(other) => Some(PanelId::Open(other.key.clone())),
         Item::System(SystemItem::Settings) => Some(PanelId::Settings),
         Item::Spacer(_) => None,
@@ -795,11 +819,9 @@ impl Dock {
             return None;
         }
         self.hovered.filter(|&index| {
-            matches!(
-                self.items.get(index),
-                Some(Item::Widget(widget))
-                    if matches!(&widget.config, WidgetConfig::Calendar(config) if config.width == 2)
-            )
+            self.items.get(index).and_then(Item::widget).is_some_and(|widget| {
+                matches!(&widget.config, WidgetConfig::Calendar(config) if config.width == 2)
+            })
         })
     }
 
@@ -996,7 +1018,7 @@ impl Dock {
             .map(|item| {
                 // A Ciclo's notice not seen yet (F2b-3): whatever the
                 // setting, it is the dock's own.
-                if let Item::Widget(widget) = item {
+                if let Some(widget) = item.widget() {
                     match widget.config {
                         WidgetConfig::Cycle(_) => {
                             return super::calendar::pending(widget.id.as_str())
@@ -1085,51 +1107,49 @@ impl Dock {
     /// on the dock, and stops when none is: then nothing is read.
     fn arm_activity(&mut self) {
         let calendar = self.items.iter().any(|item| {
-            matches!(item, Item::Widget(widget) if matches!(widget.config, WidgetConfig::Calendar(_)))
+            item.widget()
+                .is_some_and(|widget| matches!(widget.config, WidgetConfig::Calendar(_)))
         });
         let cycles: Vec<_> = self
             .items
             .iter()
-            .filter_map(|item| match item {
-                Item::Widget(widget) => match &widget.config {
-                    WidgetConfig::Cycle(config) => {
-                        Some((widget.id.as_str().to_owned(), config.clone()))
-                    }
-                    _ => None,
-                },
+            .filter_map(Item::widget)
+            .filter_map(|widget| match &widget.config {
+                WidgetConfig::Cycle(config) => {
+                    Some((widget.id.as_str().to_owned(), config.clone()))
+                }
                 _ => None,
             })
             .collect();
         super::calendar::want(self.hwnd.0 as isize, calendar, cycles);
         let media = self.items.iter().any(|item| {
-            matches!(item, Item::Widget(widget) if matches!(widget.config, WidgetConfig::Media(_)))
+            item.widget()
+                .is_some_and(|widget| matches!(widget.config, WidgetConfig::Media(_)))
         });
         super::media::want(self.hwnd.0 as isize, media);
         let claude = self.items.iter().any(|item| {
-            matches!(item, Item::Widget(widget) if matches!(widget.config, WidgetConfig::Claude(_)))
+            item.widget()
+                .is_some_and(|widget| matches!(widget.config, WidgetConfig::Claude(_)))
         });
         super::claude_usage::want(self.hwnd.0 as isize, claude);
         let cities = self
             .items
             .iter()
-            .filter_map(|item| match item {
-                Item::Widget(widget) => match &widget.config {
-                    WidgetConfig::Weather(config) => config.city.as_ref(),
-                    _ => None,
-                },
+            .filter_map(Item::widget)
+            .filter_map(|widget| match &widget.config {
+                WidgetConfig::Weather(config) => config.city.as_ref(),
                 _ => None,
             })
             .map(|city| super::weather::key(city.latitude, city.longitude))
             .collect();
         super::weather::want(self.hwnd.0 as isize, cities);
         let wanted = self.items.iter().any(|item| {
-            matches!(
-                item,
-                Item::Widget(widget) if matches!(
+            item.widget().is_some_and(|widget| {
+                matches!(
                     widget.config,
                     WidgetConfig::Activity(_) | WidgetConfig::Network(_)
                 )
-            )
+            })
         });
         match (wanted, self.activity.is_some()) {
             (true, false) => {
@@ -1497,6 +1517,13 @@ impl Dock {
                                     && matches!(item, Item::System(SystemItem::Settings))
                                 {
                                     notice.replace("{name}", name)
+                                } else if let Some(stack) = item.stack() {
+                                    crate::i18n::messages()
+                                        .tray
+                                        .stack_position
+                                        .replace("{name}", name)
+                                        .replace("{n}", &(stack.top + 1).to_string())
+                                        .replace("{count}", &stack.widgets.len().to_string())
                                 } else {
                                     name.clone()
                                 },
@@ -1883,6 +1910,7 @@ impl Dock {
                 dot: Some((box_area.center_x(), dot)),
                 item: box_area,
                 notice: self.notices.get(index).copied().flatten(),
+                stack: item.stack().map(|stack| (stack.widgets.len(), stack.top)),
             });
         }
         let tip = self
@@ -2039,31 +2067,33 @@ impl Dock {
                 badge,
             }
         };
+        // A widget, or the one on top of a stack (spec 0023).
+        if let Some(widget) = item.widget() {
+            if matches!(widget.config, WidgetConfig::Media(_)) {
+                return self.media_face(widget.config.width(), size);
+            }
+            let calendar = matches!(widget.config, WidgetConfig::Calendar(_))
+                .then(super::calendar::snapshot)
+                .flatten();
+            return faces::widget(
+                widget,
+                size,
+                clock,
+                self.activity.as_ref(),
+                calendar.as_ref(),
+                self.widen.get(index).copied().unwrap_or(0.0) > 0.5,
+            );
+        }
         match item {
             Item::App(app) => program(&app.app_id, None),
             Item::Other(other) => program(&other.app_id, other.badge.then_some(other.key.as_str())),
-            Item::Widget(widget) if matches!(widget.config, WidgetConfig::Media(_)) => {
-                self.media_face(widget.config.width(), size)
-            }
-            Item::Widget(widget) => {
-                let calendar = matches!(widget.config, WidgetConfig::Calendar(_))
-                    .then(super::calendar::snapshot)
-                    .flatten();
-                faces::widget(
-                    widget,
-                    size,
-                    clock,
-                    self.activity.as_ref(),
-                    calendar.as_ref(),
-                    self.widen.get(index).copied().unwrap_or(0.0) > 0.5,
-                )
-            }
             Item::System(SystemItem::Settings) => Face::Glyph {
                 glaze: theme::Glaze::SETTINGS,
                 paths: paint::SETTINGS_GLYPH,
             },
-            // Drawn only while dragged: an empty plate.
-            Item::Spacer(_) => Face::Glyph {
+            // Drawn only while dragged: an empty plate. (A widget and a
+            // stack were drawn above.)
+            Item::Spacer(_) | Item::Widget(_) | Item::Stack(_) => Face::Glyph {
                 glaze: theme::Glaze::APP,
                 paths: &[],
             },
@@ -2205,6 +2235,27 @@ impl Dock {
         }));
     }
 
+    /// Ctrl and the wheel, or the side wheel, over a stack (spec 0023):
+    /// another widget on top, the next one `forward`, going round; the
+    /// workspace keeps it and the dock reads it again. False when the pointer
+    /// is on no stack.
+    fn turn_stack(&mut self, forward: bool) -> bool {
+        let Some(stack) = self
+            .hovered
+            .and_then(|index| self.items.get(index))
+            .and_then(Item::stack)
+        else {
+            return false;
+        };
+        let id = stack.id.clone();
+        self.end_preview();
+        let step = if forward { 1 } else { -1 };
+        self.effects.push(Box::new(move |app| {
+            crate::commands::workspaces::turn_stack(app, &id, step);
+        }));
+        true
+    }
+
     /// The user is on this dock: its workspace is the one in use (where a
     /// program pinned from a menu goes).
     fn use_here(&mut self) {
@@ -2342,9 +2393,7 @@ impl Dock {
     /// The button of the Tocando agora at `index` under `(x, y)`, three
     /// icons wide while something plays (spec 0017 F4).
     fn media_button_at(&self, index: usize, x: f64, y: f64) -> Option<super::media::Action> {
-        let Some(Item::Widget(widget)) = self.items.get(index) else {
-            return None;
-        };
+        let widget = self.items.get(index).and_then(Item::widget)?;
         if !matches!(widget.config, WidgetConfig::Media(_))
             || widget.config.width() != 3
             || super::media::snapshot().is_none()
@@ -2393,13 +2442,11 @@ impl Dock {
         let waters: Vec<_> = self
             .items
             .iter()
-            .filter_map(|item| match item {
-                Item::Widget(widget) => match &widget.config {
-                    WidgetConfig::Water(config) => {
-                        Some((widget.id.as_str().to_owned(), config.clone()))
-                    }
-                    _ => None,
-                },
+            .filter_map(Item::widget)
+            .filter_map(|widget| match &widget.config {
+                WidgetConfig::Water(config) => {
+                    Some((widget.id.as_str().to_owned(), config.clone()))
+                }
                 _ => None,
             })
             .collect();
@@ -2452,7 +2499,7 @@ impl Dock {
             _ if is_launcher(&item) => super::launcher::toggle(),
             Item::Spacer(_) => {}
             _ => {
-                if let Item::Widget(widget) = &item
+                if let Some(widget) = item.widget()
                     && (super::calendar::seen(widget.id.as_str())
                         | super::pomodoro::seen(widget.id.as_str())
                         | super::water::seen(widget.id.as_str()))
@@ -2477,8 +2524,8 @@ impl Dock {
             .items
             .iter()
             .filter(|item| {
-                matches!(item, Item::Widget(widget)
-                    if widgets.iter().any(|each| each == widget.id.as_str()))
+                item.widget()
+                    .is_some_and(|widget| widgets.iter().any(|each| each == widget.id.as_str()))
             })
             .map(Item::key)
             .collect();
@@ -2522,7 +2569,7 @@ impl Dock {
     fn middle_click(&mut self, index: usize) {
         // The Calendário joins the meeting that starts within 10 minutes
         // (spec 0017 F2a), whatever the programs' middle click does.
-        if let Some(Item::Widget(widget)) = self.items.get(index)
+        if let Some(widget) = self.items.get(index).and_then(Item::widget)
             && let WidgetConfig::Calendar(config) = &widget.config
         {
             let config = config.clone();
@@ -2546,14 +2593,14 @@ impl Dock {
             return;
         }
         // The Tocando agora plays or pauses (spec 0017 F4).
-        if let Some(Item::Widget(widget)) = self.items.get(index)
+        if let Some(widget) = self.items.get(index).and_then(Item::widget)
             && matches!(widget.config, WidgetConfig::Media(_))
         {
             super::media::control(super::media::Action::Toggle);
             return;
         }
         // The Pomodoro starts or pauses (spec 0017 F2c-2).
-        if let Some(Item::Widget(widget)) = self.items.get(index)
+        if let Some(widget) = self.items.get(index).and_then(Item::widget)
             && let WidgetConfig::Pomodoro(config) = &widget.config
         {
             let (id, config) = (widget.id.as_str().to_owned(), config.clone());
@@ -2613,12 +2660,25 @@ impl Dock {
     /// The dock's menu; on a widget that takes more than one width
     /// (`index`), the widths come first; on a spacer, "Remover espaçador"
     /// (spec 0022). A spacer added from it goes right after the item it
-    /// opened on, or at the end of the workspace.
+    /// opened on, or at the end of the workspace. On a widget or a stack,
+    /// what stacks it (spec 0023).
     fn dock_menu(&mut self, index: Option<usize>) {
         let item = index.and_then(|index| self.items.get(index));
-        let widget = match item {
-            Some(Item::Widget(widget)) => Some(widget.clone()),
-            _ => None,
+        let widget = item.and_then(Item::widget).cloned();
+        let stack = item.and_then(Item::stack).map(|stack| stack.id.clone());
+        // What it can be stacked with: the other widgets and stacks the dock
+        // shows (all of them the workspace's).
+        let moving = item.filter(|item| item.widget().is_some()).map(Item::key);
+        let (targets, target_names): (Vec<String>, Vec<String>) = match &moving {
+            Some(moving) if self.data.workspace.is_some() => {
+                let names = names();
+                self.items
+                    .iter()
+                    .filter(|other| other.widget().is_some() && other.key() != *moving)
+                    .map(|other| (other.key(), stack_name(&names, other)))
+                    .unzip()
+            }
+            _ => (Vec::new(), Vec::new()),
         };
         let spacer = match item {
             Some(Item::Spacer(spacer)) => Some(spacer.id.clone()),
@@ -2626,7 +2686,12 @@ impl Dock {
         };
         // Only the workspace's own items have a place in it.
         let after = item
-            .filter(|item| matches!(item, Item::App(_) | Item::Widget(_) | Item::Spacer(_)))
+            .filter(|item| {
+                matches!(
+                    item,
+                    Item::App(_) | Item::Widget(_) | Item::Spacer(_) | Item::Stack(_)
+                )
+            })
             .map(Item::key);
         self.hovered = None;
         self.animate();
@@ -2654,6 +2719,9 @@ impl Dock {
             .as_ref()
             .map(|widget| widget_items(&widget.config))
             .unwrap_or_default();
+        if widget.is_some() {
+            items.extend(stack_items(stack.is_some(), &target_names));
+        }
         if spacer.is_some() {
             items.extend(spacer_items());
         }
@@ -2676,6 +2744,9 @@ impl Dock {
                     widget: widget.as_ref(),
                     spacer: spacer.as_deref(),
                     after: after.as_deref(),
+                    moving: moving.as_deref(),
+                    targets: &targets,
+                    stack: stack.as_deref(),
                 };
                 act(app, choice, &monitor, &ids, on, shown.as_deref());
             }
@@ -2844,8 +2915,20 @@ fn handle(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
         WM_RUN => run_queue(),
         WM_MOUSEWHEEL => with_dock(hwnd, |dock| {
             // The high word of `wparam`: notches of 120, negative toward the
-            // user.
-            dock.wheel((wparam.0 >> 16) as u16 as i16);
+            // user; the low one, the keys held. With Ctrl over a stack, it
+            // turns the stack (spec 0023).
+            let delta = (wparam.0 >> 16) as u16 as i16;
+            let ctrl = wparam.0 & MK_CONTROL != 0;
+            if !(ctrl && delta != 0 && dock.turn_stack(delta < 0)) {
+                dock.wheel(delta);
+            }
+        }),
+        // The side wheel: positive to the right. Only a stack takes it.
+        WM_MOUSEHWHEEL => with_dock(hwnd, |dock| {
+            let delta = (wparam.0 >> 16) as u16 as i16;
+            if delta != 0 {
+                dock.turn_stack(delta > 0);
+            }
         }),
         WM_HOTKEY if wparam.0 == FOCUS_HOTKEY as usize => take_focus(),
         WM_HOTKEY => hotkey(wparam.0),
@@ -3299,6 +3382,25 @@ mod tests {
             Some("pack:retro")
         );
         assert!(icon_key(&dock, "Calc", true).2);
+    }
+
+    #[test]
+    fn a_widget_lists_what_it_stacks_with_and_a_stack_gives_its_top_back() {
+        let targets = ["Nota".to_owned(), "Pilha: Relógio, Rede".to_owned()];
+        let widget = stack_items(false, &targets);
+        assert_eq!(
+            labels(&widget),
+            ["# Empilhar com", "Nota", "Pilha: Relógio, Rede", "—"]
+        );
+        assert_eq!(widget[2].choice, Some(MenuChoice::StackWith(1)));
+        let stack = stack_items(true, &targets[..1]);
+        assert_eq!(
+            labels(&stack),
+            ["Tirar da pilha", "# Empilhar com", "Nota", "—"]
+        );
+        assert_eq!(stack[0].choice, Some(MenuChoice::TakeFromStack));
+        // Alone in the workspace: nothing about stacks.
+        assert!(stack_items(false, &[]).is_empty());
     }
 
     #[test]

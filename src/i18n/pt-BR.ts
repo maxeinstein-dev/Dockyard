@@ -1342,6 +1342,11 @@ const messages = {
         small: "Espaçador pequeno",
         large: "Espaçador grande",
       } satisfies Record<SpacerSize, string>,
+      /** A stack of widgets (spec 0023), listed as one row: `{names}` its
+       * widgets'. Made from the dock's menu. */
+      stackNamed: "Pilha: {names}",
+      /** The button that undoes it: its widgets stay, loose. */
+      unstackNamed: "Desfazer {name}",
       footer: "A ordem é a do dock",
       footerUnavailable: "Configurações e Sobre continuam funcionando",
       /** Notice of a database set aside and recreated, until dismissed. */
