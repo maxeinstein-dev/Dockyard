@@ -808,6 +808,25 @@ fn panel_of(item: &Item) -> Option<PanelId> {
     }
 }
 
+/// An item's name for assistive technology with its badge, if it has one
+/// (F11 of estudo 0002): "Discord, 9 notificações".
+fn badged(name: &str, badge: Option<Badge>) -> String {
+    let text = &crate::i18n::messages().dock;
+    match badge {
+        None => name.to_owned(),
+        Some(Badge::Dot) => text.with_dot.replace("{name}", name),
+        Some(Badge::Count(1)) => text.with_badge.replace("{name}", name),
+        Some(Badge::Count(count)) => text
+            .with_badges
+            .replace("{name}", name)
+            .replace("{count}", &count.to_string()),
+        Some(Badge::AtLeast(count)) => text
+            .with_badges
+            .replace("{name}", name)
+            .replace("{count}", &format!("{count}+")),
+    }
+}
+
 /// What the dock keeps a program's picture by: where it comes from (the
 /// icon chosen for it, spec 0024, or the dock's pack; `None` for Windows'
 /// own), its id, and whether it is a pack's dark image (only a pack has
@@ -1126,7 +1145,42 @@ impl Dock {
                     _ => None,
                 }
             })
+            .chain(
+                self.strip
+                    .iter()
+                    .map(|cell| self.tray_notice(cell, &buttons)),
+            )
             .collect()
+    }
+
+    /// The badge of an icon of the notification area on the dock (F11 of
+    /// estudo 0002): its program's, from the taskbar, when no item of the
+    /// dock is that program (its badge is there already).
+    fn tray_notice(&self, cell: &Cell, buttons: &[badges::Button]) -> Option<Badge> {
+        let Cell::Tray(icon) = cell else {
+            return None;
+        };
+        // `path:<file>#<uid>`: the program's file, lowercased.
+        let exe = icon
+            .id
+            .as_deref()?
+            .strip_prefix("path:")?
+            .rsplit_once('#')?
+            .0;
+        let stem = exe
+            .rsplit(['\\', '/'])
+            .next()
+            .and_then(|file| file.rsplit_once('.').map(|(stem, _)| stem))
+            .unwrap_or_default();
+        let in_dock = self.items.iter().any(|item| match item {
+            Item::App(app) => app.name.eq_ignore_ascii_case(stem),
+            Item::Other(other) => other.name.eq_ignore_ascii_case(stem),
+            _ => false,
+        });
+        if in_dock {
+            return None;
+        }
+        badges::for_tray(buttons, exe)
     }
 
     /// The taskbar's badges changed: drawn again if this dock's did.
@@ -1135,6 +1189,8 @@ impl Dock {
         if notices != self.notices {
             self.notices = notices;
             self.paint();
+            // The names say the badges (F11 of estudo 0002).
+            self.publish();
         }
     }
 
@@ -1595,11 +1651,15 @@ impl Dock {
                         .iter()
                         .zip(&self.names)
                         .zip(&rest.items)
+                        .enumerate()
                         // A spacer is room, not a button: the Narrator
                         // goes from the item before it to the one after.
-                        .filter(|((item, _), _)| !matches!(item, Item::Spacer(_)))
-                        .map(|((item, name), area)| {
+                        .filter(|(_, ((item, _), _))| !matches!(item, Item::Spacer(_)))
+                        .map(|(index, ((item, name), area))| {
                             let on_screen = to_screen(*area);
+                            let named = |name: &str| {
+                                badged(name, self.notices.get(index).copied().flatten())
+                            };
                             access::Entry {
                                 key: item.key(),
                                 name: if attention
@@ -1614,7 +1674,7 @@ impl Dock {
                                         .replace("{n}", &(stack.top + 1).to_string())
                                         .replace("{count}", &stack.widgets.len().to_string())
                                 } else {
-                                    name.clone()
+                                    named(name)
                                 },
                                 rect: (
                                     f64::from(on_screen.x),
@@ -1624,24 +1684,26 @@ impl Dock {
                                 ),
                             }
                         })
-                        .chain(
-                            self.strip
-                                .iter()
-                                .zip(self.strip_cells())
-                                .map(|(cell, area)| {
-                                    let on_screen = to_screen(area);
-                                    access::Entry {
-                                        key: cell.key(),
-                                        name: cell.tip(),
-                                        rect: (
-                                            f64::from(on_screen.x),
-                                            f64::from(on_screen.y),
-                                            f64::from(on_screen.width),
-                                            f64::from(on_screen.height),
-                                        ),
-                                    }
-                                }),
-                        ),
+                        .chain(self.strip.iter().zip(self.strip_cells()).enumerate().map(
+                            |(index, (cell, area))| {
+                                let on_screen = to_screen(area);
+                                let notice = self
+                                    .notices
+                                    .get(self.items.len() + index)
+                                    .copied()
+                                    .flatten();
+                                access::Entry {
+                                    key: cell.key(),
+                                    name: badged(&cell.tip(), notice),
+                                    rect: (
+                                        f64::from(on_screen.x),
+                                        f64::from(on_screen.y),
+                                        f64::from(on_screen.width),
+                                        f64::from(on_screen.height),
+                                    ),
+                                }
+                            },
+                        )),
                 )
                 .collect(),
         );
@@ -2038,6 +2100,12 @@ impl Dock {
                     _ => None,
                 },
                 hovered: self.strip_hovered == Some(index),
+                // After the items' notices, the strip's (`read_notices`).
+                notice: self
+                    .notices
+                    .get(self.items.len() + index)
+                    .copied()
+                    .flatten(),
             })
             .collect();
         // Over a cell of the strip, its label.

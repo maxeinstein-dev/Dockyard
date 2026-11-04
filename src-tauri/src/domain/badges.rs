@@ -10,6 +10,8 @@ use super::open_apps::Identity;
 pub enum Badge {
     /// A number of things unread.
     Count(u32),
+    /// At least this many: the program stops counting there ("9+").
+    AtLeast(u32),
     /// A mark with no number (a glyph of the program's own).
     Dot,
 }
@@ -21,6 +23,7 @@ impl Badge {
         match self {
             Badge::Count(count) if count > MAX_SHOWN => Some(format!("{MAX_SHOWN}+")),
             Badge::Count(count) => Some(count.to_string()),
+            Badge::AtLeast(count) => Some(format!("{}+", count.min(MAX_SHOWN))),
             Badge::Dot => None,
         }
     }
@@ -45,6 +48,54 @@ pub fn parse(texts: &[&str]) -> Option<Badge> {
         }
         let short = (1..=2).contains(&text.chars().count());
         (short && !text.chars().any(char::is_alphanumeric)).then_some(Badge::Dot)
+    })
+}
+
+/// Words that say a description is about something new to read, in the
+/// languages the apps write it (F11 of estudo 0002): a description without
+/// a number is a badge only with one of them, so a status ("Disponível",
+/// "Busy") is not one.
+const NEWS: [&str; 9] = [
+    "notif", "mensag", "message", "unread", "não lid", "nao lid", "mention", "menç", "new ",
+];
+
+/// The badge in the description of the icon a program puts over its
+/// button (`ITaskbarList3::SetOverlayIcon`), which the taskbar gives as the
+/// button's `HelpText`: Discord writes `"9 notifications"`. A number in it
+/// is a count; with none, a word of news makes it a badge with no number.
+pub fn from_description(text: &str) -> Option<Badge> {
+    let text = text.trim();
+    let digits: String = text
+        .chars()
+        .skip_while(|c| !c.is_ascii_digit())
+        .take_while(char::is_ascii_digit)
+        .collect();
+    if !digits.is_empty() {
+        let count = digits.parse().unwrap_or(u32::MAX);
+        return (count > 0).then_some(Badge::Count(count));
+    }
+    let lower = format!("{} ", text.to_lowercase());
+    NEWS.iter()
+        .any(|word| lower.contains(word))
+        .then_some(Badge::Dot)
+}
+
+/// Programs whose description stops counting at a number while the icon
+/// they draw says more (`"9 notifications"` under Discord's "9+", seen live
+/// in F11 of estudo 0002): their AppID, lowercased, and that number.
+const STOPS_AT: [(&str, u32); 1] = [("com.squirrel.discord.discord", 9)];
+
+/// The badge of the description of the button of `app_id`: a count where
+/// the program stops counting is "at least" that count.
+pub fn from_description_of(app_id: Option<&str>, text: &str) -> Option<Badge> {
+    let badge = from_description(text)?;
+    let stops = STOPS_AT
+        .iter()
+        .find(|(id, _)| Some(*id) == app_id)
+        .map(|(_, at)| *at);
+    Some(match (badge, stops) {
+        (Badge::Count(count), Some(at)) if count >= at => Badge::AtLeast(at),
+        _ => badge,
     })
 }
 
@@ -117,7 +168,10 @@ pub fn for_pinned(buttons: &[Button], identity: Option<&Identity>, name: &str) -
 }
 
 /// The badge of an open program that is not pinned, known by `key` (what its
-/// windows are grouped by: their AppID, else their file, lowercased).
+/// windows are grouped by: their AppID, else their file, lowercased). With
+/// no button for that key, the one with its name: Discord's windows carry
+/// no AppID, its button does (`com.squirrel.discord.discord`, seen live in
+/// F11 of estudo 0002).
 pub fn for_other(buttons: &[Button], key: Option<&str>, name: &str) -> Option<Badge> {
     let by_key = key.and_then(|key| {
         buttons.iter().find(|button| {
@@ -125,10 +179,29 @@ pub fn for_other(buttons: &[Button], key: Option<&str>, name: &str) -> Option<Ba
         })
     });
     by_key
+        .or_else(|| buttons.iter().find(|button| named(button, name)))?
+        .badge
+}
+
+/// The badge of an icon of the notification area on the dock (F11 of
+/// estudo 0002), whose program is the file `exe` (lowercased): the button
+/// made from that file, else the one whose program has the file's name
+/// (`Discord.exe` and `"Discord - 1 janela em execução"`).
+pub fn for_tray(buttons: &[Button], exe: &str) -> Option<Badge> {
+    let by_path = buttons
+        .iter()
+        .find(|button| button.path.as_deref() == Some(exe));
+    let stem = exe
+        .rsplit(['\\', '/'])
+        .next()
+        .and_then(|file| file.rsplit_once('.').map(|(stem, _)| stem))
+        .unwrap_or_default();
+    by_path
         .or_else(|| {
-            buttons
-                .iter()
-                .find(|button| button.app_id.is_none() && named(button, name))
+            buttons.iter().find(|button| {
+                let program = button.name.split(" - ").next().unwrap_or_default();
+                !stem.is_empty() && program.trim().eq_ignore_ascii_case(stem)
+            })
         })?
         .badge
 }
@@ -290,5 +363,92 @@ mod tests {
             Some(Badge::Count(4))
         );
         assert_eq!(for_other(&buttons, Some("other"), "Other"), None);
+    }
+
+    #[test]
+    fn the_description_over_a_button_is_a_badge() {
+        // Discord, live on 2026-11-04.
+        assert_eq!(from_description("9 notifications"), Some(Badge::Count(9)));
+        assert_eq!(
+            from_description("1 mensagem não lida"),
+            Some(Badge::Count(1))
+        );
+        assert_eq!(from_description("0 notifications"), None);
+        assert_eq!(from_description("New messages"), Some(Badge::Dot));
+        assert_eq!(from_description("Você tem notificações"), Some(Badge::Dot));
+        // A status is not news.
+        assert_eq!(from_description("Disponível"), None);
+        assert_eq!(from_description("Busy"), None);
+        assert_eq!(from_description(""), None);
+    }
+
+    #[test]
+    fn an_icon_of_the_notification_area_gets_its_programs_badge() {
+        let buttons = [
+            Button {
+                name: "Discord - 1 janela em execução".into(),
+                app_id: Some("com.squirrel.discord.discord".into()),
+                path: None,
+                badge: Some(Badge::Count(9)),
+            },
+            Button {
+                name: "FileZilla fixado".into(),
+                app_id: Some("{6d809377}\\filezilla\\filezilla.exe".into()),
+                path: Some(r"c:\program files\filezilla\filezilla.exe".into()),
+                badge: Some(Badge::Dot),
+            },
+        ];
+
+        assert_eq!(
+            for_tray(
+                &buttons,
+                r"c:\users\me\appdata\local\discord\app-1.0\discord.exe"
+            ),
+            Some(Badge::Count(9))
+        );
+        assert_eq!(
+            for_tray(&buttons, r"c:\program files\filezilla\filezilla.exe"),
+            Some(Badge::Dot)
+        );
+        assert_eq!(for_tray(&buttons, r"c:\tools\other.exe"), None);
+        assert_eq!(for_tray(&buttons, ""), None);
+    }
+
+    #[test]
+    fn an_open_program_whose_windows_name_no_appid_finds_its_button_by_name() {
+        // Discord, live: its windows are grouped by its file, its button
+        // has an AppID of its own.
+        let buttons = [Button {
+            name: "Discord - 1 janela em execução".into(),
+            app_id: Some("com.squirrel.discord.discord".into()),
+            path: None,
+            badge: Some(Badge::Count(9)),
+        }];
+        let file = r"c:\users\me\appdata\local\discord\app-1.0\discord.exe";
+
+        assert_eq!(
+            for_other(&buttons, Some(file), "Discord"),
+            Some(Badge::Count(9))
+        );
+        assert_eq!(for_other(&buttons, Some(file), "Disc"), None);
+    }
+
+    #[test]
+    fn discords_nine_is_nine_or_more() {
+        let discord = Some("com.squirrel.discord.discord");
+        assert_eq!(
+            from_description_of(discord, "9 notifications"),
+            Some(Badge::AtLeast(9))
+        );
+        assert_eq!(
+            from_description_of(discord, "3 notifications"),
+            Some(Badge::Count(3))
+        );
+        // Anyone else's 9 is 9.
+        assert_eq!(
+            from_description_of(Some("other.app"), "9 notifications"),
+            Some(Badge::Count(9))
+        );
+        assert_eq!(Badge::AtLeast(9).label().as_deref(), Some("9+"));
     }
 }
