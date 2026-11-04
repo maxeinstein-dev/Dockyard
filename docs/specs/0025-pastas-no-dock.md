@@ -48,11 +48,22 @@ O item é um programa fixado como os outros: mesma tabela, mesmos espaços, arra
   - Para uma pasta, a resposta tem uma seção `files`, e cada entrada traz o tipo (`kind`). O item é aberto pela chave, com `run_app_entry`.
 - `empty_recycle_bin { id }`: só para o item que é a Lixeira. Devolve `false` quando a resposta foi não.
 
-## 6. Verificação ao vivo: pendente
+## 6. Verificação ao vivo: parcial
 
-1. Soltar uma pasta no dock: ela entra onde foi solta, com o ícone de pasta.
-2. Clicar nela: o painel mostra os itens mais recentes, e o arquivo mais novo vem primeiro.
-3. Clicar num arquivo: ele abre. "Abrir no Explorador" abre a pasta.
-4. Menu do dock › "Adicionar Downloads": a pasta entra logo depois do item. Baixar um arquivo e vê-lo no topo da lista.
-5. "Adicionar Lixeira": a Lixeira entra. Apagar um arquivo e, em até um minuto, ver o ícone mudar para cheia.
-6. "Esvaziar a Lixeira…" › "Não" não esvazia nada; "Sim" esvazia, e o ícone volta para vazia.
+Feita em 2026-11-04 com o build de lançamento `.medir` e uma cópia dos dados do autor:
+
+- "Adicionar Downloads", no menu do dock, pôs Downloads no dock.
+- O clique em Downloads abriu o painel com "Mais recentes", e o item mais novo da pasta estava nele, junto com "Abrir no Explorador".
+- "Adicionar Lixeira" pôs a Lixeira no dock.
+- Com a Lixeira vazia antes, autorizado pelo autor: um arquivo vazio foi mandado para a Lixeira, e o ícone mudou para cheia em uns 20 s.
+- "Esvaziar a Lixeira…" trouxe a pergunta do Windows ("Excluir Arquivo"). "Sim" esvaziou a Lixeira, e o ícone voltou para vazia.
+- Depois disso, o menu do dock não oferecia mais Downloads nem Lixeira.
+- O log não teve WARN nem ERROR, e a barra do Windows ficou como estava.
+
+A pergunta do Windows é uma janela do próprio app, cujos botões a UI Automation não enxerga. O roteiro respondeu com Enter, que é o botão "Sim".
+
+Ainda falta conferir à mão:
+
+1. Soltar uma pasta no dock: ela entra onde foi solta (o soltar tem testes de unidade).
+2. Clicar num arquivo do painel abre o arquivo, e "Abrir no Explorador" abre a pasta.
+3. "Não" na pergunta de esvaziar não esvazia nada.
