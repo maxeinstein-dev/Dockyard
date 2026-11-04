@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  copyName,
   inWorkspace,
   isValidWorkspaceName,
   type Workspace,
@@ -161,6 +162,53 @@ describe("workspaces", () => {
     await flush();
     expect(invoke).toHaveBeenCalledWith("delete_workspace", { id: "w-main" });
     expect(onSelect).toHaveBeenCalledWith("w-work");
+  });
+
+  it("names a copy after the workspace, cut to fit and numbered when taken", () => {
+    const template = text.copyName;
+    expect(copyName("Principal", template, [])).toBe("Principal (cópia)");
+    expect(copyName("Principal", template, ["Principal (cópia)"])).toBe(
+      "Principal (cópia) 2",
+    );
+    const long = copyName(
+      "Um nome bem comprido de trinta e dois",
+      template,
+      [],
+    );
+    expect(isValidWorkspaceName(long)).toBe(true);
+    expect(long).toBe("Um nome bem comprido de (cópia)");
+  });
+
+  it("duplicates the workspace and edits the copy", async () => {
+    invoke.mockResolvedValue({
+      ...MAIN,
+      id: "w-copy",
+      name: "Principal (cópia)",
+    });
+    const { onSelect } = renderPanel();
+    fireEvent.click(screen.getByRole("button", { name: "Duplicar Principal" }));
+    await flush();
+    expect(invoke).toHaveBeenCalledWith("duplicate_workspace", {
+      id: "w-main",
+      name: "Principal (cópia)",
+    });
+    expect(onSelect).toHaveBeenCalledWith("w-copy");
+  });
+
+  it("can't duplicate with every workspace taken", () => {
+    const many = Array.from({ length: 9 }, (_, n) => ({
+      ...WORK,
+      id: `w-${n}`,
+      name: `Espaço ${n}`,
+    }));
+    renderPanel(many[0], { workspaces: many, inUse: "w-0" });
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Duplicar Espaço 0",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
   });
 
   it("can't delete the last workspace", () => {

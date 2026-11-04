@@ -594,6 +594,10 @@ const messages = {
     counts: "{apps} apps e {widgets} widgets",
     editApps: "Editar apps",
     editItems: "Editar widgets",
+    /** F7 of estudo 0002. */
+    duplicate: "Duplicar",
+    duplicateLabel: "Duplicar {name}",
+    copyName: "{name} (cópia)",
     moveUp: "Subir {name}",
     moveDown: "Descer {name}",
     remove: "Excluir {name}",

@@ -233,6 +233,90 @@ pub fn create(conn: &mut Connection, name: Option<&str>) -> Result<Workspace, Wo
     Ok(workspace)
 }
 
+/// Copies the workspace `id` into a new one right after it (F7 of estudo
+/// 0002): named `name`, or the next "Espaço N", with the next free color and
+/// the same items in the same order. The programs and widgets are the same
+/// ones, shown in both, as a widget shared with another workspace is; the
+/// spacers and the stacks are new rows, so changing one in a workspace
+/// leaves the other as it was.
+pub fn duplicate(
+    conn: &mut Connection,
+    id: &str,
+    name: Option<&str>,
+) -> Result<Workspace, WorkspaceError> {
+    if name.is_some_and(|name| !is_valid_name(name)) {
+        return Err(WorkspaceError::InvalidName);
+    }
+    let tx = begin(conn)?;
+    let existing = list(&tx)?;
+    let at = existing
+        .iter()
+        .position(|workspace| workspace.id == id)
+        .ok_or(WorkspaceError::NotFound)?;
+    if existing.len() >= MAX_WORKSPACES {
+        return Err(WorkspaceError::LimitReached);
+    }
+    let source = &existing[at];
+    let names: Vec<&str> = existing.iter().map(|w| w.name.as_str()).collect();
+    let colors: Vec<&str> = existing.iter().map(|w| w.color.as_str()).collect();
+    let copy = WidgetId::new().as_str().to_owned();
+    tx.execute(
+        "INSERT INTO workspaces (id, name, color, position, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![
+            copy,
+            name.map_or_else(|| next_name(&names), str::to_owned),
+            next_color(&colors),
+            existing.len() as i64,
+            now_ms()
+        ],
+    )
+    .map_err(write_failed)?;
+    let mut keys = Vec::with_capacity(source.items.len());
+    for key in &source.items {
+        if let Some(spacer) = source.spacers.iter().find(|spacer| spacer.key() == *key) {
+            let new = Spacer {
+                id: WidgetId::new().as_str().to_owned(),
+                size: spacer.size,
+            };
+            tx.execute(
+                "INSERT INTO spacers (id, size, created_at) VALUES (?1, ?2, ?3)",
+                params![new.id, new.size.as_str(), now_ms()],
+            )
+            .map_err(write_failed)?;
+            keys.push(new.key());
+        } else if let Some(stack) = source.stacks.iter().find(|stack| stack.key() == *key) {
+            let new = Stack {
+                id: WidgetId::new().as_str().to_owned(),
+                widgets: stack.widgets.clone(),
+                top: stack.top,
+            };
+            tx.execute(
+                "INSERT INTO stacks (id, top, created_at) VALUES (?1, ?2, ?3)",
+                params![new.id, new.top as i64, now_ms()],
+            )
+            .map_err(write_failed)?;
+            write_stack(&tx, &new)?;
+            keys.push(new.key());
+        } else if key.starts_with(SPACER_PREFIX) || key.starts_with(STACK_PREFIX) {
+            // A spacer or a stack whose row is gone: the dock skips it, and
+            // so does the copy.
+        } else {
+            keys.push(key.clone());
+        }
+    }
+    write_items(&tx, &copy, &keys)?;
+    let mut order = ids(&tx)?;
+    order.retain(|known| *known != copy);
+    order.insert(at + 1, copy.clone());
+    renumber(&tx, &order)?;
+    let made = list(&tx)?
+        .into_iter()
+        .find(|workspace| workspace.id == copy)
+        .ok_or(WorkspaceError::NotFound)?;
+    tx.commit().map_err(write_failed)?;
+    Ok(made)
+}
+
 pub fn rename(conn: &mut Connection, id: &str, name: &str) -> Result<(), WorkspaceError> {
     if !is_valid_name(name) {
         return Err(WorkspaceError::InvalidName);
@@ -941,6 +1025,76 @@ mod tests {
         assert_eq!(
             stack_with(&mut conn, &first, &stack.key(), &stack.key()),
             Err(WorkspaceError::NotFound)
+        );
+    }
+
+    #[test]
+    fn a_copy_comes_right_after_with_the_same_items_and_its_own_spacers_and_stacks() {
+        let (mut conn, first) = with_three_widgets();
+        let other = create(&mut conn, None).unwrap();
+        let stack = stack_with(&mut conn, &first, "widget:w3", "widget:w2").unwrap();
+        let spacer = add_spacer(&mut conn, &first, SpacerSize::Large, Some("app:a1")).unwrap();
+
+        let copy = duplicate(&mut conn, &first, Some("Principal (cópia)")).unwrap();
+        let all = list(&conn).unwrap();
+        assert_eq!(
+            all.iter().map(|w| w.id.as_str()).collect::<Vec<_>>(),
+            vec![first.as_str(), copy.id.as_str(), other.id.as_str()]
+        );
+        assert_eq!(copy.name, "Principal (cópia)");
+        assert_ne!(copy.color, all[0].color);
+        assert_ne!(copy.color, other.color);
+
+        // The same programs and widgets, in the same places; a new spacer
+        // of the same size and a new stack with the same widgets.
+        assert_eq!(copy.items.len(), all[0].items.len());
+        assert_eq!(copy.items[0], "app:a1");
+        assert_eq!(copy.items[2], "widget:w1");
+        assert_eq!(copy.spacers.len(), 1);
+        assert_ne!(copy.spacers[0].id, spacer.id);
+        assert_eq!(copy.spacers[0].size, SpacerSize::Large);
+        assert_eq!(copy.items[1], copy.spacers[0].key());
+        assert_eq!(copy.stacks.len(), 1);
+        assert_ne!(copy.stacks[0].id, stack.id);
+        assert_eq!(copy.stacks[0].widgets, stack.widgets);
+        assert_eq!(copy.stacks[0].top, stack.top);
+        assert_eq!(copy.items[3], copy.stacks[0].key());
+
+        // Changing the copy leaves the first as it was.
+        turn_stack(&mut conn, &copy.stacks[0].id, 1).unwrap();
+        remove_spacer(&mut conn, &copy.spacers[0].id).unwrap();
+        let all = list(&conn).unwrap();
+        assert_eq!(all[0].stacks[0].top, stack.top);
+        assert_eq!(all[0].spacers, vec![spacer]);
+        assert!(all[1].spacers.is_empty());
+
+        // Deleting the copy takes nothing the first still shows.
+        assert!(delete(&mut conn, &copy.id).unwrap().is_empty());
+        let all = list(&conn).unwrap();
+        assert_eq!(all.len(), 2);
+        assert_eq!(all[0].stacks[0].widgets, stack.widgets);
+        assert!(held(&conn, "widget:w3").unwrap());
+    }
+
+    #[test]
+    fn a_copy_without_a_name_takes_the_next_and_stops_at_the_limit() {
+        let (mut conn, first) = with_three_widgets();
+        let copy = duplicate(&mut conn, &first, None).unwrap();
+        assert_eq!(copy.name, "Espaço 2");
+        assert_eq!(
+            duplicate(&mut conn, &first, Some(" bad")),
+            Err(WorkspaceError::InvalidName)
+        );
+        assert_eq!(
+            duplicate(&mut conn, "nope", None),
+            Err(WorkspaceError::NotFound)
+        );
+        while list(&conn).unwrap().len() < MAX_WORKSPACES {
+            duplicate(&mut conn, &first, None).unwrap();
+        }
+        assert_eq!(
+            duplicate(&mut conn, &first, None),
+            Err(WorkspaceError::LimitReached)
         );
     }
 

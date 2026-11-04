@@ -369,6 +369,16 @@ impl Storage {
         workspaces_repo::create(self.connection()?, name)
     }
 
+    /// A copy of the workspace `id`, right after it (F7 of estudo 0002).
+    pub fn duplicate_workspace(
+        &mut self,
+        id: &str,
+        name: Option<&str>,
+    ) -> Result<Workspace, WorkspaceError> {
+        self.workspaces()?;
+        workspaces_repo::duplicate(self.connection()?, id, name)
+    }
+
     pub fn rename_workspace(&mut self, id: &str, name: &str) -> Result<(), WorkspaceError> {
         workspaces_repo::rename(self.connection()?, id, name)
     }
