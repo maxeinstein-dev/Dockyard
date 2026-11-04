@@ -478,6 +478,13 @@ export const otherText: Messages = {
       closeWindows: "Close all windows",
       pin: "Pin to dock",
       moveTo: "Move to {name}",
+      icon: {
+        title: "Icon: {current}",
+        custom: "Own image",
+        dock: "The dock's",
+        original: "Windows original",
+        image: "Choose image…",
+      },
       openFooter: "An open app that is not pinned",
       footer: "The taskbar menu",
     },

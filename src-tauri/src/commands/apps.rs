@@ -17,6 +17,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 use super::icons;
 use super::widgets::lock;
+use crate::domain::app_icon::{AppIcon, choice_key};
 use crate::domain::apps::{
     AppError, AppErrorCode, AppsSnapshot, PinnedApp, is_pinnable_path, is_valid_app_id,
     is_valid_app_name,
@@ -442,18 +443,28 @@ pub async fn icon_pack_preview(
 }
 
 /// The icon the dock draws for a program (spec 0011 H3), as PNG: the icon
-/// pack in use answers first (its dark image while `dark`), then Windows.
+/// chosen for it (spec 0024), or else the icon pack in use (its dark image
+/// while `dark`), then Windows.
 /// Reads the shell: off the main thread.
 pub fn dock_icon_png(app: &AppHandle, app_id: &str, dark: bool) -> Option<Vec<u8>> {
     if !is_valid_app_id(app_id) {
         return None;
     }
-    let pack = super::settings::current(app).dock.icon_pack;
-    let from_pack = pack.and_then(|pack| {
+    let dock = super::settings::current(app).dock;
+    let from_pack = |pack: &str| {
         let shown = apps::name_of(app_id).unwrap_or_default();
-        icons::pack_icon(app, &pack, &icons::names_of(app_id, &shown), dark)
-    });
-    from_pack.or_else(|| apps::icon_png(app_id, ICON_SIZES[1]))
+        icons::pack_icon(app, pack, &icons::names_of(app_id, &shown), dark)
+    };
+    // The icon chosen for it (spec 0024) over the dock's pack.
+    let chosen = match dock.app_icons.get(&choice_key(app_id)) {
+        Some(AppIcon::Original) => None,
+        Some(AppIcon::Pack { pack }) => from_pack(pack),
+        Some(AppIcon::Image { file }) => app.path().app_data_dir().ok().and_then(|dir| {
+            crate::persistence::app_icons::read(&crate::persistence::app_icons::root(&dir), file)
+        }),
+        None => dock.icon_pack.as_deref().and_then(from_pack),
+    };
+    chosen.or_else(|| apps::icon_png(app_id, ICON_SIZES[1]))
 }
 
 /// Opens the pinned program `id` (a click on the dock), off the main thread;
