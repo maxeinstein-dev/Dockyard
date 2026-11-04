@@ -447,14 +447,15 @@ mod tests {
     }
 
     #[test]
-    fn shortcut_and_files_cannot_be_created() {
+    fn shortcut_cannot_be_created() {
         let dir = tempdir().unwrap();
         let mut storage = open(&dir);
         let conn = storage.connection().unwrap();
 
-        for kind in [WidgetKind::Shortcut, WidgetKind::Files] {
-            assert_eq!(add(conn, kind), Err(WidgetError::NotCreatable), "{kind}");
-        }
+        assert_eq!(
+            add(conn, WidgetKind::Shortcut),
+            Err(WidgetError::NotCreatable)
+        );
         assert_eq!(count(conn, "widget_instances"), 3);
     }
 

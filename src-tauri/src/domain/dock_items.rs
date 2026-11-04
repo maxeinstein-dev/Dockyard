@@ -730,7 +730,7 @@ mod tests {
         let widgets = WidgetsSnapshot {
             storage: StorageStatus::Ok,
             widgets: vec![
-                widget(10, WidgetKind::Files, None),
+                widget(10, WidgetKind::Shortcut, None),
                 widget(11, WidgetKind::Note, None),
             ],
         };

@@ -540,8 +540,17 @@ pub fn widget(
         WidgetConfig::Calendar(config) => {
             agenda(config, calendar, crate::windows::calendar::now(), opened)
         }
-        // Never on the dock in this phase (`dock_items` leaves them out).
-        WidgetConfig::Shortcut(_) | WidgetConfig::Files(_) => Face::Glyph {
+        // The Arquivos (F9 of estudo 0002): a document with a clock's hand,
+        // "the files of late".
+        WidgetConfig::Files(_) => Face::Glyph {
+            glaze: Glaze::FILES,
+            paths: &[
+                "M7 3.5h6.5l4 4v13h-10.5a1.5 1.5 0 0 1 -1.5 -1.5v-14a1.5 1.5 0 0 1 1.5 -1.5z",
+                "M13.5 3.5v4h4M12 11.5v3l2 1.5",
+            ],
+        },
+        // Never on the dock (`dock_items` leaves it out).
+        WidgetConfig::Shortcut(_) => Face::Glyph {
             glaze: Glaze::FILES,
             paths: paint::NOTE_GLYPH,
         },
