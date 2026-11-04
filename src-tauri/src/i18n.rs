@@ -284,6 +284,10 @@ pub struct TrayMessages {
     pub add_small_spacer: &'static str,
     pub add_large_spacer: &'static str,
     pub remove_spacer: &'static str,
+    /// The "Abrir" dialog of "Escolher imagem…" (spec 0024): `{name}` the
+    /// program's; the kind of file it shows.
+    pub choose_icon_title: &'static str,
+    pub image_files: &'static str,
 }
 
 const PT_BR: Messages = Messages {
@@ -306,6 +310,8 @@ const PT_BR: Messages = Messages {
         add_small_spacer: "Adicionar espaçador pequeno",
         add_large_spacer: "Adicionar espaçador grande",
         remove_spacer: "Remover espaçador",
+        choose_icon_title: "Escolher o ícone de {name}",
+        image_files: "Imagens (PNG, ICO)",
     },
     settings: SettingsMessages {
         window_title: "Configurações do Dockyard",
@@ -521,6 +527,8 @@ const EN: Messages = Messages {
         add_small_spacer: "Add small spacer",
         add_large_spacer: "Add large spacer",
         remove_spacer: "Remove spacer",
+        choose_icon_title: "Choose the icon of {name}",
+        image_files: "Images (PNG, ICO)",
     },
     settings: SettingsMessages {
         window_title: "Dockyard Settings",

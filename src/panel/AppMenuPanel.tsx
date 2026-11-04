@@ -2,13 +2,17 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { closeApp } from "../core/openApps";
 import { moveInMenu } from "./parts/menu";
 import {
+  appIconOptions,
   appMenu,
+  chooseAppIconImage,
   isAppCommandError,
   launchApp,
   revealApp,
   runAppEntry,
+  setAppIcon,
   unpinApp,
   type AppErrorCode,
+  type AppIconOptions,
   type AppMenu,
   type PinnedApp,
 } from "../core/apps";
@@ -60,7 +64,12 @@ function AppMenuPanel({
   const headings = useId();
   const [read, setRead] = useState<Read | null>(null);
   const [error, setError] = useState<AppErrorCode | null>(null);
+  const [icons, setIcons] = useState<{
+    id: string;
+    options: AppIconOptions;
+  } | null>(null);
   const root = useRef<HTMLDivElement>(null);
+  const iconHeading = useId();
 
   const menu = read !== null && read.id === app.id ? read.menu : null;
 
@@ -73,6 +82,20 @@ function AppMenuPanel({
       () => {
         if (active) setRead({ id: app.id, menu: "failed" });
       },
+    );
+    return () => {
+      active = false;
+    };
+  }, [app.id]);
+
+  // What "Ícone" offers (spec 0024): without it, the section is left out.
+  useEffect(() => {
+    let active = true;
+    appIconOptions(app.id).then(
+      (options) => {
+        if (active) setIcons({ id: app.id, options });
+      },
+      () => {},
     );
     return () => {
       active = false;
@@ -191,6 +214,63 @@ function AppMenuPanel({
             {text.remove}
           </button>
         </div>
+        {icons !== null && icons.id === app.id ? (
+          <div
+            className="app-menu-section"
+            role="group"
+            aria-labelledby={iconHeading}
+          >
+            <h2 id={iconHeading} className="app-menu-heading">
+              {text.icon.title}
+            </h2>
+            {(
+              [
+                [null, text.icon.dock],
+                [{ kind: "original" }, text.icon.original],
+                ...icons.options.packs.map(
+                  (pack) =>
+                    [{ kind: "pack", pack: pack.id }, pack.name] as const,
+                ),
+              ] as const
+            ).map(([choice, label]) => {
+              const current = icons.options.current;
+              const checked =
+                choice === null
+                  ? current === null
+                  : current !== null &&
+                    current.kind === choice.kind &&
+                    (choice.kind !== "pack" ||
+                      (current.kind === "pack" &&
+                        current.pack === choice.pack));
+              return (
+                <button
+                  key={choice === null ? "dock" : `${choice.kind}:${label}`}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={checked}
+                  className="app-menu-item"
+                  onClick={() => done(setAppIcon(app.id, choice))}
+                >
+                  {label}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              role="menuitemradio"
+              aria-checked={icons.options.current?.kind === "image"}
+              className="app-menu-item"
+              onClick={() => {
+                // The dialog takes the focus and the panel closes; Rust
+                // keeps the image on its own.
+                chooseAppIconImage(app.id).catch(() => {});
+                onDone();
+              }}
+            >
+              {text.icon.image}
+            </button>
+          </div>
+        ) : null}
         {openCount > 0 ? (
           <MoveToWorkspace
             workspaces={workspaces}

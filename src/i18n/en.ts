@@ -543,6 +543,12 @@ export const en: Messages = {
       closeWindows: "Close all windows",
       pin: "Pin to dock",
       moveTo: "Move to {name}",
+      icon: {
+        title: "Icon",
+        dock: "The dock's",
+        original: "Windows original",
+        image: "Choose image…",
+      },
       footer: "The taskbar menu",
       openFooter: "An open app that isn't pinned",
     },
