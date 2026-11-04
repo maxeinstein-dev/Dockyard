@@ -129,29 +129,32 @@ fn renew() -> bool {
     }
 }
 
-/// Opens a terminal running the Claude Code's sign-in.
+/// `CREATE_NEW_CONSOLE`: the sign-in gets a console of its own.
+const CREATE_NEW_CONSOLE: u32 = 0x0000_0010;
+
+/// Opens a terminal running the Claude Code's sign-in. It closes by itself
+/// when the sign-in works, and stays (`pause`) to show what went wrong when
+/// it doesn't; when it ends, the usage is read again.
 pub fn sign_in() -> Result<(), ()> {
     use std::os::windows::process::CommandExt;
-    // `start` gives the sign-in a console of its own, which stays open
-    // (`/K`) to show how it went.
-    std::process::Command::new("cmd")
-        .args([
-            "/C",
-            "start",
-            "Claude Code",
-            "cmd",
-            "/K",
-            "claude",
-            "auth",
-            "login",
-        ])
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .creation_flags(CREATE_NO_WINDOW)
+    let child = std::process::Command::new("cmd")
+        // Raw: `&` and `||` are for cmd itself, unquoted.
+        .raw_arg("/C title Claude Code & claude auth login || pause")
+        .creation_flags(CREATE_NEW_CONSOLE)
         .spawn()
-        .map(drop)
-        .map_err(|error| log::warn!("claude usage: no terminal for the sign-in: {error}"))
+        .map_err(|error| log::warn!("claude usage: no terminal for the sign-in: {error}"))?;
+    let waited = std::thread::Builder::new()
+        .name("claude-sign-in".into())
+        .spawn(move || {
+            let mut child = child;
+            if child.wait().is_ok() {
+                read_now();
+            }
+        });
+    if let Err(error) = waited {
+        log::warn!("claude usage: the sign-in is not waited for: {error}");
+    }
+    Ok(())
 }
 
 /// Asks Anthropic for the usage once.
