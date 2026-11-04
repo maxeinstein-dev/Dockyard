@@ -88,6 +88,20 @@ function AppMenuPanel({
   const lastIcon = useRef<HTMLButtonElement>(null);
 
   const menu = read !== null && read.id === app.id ? read.menu : null;
+  /** "Nova janela" while the program has windows open (F7 of estudo 0002),
+   * unless its Jump List already offers one by that name (Chrome, Edge). */
+  const jumpListHasNewWindow =
+    menu !== null &&
+    menu !== "failed" &&
+    menu.sections.some((section) =>
+      section.entries.some(
+        (entry) =>
+          entry.title.toLocaleLowerCase() ===
+          text.newWindow.toLocaleLowerCase(),
+      ),
+    );
+  const openLabel =
+    openCount > 0 && !jumpListHasNewWindow ? text.newWindow : text.open;
 
   useEffect(() => {
     let active = true;
@@ -265,7 +279,11 @@ function AppMenuPanel({
             onClick={() => done(launchApp(app.id))}
           >
             <Icon name={place === "program" ? "launch" : "folder"} />
-            {place === "folder" ? text.folder.open : text.open}
+            {place === "folder"
+              ? text.folder.open
+              : place === "program"
+                ? openLabel
+                : text.open}
           </button>
           {place === "recycleBin" ? (
             <button

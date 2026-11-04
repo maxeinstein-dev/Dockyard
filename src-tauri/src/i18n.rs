@@ -298,6 +298,12 @@ pub struct TrayMessages {
     /// program's; the kind of file it shows.
     pub choose_icon_title: &'static str,
     pub image_files: &'static str,
+    /// "Procurar…" in Apps do dock (F7 of estudo 0002): the dialog's title
+    /// and its filter.
+    pub browse_title: &'static str,
+    pub program_files: &'static str,
+    /// The program's menu, with windows open: opens one more (F7).
+    pub new_window: &'static str,
     /// A widget's or a stack's menu (spec 0023): the title over the others
     /// it can be stacked with, and taking the one on top out of a stack.
     pub stack_with: &'static str,
@@ -333,6 +339,9 @@ const PT_BR: Messages = Messages {
         remove_spacer: "Remover espaçador",
         choose_icon_title: "Escolher o ícone de {name}",
         image_files: "Imagens (PNG, ICO)",
+        browse_title: "Escolher um programa para fixar no dock",
+        program_files: "Programas e atalhos (EXE, LNK)",
+        new_window: "Nova janela",
         stack_with: "Empilhar com",
         take_from_stack: "Tirar da pilha",
         stack_named: "Pilha: {names}",
@@ -560,6 +569,9 @@ const EN: Messages = Messages {
         remove_spacer: "Remove spacer",
         choose_icon_title: "Choose the icon of {name}",
         image_files: "Images (PNG, ICO)",
+        browse_title: "Choose a program to pin to the dock",
+        program_files: "Programs and shortcuts (EXE, LNK)",
+        new_window: "New window",
         stack_with: "Stack with",
         take_from_stack: "Take out of the stack",
         stack_named: "Stack: {names}",

@@ -152,6 +152,26 @@ describe("AppMenuPanel", () => {
     expect(onDone).toHaveBeenCalledTimes(3);
   });
 
+  it("says Nova janela while the program has windows open, and opens one more", async () => {
+    answer({ ...MENU, sections: [] });
+    await renderMenu(() => {}, 2);
+
+    expect(screen.queryByRole("menuitem", { name: text.open })).toBeNull();
+    fireEvent.click(item(text.newWindow));
+    await flush();
+
+    expect(sent("launch_app")).toEqual([{ id: APP.id }]);
+  });
+
+  it("keeps Abrir when the Jump List already has a Nova janela", async () => {
+    await renderMenu(() => {}, 2);
+
+    expect(item(text.open)).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("menuitem", { name: text.newWindow }),
+    ).toHaveLength(1);
+  });
+
   it("offers to show the file only for a program that has one", async () => {
     answer({ ...MENU, canReveal: false });
     await renderMenu();

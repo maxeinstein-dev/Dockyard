@@ -302,7 +302,7 @@ function SettingsApp() {
                   selected={editing}
                   onSelect={setChosen}
                 />
-                <AppsPanel snapshot={apps} workspace={editing} />
+                <AppsPanel snapshot={apps} workspace={editing} browse />
               </>
             ) : null}
             {section === "items" ? (
