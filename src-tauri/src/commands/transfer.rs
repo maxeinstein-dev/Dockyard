@@ -123,32 +123,75 @@ pub async fn choose_import(app: AppHandle) -> Result<Option<Summary>, TransferEr
     .map_err(|_| TransferError::Failed)?
 }
 
-/// "Importar e reiniciar": the file chosen waits for the next start, and
-/// the Dockyard starts again (letting go of the taskbar and the database
-/// first, as a restart after a failure does).
+/// The argument a Dockyard started by an import gets, with the process id
+/// of the one that started it: it waits for that one to end first.
+pub const AFTER_ARG: &str = "--depois-de";
+
+/// The longest a Dockyard waits for the one before it to end.
+const WAIT_FOR_PREVIOUS_MS: u32 = 20_000;
+
+/// At the very start, before anything (the single-instance lock, the
+/// taskbar, the data): a Dockyard started by an import (`AFTER_ARG`) waits
+/// for the one that started it to have ended, so the two never run
+/// together.
+pub fn wait_for_previous() {
+    let mut args = std::env::args().skip_while(|arg| arg != AFTER_ARG).skip(1);
+    let Some(pid) = args.next().and_then(|pid| pid.parse::<u32>().ok()) else {
+        return;
+    };
+    #[cfg(windows)]
+    {
+        use ::windows::Win32::Foundation::CloseHandle;
+        use ::windows::Win32::System::Threading::{
+            OpenProcess, PROCESS_SYNCHRONIZE, WaitForSingleObject,
+        };
+        if let Ok(handle) = unsafe { OpenProcess(PROCESS_SYNCHRONIZE, false, pid) } {
+            unsafe { WaitForSingleObject(handle, WAIT_FOR_PREVIOUS_MS) };
+            let _ = unsafe { CloseHandle(handle) };
+        }
+    }
+    #[cfg(not(windows))]
+    let _ = pid;
+}
+
+/// "Importar e reiniciar": the file chosen waits for the next start; a new
+/// Dockyard is started, told to wait for this one, and this one quits as
+/// Sair does (giving the taskbar back). `app.restart()` is not used: from
+/// the main thread it starts the new one while this one still runs.
 #[tauri::command]
 pub fn confirm_import(app: AppHandle) -> Result<(), TransferError> {
     let chosen = CHOSEN.lock().unwrap_or_else(PoisonError::into_inner).take();
     let Some(checked) = chosen else {
         return Err(TransferError::NotACopy);
     };
-    transfer::stage(&checked, &data_dir(&app)?).inspect_err(|error| {
+    let dir = data_dir(&app)?;
+    transfer::stage(&checked, &dir).inspect_err(|error| {
         log::warn!("transfer: the import could not be staged: {error}");
     })?;
+    let started = std::env::current_exe().and_then(|exe| {
+        std::process::Command::new(exe)
+            .arg(AFTER_ARG)
+            .arg(std::process::id().to_string())
+            .spawn()
+    });
+    if let Err(error) = started {
+        // Not left pending: it would take the place of the data at some
+        // later start nobody expects.
+        log::warn!(
+            "transfer: the Dockyard could not be started again: {}",
+            error.kind()
+        );
+        let _ = std::fs::remove_dir_all(dir.join(transfer::PENDING_DIR));
+        return Err(TransferError::Failed);
+    }
     log::info!("transfer: an import waits for the restart");
-    // The database closes, so the next start can move it aside.
+    // The database closes now, so nothing is written after the copy.
     if let Some(state) = app.try_state::<Mutex<Storage>>() {
         *state.lock().unwrap_or_else(PoisonError::into_inner) =
             Storage::unavailable(UnavailableReason::OpenFailed);
     }
-    #[cfg(windows)]
-    {
-        crate::windows::appbar::remove();
-        crate::windows::taskbar::release();
-        crate::windows::window_spaces::release_all();
-    }
-    tauri_plugin_single_instance::destroy(&app);
-    app.restart();
+    app.exit(0);
+    Ok(())
 }
 
 /// "Cancelar": the file chosen is forgotten.

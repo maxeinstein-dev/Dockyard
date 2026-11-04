@@ -380,6 +380,8 @@ pub fn run() {
             previous(info);
         }));
     }
+    // Started by an import (spec 0026): the Dockyard before ends first.
+    commands::transfer::wait_for_previous();
     #[cfg_attr(not(feature = "e2e"), expect(unused_mut))]
     let mut context = tauri::generate_context!();
     // Test build only: before anything reads the identifier or a folder.

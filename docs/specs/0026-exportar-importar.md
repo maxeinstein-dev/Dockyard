@@ -8,7 +8,7 @@ Fica em Configurações › Sobre, no bloco "Cópia das configurações". A jane
 
 - **"Exportar…"** abre o "Salvar como" do Windows e grava `Dockyard-<data>.dockyard`. Depois diz "Cópia exportada.".
 - **"Importar…"** abre o "Abrir" do Windows, lê o arquivo e o confere. Em seguida mostra o que ele traz: a data, a versão do Dockyard que gravou, e quantos espaços, apps, widgets e ícones próprios. Ao lado ficam "Importar e reiniciar" e "Cancelar". Até aqui nada muda.
-- **"Importar e reiniciar"** deixa a importação esperando e reinicia o Dockyard. Antes de reiniciar, o app solta a barra do Windows e fecha o banco, como no reinício depois de uma falha.
+- **"Importar e reiniciar"** deixa a importação esperando e reinicia o Dockyard. Ele inicia um Dockyard novo com `--depois-de <pid>` e sai pelo mesmo caminho do "Sair", que devolve a barra. O novo espera o antigo terminar antes de qualquer coisa. O `restart()` do Tauri não serve aqui: chamado da linha principal, ele inicia o novo com o antigo ainda vivo. No primeiro teste ao vivo, o Dockyard novo ficou sem dock.
 
 Rust mostra os diálogos e lê e grava os arquivos. A página nunca recebe nem manda um caminho.
 
