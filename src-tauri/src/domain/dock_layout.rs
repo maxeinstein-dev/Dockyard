@@ -497,17 +497,30 @@ pub fn window_size(
     motion: bool,
     label_widths: &[f64],
 ) -> (f64, f64) {
-    let (along, across) = lying_window(shape, motion, label_widths);
-    // On a side, the lying window turned on its side (spec 0028).
-    if side.into().standing() {
-        (across, along)
-    } else {
-        (along, across)
+    let lying = lying_window(shape, motion, label_widths);
+    if !side.into().standing() {
+        return (lying.along, lying.across);
     }
+    // On a side (spec 0028) a label stands beside its tile, so its width
+    // counts across the column and its height along it.
+    let across = lying.reach + TIP_GAP + lying.label + ROOM;
+    let along = lying.bar.max(TIP_HEIGHT) + 2.0 * ROOM;
+    (ceil(across), ceil(along))
+}
+
+/// What the window of a lying bar is made of: its size along and across,
+/// the bar's widest, the widest label, and how far a tile reaches from the
+/// screen edge.
+struct LyingWindow {
+    along: f64,
+    across: f64,
+    bar: f64,
+    label: f64,
+    reach: f64,
 }
 
 /// The window of a lying bar: along it, then across.
-fn lying_window(shape: &Shape, motion: bool, label_widths: &[f64]) -> (f64, f64) {
+fn lying_window(shape: &Shape, motion: bool, label_widths: &[f64]) -> LyingWindow {
     let SizeGeometry { icon, pad, .. } = shape.size.geometry();
     let peak = shape.hover.peak();
     let grows = motion && peak.scale != 1.0;
@@ -524,7 +537,13 @@ fn lying_window(shape: &Shape, motion: bool, label_widths: &[f64]) -> (f64, f64)
         .map(|state| row(shape, &|index| shape.hover.of_item(index, state)).width)
         .fold(0.0, f64::max);
     let label = label_widths.iter().copied().fold(0.0, f64::max);
-    (ceil(bar.max(label) + 2.0 * ROOM), ceil(height))
+    LyingWindow {
+        along: ceil(bar.max(label) + 2.0 * ROOM),
+        across: ceil(height),
+        bar,
+        label,
+        reach: pad + icon * scale + lift,
+    }
 }
 
 /// Where everything sits in a window of `viewport`.
@@ -1616,11 +1635,6 @@ mod tests {
     fn a_side_is_the_bottom_or_the_top_turned_on_its_side() {
         let shape = full_shape();
         let (wide, tall) = window_size(&shape, DockEdge::Bottom, true, &LABELS);
-        assert_eq!(window_size(&shape, Side::Left, true, &LABELS), (tall, wide));
-        assert_eq!(
-            window_size(&shape, Side::Right, true, &LABELS),
-            (tall, wide)
-        );
         let viewport = (tall, wide);
         let left = place(&shape, Side::Left, viewport, Some(1));
         let top = place(&shape, DockEdge::Top, (wide, tall), Some(1));
@@ -1629,6 +1643,32 @@ mod tests {
             close(*standing, lying.transposed());
         }
         assert_eq!(left.separators, top.separators);
+    }
+
+    #[test]
+    fn a_column_holds_its_widest_label_beside_the_tiles() {
+        let shape = full_shape();
+        for motion in [false, true] {
+            let (across, along) = window_size(&shape, Side::Left, motion, &LABELS);
+            assert_eq!(
+                window_size(&shape, Side::Right, motion, &LABELS),
+                (across, along)
+            );
+            // Without motion nothing grows under the pointer.
+            let states: &[Option<usize>] = if motion { &[None, Some(1)] } else { &[None] };
+            for &magnified in states {
+                let placed = place(&shape, Side::Left, (across, along), magnified);
+                for tile in &placed.tiles {
+                    let (x, y) = tip_anchor(*tile, Side::Left);
+                    // The widest pill, beside the tile, inside the window.
+                    assert!(x + LABELS[0] <= across - ROOM + 1e-9, "{motion} {tile:?}");
+                    assert!(y >= 0.0 && y <= along);
+                }
+                // Along, the bar fits with `ROOM` at each end.
+                assert!(placed.bar.y >= ROOM - 1e-9);
+                assert!(placed.bar.y + placed.bar.height <= along - ROOM + 1e-9);
+            }
+        }
     }
 
     #[test]

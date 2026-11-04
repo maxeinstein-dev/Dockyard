@@ -2015,7 +2015,15 @@ impl Dock {
                 attention: attention && matches!(item, Item::System(SystemItem::Settings)),
                 dragging,
                 raised: risen > 0.0,
-                dot: Some((box_area.center_x(), dot)),
+                // The mark's place along the bar: x on a row, y on a column.
+                dot: Some((
+                    if matches!(edge, DockEdge::Left | DockEdge::Right) {
+                        box_area.center_y()
+                    } else {
+                        box_area.center_x()
+                    },
+                    dot,
+                )),
                 item: box_area,
                 notice: self.notices.get(index).copied().flatten(),
                 stack: item.stack().map(|stack| (stack.widgets.len(), stack.top)),
@@ -2989,11 +2997,15 @@ fn opening_offset(
     icon: f64,
     edge: DockEdge,
 ) -> (f64, f64, f64) {
-    // The bounce leaves the screen edge: up from the bottom, down from the
-    // top; on a side it stays along y until step 3 of spec 0028 turns it.
+    // The bounce leaves the screen edge, across the bar; the shake goes
+    // along it. On a side (spec 0028) across is x and along is y.
     let away = match edge {
-        DockEdge::Bottom => -1.0,
-        DockEdge::Top | DockEdge::Left | DockEdge::Right => 1.0,
+        DockEdge::Bottom | DockEdge::Right => -1.0,
+        DockEdge::Top | DockEdge::Left => 1.0,
+    };
+    let turn = |along: f64, across: f64| match edge {
+        DockEdge::Bottom | DockEdge::Top => (along, across),
+        DockEdge::Left | DockEdge::Right => (across, along),
     };
     let seconds = elapsed.as_secs_f64();
     // Linear between the keyframes of a cycle of `period`.
@@ -3023,7 +3035,8 @@ fn opening_offset(
                 2.0,
                 &[(0.0, 0.0), (0.3, 0.5), (0.6, 0.0), (0.8, 0.14), (1.0, 0.0)],
             );
-            (0.0, away * icon * lift, 1.0)
+            let (dx, dy) = turn(0.0, away * icon * lift);
+            (dx, dy, 1.0)
         }
         OpenAnimation::Pulse => {
             let grow = keyframes(0.5, 3.0, &[(0.0, 1.0), (0.5, 1.22), (1.0, 1.0)]);
@@ -3042,7 +3055,8 @@ fn opening_offset(
                     (1.0, 0.0),
                 ],
             );
-            (x, 0.0, 1.0)
+            let (dx, dy) = turn(x, 0.0);
+            (dx, dy, 1.0)
         }
     }
 }
@@ -3715,5 +3729,22 @@ mod tests {
             ),
             (0.0, 0.0, 1.0)
         );
+    }
+
+    #[test]
+    fn on_a_side_the_bounce_leaves_the_edge_and_the_shake_goes_along() {
+        let at = Duration::from_millis(150);
+        let left = opening_offset(OpenAnimation::Bounce, at, 48.0, DockEdge::Left);
+        let right = opening_offset(OpenAnimation::Bounce, at, 48.0, DockEdge::Right);
+        assert!(left.0 > 0.0 && left.1 == 0.0, "{left:?}");
+        assert!(right.0 < 0.0 && right.1 == 0.0, "{right:?}");
+        let shake = opening_offset(
+            OpenAnimation::Shake,
+            Duration::from_millis(100),
+            48.0,
+            DockEdge::Left,
+        );
+        assert_eq!(shake.0, 0.0);
+        assert!((shake.1 + 4.0).abs() < 1e-6);
     }
 }
