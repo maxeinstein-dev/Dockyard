@@ -190,6 +190,8 @@ pub enum Face {
         blocks: Vec<AgendaBlock>,
         /// Where there is no block: "Livre", "Conectar" or "–".
         note: Option<String>,
+        /// Seconds the tile has shown: where a long title rolls to.
+        since: f64,
     },
     /// The Tocando agora (spec 0017 F4): the cover (a note without one),
     /// dimmed while paused; on a wide tile, the title and the artist beside
@@ -1462,9 +1464,14 @@ impl Painter {
                     glaze: *glaze,
                     lines: lines.clone(),
                 },
-                Face::Calendar { blocks, note } => Face::Calendar {
+                Face::Calendar {
+                    blocks,
+                    note,
+                    since,
+                } => Face::Calendar {
                     blocks: blocks.clone(),
                     note: note.clone(),
+                    since: *since,
                 },
                 Face::Media {
                     glaze,
@@ -1646,14 +1653,18 @@ impl Painter {
                 self.glaze(area, *glaze, tile.pressed);
                 self.agenda(area, lines);
             }
-            Face::Calendar { blocks, note } => {
+            Face::Calendar {
+                blocks,
+                note,
+                since,
+            } => {
                 let ground = if scene.palette.dark {
                     Glaze::NEUTRAL_DARK
                 } else {
                     Glaze::NEUTRAL_LIGHT
                 };
                 self.glaze(area, ground, tile.pressed);
-                self.calendar(scene, area, blocks, note.as_deref());
+                self.calendar(scene, area, blocks, note.as_deref(), *since);
             }
             Face::Rates {
                 glaze,
@@ -2178,8 +2189,16 @@ impl Painter {
 
     /// The Calendário: the blocks across a wide tile, one under the other;
     /// on a square one, the next meeting's block saying when, or the
-    /// calendar glyph with nothing ahead.
-    fn calendar(&mut self, scene: &Scene, area: Area, blocks: &[AgendaBlock], note: Option<&str>) {
+    /// calendar glyph with nothing ahead. A title too long for its block
+    /// rolls in it, as the Tocando agora's, `since` seconds after it showed.
+    fn calendar(
+        &mut self,
+        scene: &Scene,
+        area: Area,
+        blocks: &[AgendaBlock],
+        note: Option<&str>,
+        since: f64,
+    ) {
         let u = area.height;
         let ink = scene.palette.ink;
         let byte = |v: f32| (v * 255.0).round() as u8;
@@ -2236,15 +2255,19 @@ impl Painter {
                 height,
             };
             if blocks.len() == 1 {
-                let (when, title) = (u * 0.16, u * 0.18);
+                let (when, title) = (u * 0.21, u * 0.25);
                 let mid = place.y + place.height / 2.0;
                 let above = line(mid - when * 1.3, when * 1.3);
                 self.text_left(&block.when, above, when, 600, text_ink);
                 let below = line(mid, title * 1.3);
-                self.text_left(&block.title, below, title, 500, text_ink);
+                let run = (block.title.clone(), title, 500, text_ink);
+                self.rolling(&[run], below.x, mid + title * 0.65, below.width, since);
             } else {
                 let text = format!("{} {}", block.when, block.title);
-                self.text_left(&text, line(place.y, place.height), u * 0.15, 600, text_ink);
+                let whole = line(place.y, place.height);
+                let run = (text, u * 0.2, 600, text_ink);
+                let cy = place.y + place.height / 2.0;
+                self.rolling(&[run], whole.x, cy, whole.width, since);
             }
         }
     }
