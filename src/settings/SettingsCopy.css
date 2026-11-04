@@ -1,0 +1,37 @@
+/* Configurações › Sobre › Cópia das configurações (spec 0026). Tokens of
+   tokens.css only. */
+
+.copy-text,
+.copy-summary {
+  margin: 0;
+  padding: 8px 14px;
+  color: var(--ink-2);
+  font-size: var(--fs-caption);
+  line-height: 1.4;
+}
+
+.copy-summary {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+/* The live line stays in the page while empty, so a screen reader knows
+   it before it speaks. */
+.copy-text:empty {
+  padding: 0;
+}
+
+.copy-error {
+  color: var(--danger);
+}
+
+.copy-chosen {
+  display: grid;
+}
+
+.copy-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 14px;
+}

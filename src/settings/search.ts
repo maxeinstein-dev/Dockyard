@@ -85,6 +85,8 @@ export function searchIndex(t: Messages): SearchEntry[] {
     inLook(groups.openAnimation, groups.openAnimation),
     inLook(look.openAnimation, groups.openAnimation),
     { section: "items" as const, label: t.widgets.catalog.title },
+    // Sobre: the copy of the dock (spec 0026).
+    { section: "about" as const, label: s.copy.title, group: s.copy.title },
   ].filter(
     // A card titled like its only row ("Idioma") is found once.
     (entry, index, all) =>
