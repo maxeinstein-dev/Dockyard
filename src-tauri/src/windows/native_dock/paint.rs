@@ -307,6 +307,9 @@ pub struct StripCell {
     pub glyph: Option<(char, f32)>,
     pub image: Option<ID2D1Bitmap>,
     pub hovered: bool,
+    /// The badge of its program, for an icon of the notification area
+    /// (F11 of estudo 0002).
+    pub notice: Option<Badge>,
 }
 
 /// The label pill: anchored at the middle of its edge nearest the tile.
@@ -3141,6 +3144,11 @@ impl Painter {
                     None,
                 )
             };
+            // A small icon: its program's badge is a dot on its corner (F11
+            // of estudo 0002); the number is on the item and read aloud.
+            if cell.notice.is_some() {
+                self.notice(scene, at, Badge::Dot);
+            }
         }
     }
 
