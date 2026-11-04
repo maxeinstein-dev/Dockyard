@@ -72,7 +72,7 @@ function OpenMenuPanel({
             className="app-menu-item"
             onClick={() => done(launchOpen(other.key))}
           >
-            {text.newInstance}
+            {text.newWindow}
           </button>
           <button
             type="button"

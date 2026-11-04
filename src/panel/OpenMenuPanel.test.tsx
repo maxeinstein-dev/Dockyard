@@ -44,8 +44,8 @@ describe("OpenMenuPanel", () => {
     ).toBeInTheDocument();
     expect(
       screen.getAllByRole("menuitem").map((entry) => entry.textContent),
-    ).toEqual([text.newInstance, text.closeWindow, text.pin]);
-    expect(item(text.newInstance)).toHaveFocus();
+    ).toEqual([text.newWindow, text.closeWindow, text.pin]);
+    expect(item(text.newWindow)).toHaveFocus();
   });
 
   it("says all the windows when the program has more than one", () => {
@@ -58,7 +58,7 @@ describe("OpenMenuPanel", () => {
   });
 
   it.each([
-    [text.newInstance, "launch_open"],
+    [text.newWindow, "launch_open"],
     [text.closeWindow, "close_open"],
     [text.pin, "pin_open"],
   ])("runs %s by the key, and closes the panel", async (name, command) => {
@@ -97,6 +97,6 @@ describe("OpenMenuPanel", () => {
     fireEvent.keyDown(menu, { key: "ArrowDown" });
     expect(item(text.pin)).toHaveFocus();
     fireEvent.keyDown(menu, { key: "Home" });
-    expect(item(text.newInstance)).toHaveFocus();
+    expect(item(text.newWindow)).toHaveFocus();
   });
 });
