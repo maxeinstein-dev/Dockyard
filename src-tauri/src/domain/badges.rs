@@ -10,6 +10,8 @@ use super::open_apps::Identity;
 pub enum Badge {
     /// A number of things unread.
     Count(u32),
+    /// At least this many: the program stops counting there ("9+").
+    AtLeast(u32),
     /// A mark with no number (a glyph of the program's own).
     Dot,
 }
@@ -21,6 +23,7 @@ impl Badge {
         match self {
             Badge::Count(count) if count > MAX_SHOWN => Some(format!("{MAX_SHOWN}+")),
             Badge::Count(count) => Some(count.to_string()),
+            Badge::AtLeast(count) => Some(format!("{}+", count.min(MAX_SHOWN))),
             Badge::Dot => None,
         }
     }
@@ -75,6 +78,25 @@ pub fn from_description(text: &str) -> Option<Badge> {
     NEWS.iter()
         .any(|word| lower.contains(word))
         .then_some(Badge::Dot)
+}
+
+/// Programs whose description stops counting at a number while the icon
+/// they draw says more (`"9 notifications"` under Discord's "9+", seen live
+/// in F11 of estudo 0002): their AppID, lowercased, and that number.
+const STOPS_AT: [(&str, u32); 1] = [("com.squirrel.discord.discord", 9)];
+
+/// The badge of the description of the button of `app_id`: a count where
+/// the program stops counting is "at least" that count.
+pub fn from_description_of(app_id: Option<&str>, text: &str) -> Option<Badge> {
+    let badge = from_description(text)?;
+    let stops = STOPS_AT
+        .iter()
+        .find(|(id, _)| Some(*id) == app_id)
+        .map(|(_, at)| *at);
+    Some(match (badge, stops) {
+        (Badge::Count(count), Some(at)) if count >= at => Badge::AtLeast(at),
+        _ => badge,
+    })
 }
 
 /// What `AutomationId` names the program of a button of the taskbar by:
@@ -409,5 +431,24 @@ mod tests {
             Some(Badge::Count(9))
         );
         assert_eq!(for_other(&buttons, Some(file), "Disc"), None);
+    }
+
+    #[test]
+    fn discords_nine_is_nine_or_more() {
+        let discord = Some("com.squirrel.discord.discord");
+        assert_eq!(
+            from_description_of(discord, "9 notifications"),
+            Some(Badge::AtLeast(9))
+        );
+        assert_eq!(
+            from_description_of(discord, "3 notifications"),
+            Some(Badge::Count(3))
+        );
+        // Anyone else's 9 is 9.
+        assert_eq!(
+            from_description_of(Some("other.app"), "9 notifications"),
+            Some(Badge::Count(9))
+        );
+        assert_eq!(Badge::AtLeast(9).label().as_deref(), Some("9+"));
     }
 }

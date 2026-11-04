@@ -820,6 +820,10 @@ fn badged(name: &str, badge: Option<Badge>) -> String {
             .with_badges
             .replace("{name}", name)
             .replace("{count}", &count.to_string()),
+        Some(Badge::AtLeast(count)) => text
+            .with_badges
+            .replace("{name}", name)
+            .replace("{count}", &format!("{count}+")),
     }
 }
 

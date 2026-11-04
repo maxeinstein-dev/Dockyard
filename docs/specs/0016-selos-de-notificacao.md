@@ -117,6 +117,10 @@ Também visto no teste:
   - O ícone ganha o selo do programa dele (`for_tray`): o botão feito do mesmo arquivo, ou o botão cujo programa tem o nome do arquivo (`Discord.exe` e `"Discord - 1 janela em execução"`).
   - Só quando nenhum item do dock é esse programa, para o selo não aparecer duas vezes.
   - No ícone pequeno, é um ponto no canto. O número fica para o leitor de tela.
+- **"9+" do Discord.**
+  - A descrição do Discord para de contar no 9 ("9 notifications"), enquanto o ícone que ele desenha diz "9+".
+  - Decisão do autor: com o Discord dizendo 9, o selo é "pelo menos 9" (`Badge::AtLeast`), desenhado "9+" e lido "9+ notificações". Com exatamente 9 não lidas, ele também mostra "9+".
+  - A lista `STOPS_AT` fica em `domain/badges.rs`, pelo AppID.
 - **O leitor de tela diz o selo.** O nome do item, e do ícone da bandeja, ganha "…, 9 notificações", "…, 1 notificação" ou "…, com novidade". O dock publica de novo quando os selos mudam.
 
 ## 9. Verificação da F11

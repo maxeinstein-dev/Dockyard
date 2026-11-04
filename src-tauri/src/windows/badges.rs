@@ -41,7 +41,7 @@ use windows::Win32::UI::WindowsAndMessaging::FindWindowExW;
 use windows::core::{BSTR, GUID, Interface, Ref, Result, implement, w};
 
 use crate::commands::settings::CHANGED_EVENT as SETTINGS_CHANGED_EVENT;
-use crate::domain::badges::{Button, app_id_of, from_description, known_folder_path, parse};
+use crate::domain::badges::{Button, app_id_of, from_description_of, known_folder_path, parse};
 
 /// The class UI Automation gives the program buttons of the taskbar.
 const BUTTON_CLASS: &str = "Taskbar.TaskListButtonAutomationPeer";
@@ -210,7 +210,7 @@ impl Reader {
             let path = app_id.as_deref().and_then(|id| self.path_of(id));
             let described = unsafe { element.CachedHelpText() }
                 .ok()
-                .and_then(|text| from_description(&text.to_string()));
+                .and_then(|text| from_description_of(app_id.as_deref(), &text.to_string()));
             buttons.push(Button {
                 name,
                 app_id,
