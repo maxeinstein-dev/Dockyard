@@ -72,6 +72,8 @@ pub enum SectionKind {
     Category,
     Recent,
     Frequent,
+    /// The newest entries of a pinned folder (spec 0025).
+    Files,
 }
 
 /// What choosing an entry runs.

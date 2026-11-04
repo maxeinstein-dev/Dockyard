@@ -464,6 +464,7 @@ export const otherText: Messages = {
         category: "Recent",
         recent: "Recent",
         frequent: "Frequent",
+        files: "Newest",
       },
       loading: "Reading the menu…",
       failed: "The menu of this app could not be read.",
@@ -484,6 +485,17 @@ export const otherText: Messages = {
       },
       openFooter: "An open app that is not pinned",
       footer: "The taskbar menu",
+      folder: {
+        empty: "Empty.",
+        unreadable: "Unreadable.",
+        more: "More.",
+        open: "Open in File Explorer",
+        footer: "A folder",
+      },
+      bin: {
+        empty: "Empty Recycle Bin…",
+        footer: "The Recycle Bin",
+      },
     },
     unavailableNotice: {
       title: "Dock apps are unavailable.",

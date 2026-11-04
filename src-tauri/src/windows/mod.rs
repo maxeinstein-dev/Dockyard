@@ -20,6 +20,7 @@ pub mod drop_target;
 pub mod file_dialog;
 #[cfg(windows)]
 pub mod flyout;
+pub mod folders;
 #[cfg(windows)]
 pub mod fullscreen;
 #[cfg(windows)]
