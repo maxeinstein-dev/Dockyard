@@ -152,7 +152,7 @@ fn bitmap_png(dib: &[u8]) -> Option<Vec<u8>> {
     let mask_row = w.div_ceil(32) * 4;
     let mask = dib.get(header + w * h * 4..).unwrap_or_default();
     // An old icon leaves the alpha empty and says what is clear in its mask.
-    let no_alpha = colors.chunks_exact(4).all(|pixel| pixel[3] == 0);
+    let no_alpha = colors.as_chunks::<4>().0.iter().all(|pixel| pixel[3] == 0);
     let mut rgba = Vec::with_capacity(w * h * 4);
     for row in (0..h).rev() {
         for column in 0..w {
