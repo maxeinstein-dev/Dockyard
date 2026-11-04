@@ -13,6 +13,7 @@ pub mod cycle;
 pub mod dock_items;
 pub mod dock_layout;
 pub mod everything_ipc;
+pub mod folders;
 pub mod fullscreen;
 pub mod google;
 pub mod hotkey;

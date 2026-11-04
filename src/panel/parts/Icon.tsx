@@ -27,6 +27,11 @@ const PATHS = {
     "M4.5 7.5a1.5 1.5 0 0 1 1.5-1.5h3.5l2 2H18a1.5 1.5 0 0 1 1.5 1.5v7.5A1.5 1.5 0 0 1 18 18.5H6a1.5 1.5 0 0 1-1.5-1.5z",
   ],
   close: ["M7 7l10 10M17 7L7 17"],
+  // The entries of a pinned folder (spec 0025).
+  file: ["M7 4.5h6.5l3.5 3.5v11.5H7z", "M13.5 4.5V8H17"],
+  image: ["M5 6h14v12H5z", "M5 15.5l4-4 3 3 2-2 5 5", "M14.5 9.5h.01"],
+  play: ["M8.5 6.5v11l9-5.5z"],
+  archive: ["M5 7h14v3H5z", "M6 10v8.5h12V10", "M10.5 13h3"],
   unpin: ["M9 4.5h6M10 4.5v5l-3 3.5h10l-3-3.5v-5", "M12 13v6.5", "M5 5l14 14"],
   // The sections of the Configurações app (spec 0014 R1), on their plates.
   general: [

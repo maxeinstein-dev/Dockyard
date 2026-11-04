@@ -24,6 +24,8 @@ const APP: PinnedApp = {
 
 const MENU: AppMenu = {
   canReveal: true,
+  place: "program",
+  more: false,
   sections: [
     {
       kind: "category",
@@ -111,6 +113,8 @@ describe("AppMenuPanel", () => {
   it("names a category without a title as recent ones", async () => {
     answer({
       canReveal: false,
+      place: "program",
+      more: false,
       sections: [
         { kind: "category", title: null, entries: MENU.sections[0]!.entries },
       ],
@@ -387,5 +391,88 @@ describe("AppMenuPanel's icon (spec 0024)", () => {
 
     expect(sent("choose_app_icon_image")).toEqual([{ id: APP.id }]);
     expect(onDone).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("AppMenuPanel of a folder or the Recycle Bin (spec 0025)", () => {
+  beforeEach(() => {
+    invoke.mockReset();
+  });
+
+  const FOLDER: AppMenu = {
+    canReveal: false,
+    place: "folder",
+    more: true,
+    sections: [
+      {
+        kind: "files",
+        title: null,
+        entries: [
+          { key: 0, title: "foto.png", kind: "image" },
+          { key: 1, title: "Projetos", kind: "folder" },
+        ],
+      },
+    ],
+  };
+
+  it("shows the newest entries and opens one by its key", async () => {
+    const onDone = vi.fn();
+    answer(FOLDER);
+    await renderMenu(onDone);
+
+    expect(
+      screen.getByRole("heading", { name: text.sections.files }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(text.folder.more)).toBeInTheDocument();
+    expect(screen.getByText(text.folder.footer)).toBeInTheDocument();
+    fireEvent.click(item("Projetos"));
+    await flush();
+
+    expect(sent("run_app_entry")).toEqual([{ id: APP.id, key: 1 }]);
+    expect(onDone).toHaveBeenCalled();
+  });
+
+  it("opens the folder in File Explorer", async () => {
+    answer(FOLDER);
+    await renderMenu();
+
+    fireEvent.click(item(text.folder.open));
+    await flush();
+
+    expect(sent("launch_app")).toEqual([{ id: APP.id }]);
+  });
+
+  it("says when the folder is empty or could not be read", async () => {
+    answer({
+      ...FOLDER,
+      more: false,
+      sections: [{ kind: "files", title: null, entries: [] }],
+    });
+    const view = await renderMenu();
+    expect(screen.getByText(text.folder.empty)).toBeInTheDocument();
+    view.unmount();
+
+    answer({ ...FOLDER, more: false, sections: [] });
+    await renderMenu();
+    expect(screen.getByText(text.folder.unreadable)).toHaveAttribute(
+      "role",
+      "alert",
+    );
+  });
+
+  it("empties the Recycle Bin, Windows asking first", async () => {
+    answer(
+      { canReveal: false, place: "recycleBin", more: false, sections: [] },
+      {
+        empty_recycle_bin: () => Promise.resolve(true),
+      },
+    );
+    await renderMenu();
+
+    fireEvent.click(item(text.bin.empty));
+    await flush();
+
+    expect(sent("empty_recycle_bin")).toEqual([{ id: APP.id }]);
+    expect(screen.getByText(text.bin.footer)).toBeInTheDocument();
   });
 });
