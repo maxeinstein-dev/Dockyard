@@ -50,10 +50,14 @@ O resultado fica escrito aqui. O Espiar só entra no cartão se o spike mostrar 
   - as setas andam sem dar a volta;
   - Enter abre, Delete fecha, Esc e a seta de volta saem;
   - a seta de ida segue a borda do dock.
-- **Ao vivo (pendente):** o Espiar também é conferido: com uma janela do roteiro por cima, a escolhida aparece. com uma janela do próprio roteiro, o PowerShell dele, o roteiro confere:
-  1. o atalho e as setas chegam ao item;
-  2. a seta para cima abre o cartão, com o leitor de tela na miniatura;
-  3. o cartão fica aberto com o ponteiro longe;
-  4. Esc fecha e o item segue escolhido;
-  5. Enter traz a janela para a frente;
-  6. Delete a fecha, e o cartão sai junto.
+- **Ao vivo: feita em 2026-11-04**, com o build `.medir` e uma cópia dos dados. O atalho do dock foi trocado para Ctrl+Alt+Z só na cópia. As janelas eram do próprio roteiro: a de teste e uma "capa" vermelha por cima.
+  - O atalho e as setas chegaram ao item do PowerShell, e a seta para cima abriu o cartão.
+  - O cartão ficou aberto com o ponteiro longe.
+  - O Espiar mostrou só a janela escolhida: o meio da tela ficou azul, a cor dela, em vez do vermelho da capa.
+  - Esc fechou o cartão, o item continuou escolhido e o Espiar desligou (o vermelho voltou).
+  - Enter trouxe a janela para a frente.
+  - Delete a fechou, e o cartão saiu junto.
+  - A barra do Windows ficou como estava.
+- **Falta conferir à mão:**
+  - **Narrador:** o cartão não toma o foco, então a UI Automation ainda dá como focado o item do dock. A miniatura é anunciada pelo evento de mudança de foco do cartão, e é isso que o Narrador precisa confirmar.
+  - **Espiar com o ponteiro:** o roteiro só conferiu o Espiar pelo teclado.
