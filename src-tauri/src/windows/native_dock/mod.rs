@@ -2371,9 +2371,7 @@ impl Dock {
     /// The button of the Tocando agora at `index` under `(x, y)`, three
     /// icons wide while something plays (spec 0017 F4).
     fn media_button_at(&self, index: usize, x: f64, y: f64) -> Option<super::media::Action> {
-        let Some(widget) = self.items.get(index).and_then(Item::widget) else {
-            return None;
-        };
+        let widget = self.items.get(index).and_then(Item::widget)?;
         if !matches!(widget.config, WidgetConfig::Media(_))
             || widget.config.width() != 3
             || super::media::snapshot().is_none()
