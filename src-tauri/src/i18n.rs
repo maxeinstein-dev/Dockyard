@@ -284,6 +284,15 @@ pub struct TrayMessages {
     pub add_small_spacer: &'static str,
     pub add_large_spacer: &'static str,
     pub remove_spacer: &'static str,
+    /// A widget's or a stack's menu (spec 0023): the title over the others
+    /// it can be stacked with, and taking the one on top out of a stack.
+    pub stack_with: &'static str,
+    pub take_from_stack: &'static str,
+    /// A stack's name in "Empilhar com": `{names}` its widgets', with commas.
+    pub stack_named: &'static str,
+    /// What the Narrator says of a stack: `{name}` the widget on top, `{n}`
+    /// its place, `{count}` how many.
+    pub stack_position: &'static str,
 }
 
 const PT_BR: Messages = Messages {
@@ -306,6 +315,10 @@ const PT_BR: Messages = Messages {
         add_small_spacer: "Adicionar espaçador pequeno",
         add_large_spacer: "Adicionar espaçador grande",
         remove_spacer: "Remover espaçador",
+        stack_with: "Empilhar com",
+        take_from_stack: "Tirar da pilha",
+        stack_named: "Pilha: {names}",
+        stack_position: "{name}, {n} de {count} na pilha",
     },
     settings: SettingsMessages {
         window_title: "Configurações do Dockyard",
@@ -521,6 +534,10 @@ const EN: Messages = Messages {
         add_small_spacer: "Add small spacer",
         add_large_spacer: "Add large spacer",
         remove_spacer: "Remove spacer",
+        stack_with: "Stack with",
+        take_from_stack: "Take out of the stack",
+        stack_named: "Stack: {names}",
+        stack_position: "{name}, {n} of {count} in the stack",
     },
     settings: SettingsMessages {
         window_title: "Dockyard Settings",

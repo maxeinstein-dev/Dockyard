@@ -229,6 +229,7 @@ describe("SettingsApp", () => {
               color: "#0A84FF",
               items: [],
               spacers: [],
+              stacks: [],
             },
             {
               id: "w2",
@@ -236,6 +237,7 @@ describe("SettingsApp", () => {
               color: "#FF9F0A",
               items: ["app:a2"],
               spacers: [],
+              stacks: [],
             },
           ],
           inUse: "w2",

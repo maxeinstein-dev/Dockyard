@@ -28,6 +28,7 @@ const MAIN: Workspace = {
   color: "#0A84FF",
   items: ["app:a1", "widget:c1", "app:a2"],
   spacers: [],
+  stacks: [],
 };
 const WORK: Workspace = {
   id: "w-work",
@@ -35,6 +36,7 @@ const WORK: Workspace = {
   color: "#FF9F0A",
   items: ["widget:c1"],
   spacers: [],
+  stacks: [],
 };
 const SNAPSHOT: WorkspacesSnapshot = {
   workspaces: [MAIN, WORK],

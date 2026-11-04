@@ -12,6 +12,10 @@
 //! between two items, small or large, kept in the `spacers` table. Unlike a
 //! program or a widget it belongs to the one workspace it was made in, and
 //! taking it out of it removes it for good.
+//!
+//! A stack of widgets (spec 0023) is named `stack:<id>`: two or more widgets
+//! in one tile, the one on top shown. It belongs to one workspace too; the
+//! widgets in it leave the workspace's list while they are in it.
 
 use serde::Serialize;
 
@@ -50,6 +54,52 @@ pub struct Workspace {
     /// Its spacers (spec 0022), in dock order: what their keys in `items`
     /// stand for.
     pub spacers: Vec<Spacer>,
+    /// Its stacks of widgets (spec 0023), in dock order: what their keys in
+    /// `items` stand for.
+    pub stacks: Vec<Stack>,
+}
+
+/// What a stack's key starts with: `stack:<id>`.
+pub const STACK_PREFIX: &str = "stack:";
+
+/// The most widgets one stack holds.
+pub const MAX_STACK: usize = 8;
+
+/// A stack of widgets of a workspace (spec 0023): its id (a UUID v7), the
+/// ids of its widgets in order, and which of them is on top.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Stack {
+    pub id: String,
+    pub widgets: Vec<String>,
+    pub top: usize,
+}
+
+impl Stack {
+    /// The key a workspace knows it by.
+    pub fn key(&self) -> String {
+        format!("{STACK_PREFIX}{}", self.id)
+    }
+
+    /// Which widget is on top after `step` turns of the wheel (a negative
+    /// one goes back), going round.
+    pub fn turned(&self, step: i32) -> usize {
+        let count = i64::try_from(self.widgets.len()).unwrap_or(1).max(1);
+        let top = i64::try_from(self.top).unwrap_or(0);
+        usize::try_from((top + i64::from(step)).rem_euclid(count)).unwrap_or(0)
+    }
+}
+
+/// The widgets of a stack made by putting `moving` (a widget's id, or a
+/// stack's widgets) on `target`'s (spec 0023 §3): the target's first, then
+/// the moving ones it does not have, and which is on top: the first moving
+/// one, so the change shows. `None` when there would be more than
+/// `MAX_STACK`, or nothing new.
+pub fn joined(target: &[String], moving: &[String]) -> Option<(Vec<String>, usize)> {
+    let mut widgets = target.to_vec();
+    let top = widgets.len();
+    widgets.extend(moving.iter().filter(|id| !target.contains(id)).cloned());
+    (widgets.len() > top && widgets.len() <= MAX_STACK).then_some((widgets, top))
 }
 
 /// What a spacer's key starts with: `spacer:<id>`.
@@ -189,7 +239,10 @@ pub fn is_palette_color(color: &str) -> bool {
 /// spacer.
 pub fn is_item_key(key: &str) -> bool {
     key.len() <= MAX_KEY
-        && (key.starts_with("app:") || key.starts_with("widget:") || key.starts_with(SPACER_PREFIX))
+        && (key.starts_with("app:")
+            || key.starts_with("widget:")
+            || key.starts_with(SPACER_PREFIX)
+            || key.starts_with(STACK_PREFIX))
 }
 
 /// The color a new workspace takes: the first of the palette no workspace
@@ -243,11 +296,11 @@ pub fn initial_order(order: &[String], apps: &[String], widgets: &[String]) -> V
 
 /// `items` with `key` one place up or down among the keys of its own kind
 /// (the lists of Configurações show each kind apart); `None` when it is not
-/// there or already at that end. The widgets and the spacers count as one
-/// kind: Itens do dock lists them together (spec 0022).
+/// there or already at that end. The widgets, the spacers and the stacks
+/// count as one kind: Itens do dock lists them together (specs 0022, 0023).
 pub fn shifted(items: &[String], key: &str, up: bool) -> Option<Vec<String>> {
     let kind = |key: &str| match key.split(':').next().unwrap_or_default() {
-        "spacer" => "widget".to_owned(),
+        "spacer" | "stack" => "widget".to_owned(),
         other => other.to_owned(),
     };
     let own = kind(key);
@@ -444,6 +497,44 @@ mod tests {
         };
         assert_eq!(spacer.key(), "spacer:0192");
         assert!(is_item_key(&spacer.key()));
+    }
+
+    #[test]
+    fn stacks_join_with_the_new_one_on_top_and_turn_round() {
+        let ids = |list: &[&str]| -> Vec<String> { list.iter().map(|s| (*s).to_owned()).collect() };
+        assert_eq!(
+            joined(&ids(&["a"]), &ids(&["b"])),
+            Some((ids(&["a", "b"]), 1))
+        );
+        // A stack on a stack: the new ones after, the first of them on top;
+        // one already in it is not doubled.
+        assert_eq!(
+            joined(&ids(&["a", "b"]), &ids(&["c", "a", "d"])),
+            Some((ids(&["a", "b", "c", "d"]), 2))
+        );
+        assert_eq!(joined(&ids(&["a"]), &ids(&["a"])), None);
+        let full: Vec<String> = (0..MAX_STACK).map(|n| n.to_string()).collect();
+        assert_eq!(joined(&full, &ids(&["x"])), None);
+
+        let stack = Stack {
+            id: "s".into(),
+            widgets: ids(&["a", "b", "c"]),
+            top: 2,
+        };
+        assert_eq!(stack.turned(1), 0);
+        assert_eq!(stack.turned(-1), 1);
+        assert_eq!(stack.turned(-3), 2);
+        assert_eq!(stack.key(), "stack:s");
+        assert!(is_item_key(&stack.key()));
+    }
+
+    #[test]
+    fn stacks_move_among_the_widgets() {
+        let items = keys(&["app:a", "widget:1", "stack:s", "app:b"]);
+        assert_eq!(
+            shifted(&items, "stack:s", true),
+            Some(keys(&["app:a", "stack:s", "widget:1", "app:b"]))
+        );
     }
 
     #[test]

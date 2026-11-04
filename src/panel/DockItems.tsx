@@ -1,10 +1,13 @@
 import {
   inWorkspace,
   isWorkspaceCommandError,
+  dissolveStack,
   moveSpacer,
+  moveStack,
   removeSpacer,
   type Workspace,
   type WorkspaceSpacer,
+  type WorkspaceStack,
 } from "../core/workspaces";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
@@ -187,15 +190,22 @@ function subtitleOf(
     : format(t.widgets.common.labelledSubtitle, { kind, detail });
 }
 
-/** A row of the list: a widget, or a spacer of the workspace (spec 0022),
- * by the id its buttons are kept under. */
+/** A row of the list: a widget, a spacer of the workspace (spec 0022) or a
+ * stack of widgets (spec 0023), by the id its buttons are kept under. */
 type Row =
   | { kind: "widget"; id: WidgetId; instance: WidgetInstance }
-  | { kind: "spacer"; id: string; spacer: WorkspaceSpacer };
+  | { kind: "spacer"; id: string; spacer: WorkspaceSpacer }
+  | {
+      kind: "stack";
+      id: string;
+      stack: WorkspaceStack;
+      members: WidgetInstance[];
+    };
 
-/** The widgets and the spacers `workspace` shows, in its order: the
- * spacers are listed with the widgets so they can be moved and removed
- * here too. Without a workspace, the widgets alone. */
+/** The widgets, the spacers and the stacks `workspace` shows, in its
+ * order: the spacers and the stacks are listed with the widgets so they can
+ * be moved, removed or undone here too. Without a workspace, the widgets
+ * alone. */
 function rowsOf(
   widgets: readonly WidgetInstance[],
   workspace: Workspace | null | undefined,
@@ -211,6 +221,7 @@ function rowsOf(
   const spacers = new Map(
     workspace.spacers.map((spacer) => [spacer.id, spacer]),
   );
+  const stacks = new Map(workspace.stacks.map((stack) => [stack.id, stack]));
   return workspace.items.flatMap((key): Row[] => {
     const at = key.indexOf(":");
     const kind = key.slice(0, at);
@@ -218,7 +229,15 @@ function rowsOf(
     const instance = kind === "widget" ? byId.get(id) : undefined;
     if (instance) return [{ kind: "widget", id, instance }];
     const spacer = kind === "spacer" ? spacers.get(id) : undefined;
-    return spacer ? [{ kind: "spacer", id, spacer }] : [];
+    if (spacer) return [{ kind: "spacer", id, spacer }];
+    const stack = kind === "stack" ? stacks.get(id) : undefined;
+    const members = (stack?.widgets ?? []).flatMap((widget) => {
+      const found = byId.get(widget);
+      return found ? [found] : [];
+    });
+    return stack && members.length > 0
+      ? [{ kind: "stack", id, stack, members }]
+      : [];
   });
 }
 
@@ -417,8 +436,26 @@ function DockItems({ snapshot, workspace, onBack, catalog }: DockItemsProps) {
     focusTarget.current = { kind: "move", id: row.id, direction };
     (row.kind === "spacer"
       ? moveSpacer(row.id, direction, space)
-      : moveWidget({ id: row.id, direction, workspace: space })
+      : row.kind === "stack"
+        ? moveStack(row.id, direction, space)
+        : moveWidget({ id: row.id, direction, workspace: space })
     ).catch(fail);
+  }
+
+  /** Undoes a stack (`dissolve_stack`), at once: its widgets stay, loose
+   * in its place. The focus goes to where it was. */
+  function dissolveStackRow(id: string, index: number) {
+    setError(null);
+    setRemoving(id);
+    focusTarget.current = { kind: "removed", id, index };
+    dissolveStack(id, space).then(
+      () => setRemoving(null),
+      (reason: unknown) => {
+        fail(reason);
+        focusTarget.current = { kind: "remove", id };
+        setRemoving(null);
+      },
+    );
   }
 
   /** Removes a spacer (`remove_spacer`), at once: it holds nothing. */
@@ -568,10 +605,20 @@ function DockItems({ snapshot, workspace, onBack, catalog }: DockItemsProps) {
             >
               {rows.map((row, index) => {
                 const instance = row.kind === "widget" ? row.instance : null;
+                const top =
+                  row.kind === "stack"
+                    ? (row.members[row.stack.top] ?? row.members[0])
+                    : null;
                 const name =
                   row.kind === "widget"
                     ? widgetName(t, row.instance)
-                    : t.widgets.items.spacers[row.spacer.size];
+                    : row.kind === "stack"
+                      ? format(t.widgets.items.stackNamed, {
+                          names: row.members
+                            .map((member) => widgetName(t, member))
+                            .join(", "),
+                        })
+                      : t.widgets.items.spacers[row.spacer.size];
                 const subtitle = instance
                   ? subtitleOf(t, instance, noteLines)
                   : null;
@@ -579,8 +626,10 @@ function DockItems({ snapshot, workspace, onBack, catalog }: DockItemsProps) {
                   <li key={row.id} className="dock-items-row">
                     {row.kind === "spacer" ? (
                       <SpacerTile spacer={row.spacer} />
-                    ) : isCreatableInstance(row.instance) ? (
-                      <MiniTile kind={row.instance.kind} />
+                    ) : top && isCreatableInstance(top) ? (
+                      <MiniTile kind={top.kind} />
+                    ) : instance && isCreatableInstance(instance) ? (
+                      <MiniTile kind={instance.kind} />
                     ) : (
                       <span />
                     )}
@@ -632,14 +681,21 @@ function DockItems({ snapshot, workspace, onBack, catalog }: DockItemsProps) {
                           if (button) moveButtons.current.set(key, button);
                           else moveButtons.current.delete(key);
                         }}
-                        icon="trash"
-                        tone="danger"
-                        label={format(t.widgets.common.removeNamed, { name })}
+                        icon={row.kind === "stack" ? "close" : "trash"}
+                        tone={row.kind === "stack" ? undefined : "danger"}
+                        label={format(
+                          row.kind === "stack"
+                            ? t.widgets.items.unstackNamed
+                            : t.widgets.common.removeNamed,
+                          { name },
+                        )}
                         disabled={removing === row.id}
                         onClick={() =>
                           instance
                             ? askToRemove(instance, index)
-                            : removeSpacerRow(row.id, index)
+                            : row.kind === "stack"
+                              ? dissolveStackRow(row.id, index)
+                              : removeSpacerRow(row.id, index)
                         }
                       />
                     )}

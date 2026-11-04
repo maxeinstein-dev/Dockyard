@@ -14,12 +14,13 @@
 //! the strip of small icons at the end (`dock_layout::Shape::tray`).
 //!
 //! The spacers of the workspace shown (spec 0022) are items of the first
-//! group too, where it puts them: room with nothing in it.
+//! group too, where it puts them: room with nothing in it. So are its
+//! stacks of widgets (spec 0023): one tile, the widget on top shown.
 
 use super::apps::{AppsSnapshot, PinnedApp};
 use super::open_apps::{OpenOther, OpenSnapshot};
 use super::widgets::{StorageStatus, WidgetInstance, WidgetKind, WidgetsSnapshot};
-use super::workspaces::{Spacer, SpacerSize, Workspace};
+use super::workspaces::{STACK_PREFIX, Spacer, SpacerSize, Stack, Workspace};
 
 /// The items Dockyard itself puts at the end of the dock.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -41,6 +42,53 @@ pub enum Item {
     /// Room between two items (spec 0022): nothing under the pointer, no
     /// label, no mark; it is dragged and has a menu of its own.
     Spacer(Spacer),
+    /// Widgets in one tile (spec 0023): it is the one on top, with dots
+    /// for the others.
+    Stack(StackItem),
+}
+
+/// A stack of widgets as the dock shows it: the widgets of it there are,
+/// in order, and which is on top.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StackItem {
+    pub id: String,
+    pub widgets: Vec<WidgetInstance>,
+    pub top: usize,
+}
+
+impl StackItem {
+    /// The widget on top: the one drawn, clicked and read.
+    pub fn shown(&self) -> &WidgetInstance {
+        &self.widgets[self.top]
+    }
+
+    /// The stack `stack` of a workspace with the widgets of `widgets` it
+    /// names; `None` when none of them is there.
+    fn of(stack: &Stack, widgets: &[Item]) -> Option<StackItem> {
+        let found: Vec<WidgetInstance> = stack
+            .widgets
+            .iter()
+            .filter_map(|id| {
+                widgets.iter().find_map(|item| match item {
+                    Item::Widget(widget) if widget.id.as_str() == id => Some(widget.clone()),
+                    _ => None,
+                })
+            })
+            .collect();
+        if found.is_empty() {
+            return None;
+        }
+        let top = stack
+            .widgets
+            .get(stack.top)
+            .and_then(|id| found.iter().position(|widget| widget.id.as_str() == id))
+            .unwrap_or(0);
+        Some(StackItem {
+            id: stack.id.clone(),
+            widgets: found,
+            top,
+        })
+    }
 }
 
 impl Item {
@@ -53,16 +101,31 @@ impl Item {
             Item::Other(other) => format!("open:{}", other.key),
             Item::System(SystemItem::Settings) => "settings".into(),
             Item::Spacer(spacer) => spacer.key(),
+            Item::Stack(stack) => format!("{STACK_PREFIX}{}", stack.id),
+        }
+    }
+
+    /// The widget the item shows: a widget's own, a stack's on top.
+    pub fn widget(&self) -> Option<&WidgetInstance> {
+        match self {
+            Item::Widget(widget) => Some(widget),
+            Item::Stack(stack) => Some(stack.shown()),
+            _ => None,
+        }
+    }
+
+    /// The stack the item is; `None` for any other.
+    pub fn stack(&self) -> Option<&StackItem> {
+        match self {
+            Item::Stack(stack) => Some(stack),
+            _ => None,
         }
     }
 
     /// How many icons wide the item is in the dock: a widget says; the rest
     /// are one.
     pub fn span(&self) -> usize {
-        match self {
-            Item::Widget(widget) => widget.config.span(),
-            _ => 1,
-        }
+        self.widget().map_or(1, |widget| widget.config.span())
     }
 
     /// Whether the item stands for a program (pinned or open).
@@ -108,6 +171,7 @@ impl Names {
         match item {
             Item::App(app) => app.name.clone(),
             Item::Other(other) => other.name.clone(),
+            Item::Stack(stack) => self.of(&Item::Widget(stack.shown().clone())),
             Item::Widget(widget) => widget.label.clone().unwrap_or_else(|| {
                 match widget.config.kind() {
                     WidgetKind::Clock => self.clock,
@@ -208,7 +272,18 @@ pub fn items(sources: Sources<'_>) -> Items {
     let mixed = match sources.workspace {
         Some(workspace) => {
             let spacers = workspace.spacers.iter().cloned().map(Item::Spacer);
-            let all = apps.into_iter().chain(widgets).chain(spacers).collect();
+            let stacks: Vec<Item> = workspace
+                .stacks
+                .iter()
+                .filter_map(|stack| StackItem::of(stack, &widgets))
+                .map(Item::Stack)
+                .collect();
+            let all = apps
+                .into_iter()
+                .chain(widgets)
+                .chain(spacers)
+                .chain(stacks)
+                .collect();
             in_workspace(&workspace.items, all)
         }
         None => apps.into_iter().chain(widgets).collect(),
@@ -427,7 +502,70 @@ mod tests {
             color: "#0A84FF".into(),
             items,
             spacers,
+            stacks: Vec::new(),
         }
+    }
+
+    #[test]
+    fn a_stack_shows_its_widget_on_top_in_its_place() {
+        let widgets = WidgetsSnapshot {
+            storage: StorageStatus::Ok,
+            widgets: vec![
+                widget(10, WidgetKind::Clock, None),
+                widget(11, WidgetKind::Note, None),
+                widget(12, WidgetKind::Activity, None),
+            ],
+        };
+        let apps = AppsSnapshot {
+            storage: StorageStatus::Ok,
+            apps: vec![app(1, "Bloco")],
+        };
+        let open = OpenSnapshot {
+            apps: vec![],
+            others: vec![],
+        };
+        // One widget of the stack is gone: the rest stay, the top follows.
+        let stack = Stack {
+            id: "s".into(),
+            widgets: vec![
+                id(10).as_str().to_owned(),
+                id(99).as_str().to_owned(),
+                id(11).as_str().to_owned(),
+            ],
+            top: 2,
+        };
+        let a1 = format!("app:{}", id(1).as_str());
+        let mut workspace = workspace_of(vec![stack.key(), a1.clone()], vec![]);
+        workspace.stacks = vec![stack.clone()];
+
+        let found = items(Sources {
+            workspace: Some(&workspace),
+            ..sources(Some(&widgets), Some(&apps), &open)
+        });
+
+        let keys: Vec<String> = found.items.iter().map(Item::key).collect();
+        assert_eq!(keys, vec!["stack:s".to_string(), a1]);
+        let shown = found.items[0].stack().unwrap();
+        assert_eq!(shown.widgets.len(), 2);
+        assert_eq!(shown.top, 1);
+        // It is the note on top: drawn, named and opened as the note.
+        assert_eq!(
+            found.items[0].widget().map(|w| w.config.kind()),
+            Some(WidgetKind::Note)
+        );
+        assert_eq!(NAMES.of(&found.items[0]), NAMES.note);
+        assert_eq!(found.items[0].span(), 1);
+        // A stack with none of its widgets left is not shown.
+        let gone = Stack {
+            widgets: vec![id(98).as_str().to_owned()],
+            ..stack
+        };
+        workspace.stacks = vec![gone];
+        let found = items(Sources {
+            workspace: Some(&workspace),
+            ..sources(Some(&widgets), Some(&apps), &open)
+        });
+        assert_eq!(found.items.len(), 1);
     }
 
     #[test]

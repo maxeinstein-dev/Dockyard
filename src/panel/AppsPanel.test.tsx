@@ -148,6 +148,7 @@ describe("AppsPanel", () => {
         color: "#FF9F0A",
         items: [`app:${NOTEPAD.id}`],
         spacers: [],
+        stacks: [],
       };
       render(
         <AppsPanel
