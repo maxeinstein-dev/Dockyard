@@ -122,4 +122,13 @@ Também visto no teste:
 ## 9. Verificação da F11
 
 - **Testes de unidade:** a descrição do Discord, um status que não é novidade, e o ícone da bandeja casando pelo arquivo e pelo nome.
-- **Ao vivo:** pendente.
+- **Teste de unidade com o caso real:** o app aberto acha o botão pelo nome quando as janelas não dizem o AppID dele, como o Discord.
+- **Ao vivo (2026-11-04):** build `.medir`, uma cópia dos dados e o Discord do autor com 9 mensagens não lidas.
+  - **Primeira rodada:** a leitura achou o selo (`7 taskbar buttons, 1 with a badge`), mas o item do Discord ficou sem ele. As janelas do Discord são agrupadas pelo arquivo, e o botão tem AppID próprio (`com.squirrel.discord.discord`). Por isso, quando nada casa por AppID nem por arquivo, o app aberto passou a achar o botão pelo nome.
+  - **Segunda rodada:**
+    - o dock desenhou a pílula "9" no Discord;
+    - o leitor de tela leu "Discord, 9 notificações";
+    - a barra do Windows ficou como estava.
+- **Falta conferir à mão:**
+  - um ícone da bandeja do dock com selo (um programa só na bandeja, sem item no dock);
+  - um selo sem número de verdade (um app que escreva só "New messages").
