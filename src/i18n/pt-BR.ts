@@ -833,6 +833,7 @@ const messages = {
       keyboard: "Teclado",
       "world-clock": "Relógio mundial",
       screenshots: "Capturas",
+      files: "Arquivos",
     } satisfies Record<CreatableKind, string>,
     /** Parts every widget panel shares. */
     common: {
@@ -1057,6 +1058,8 @@ const messages = {
           "A hora em várias cidades ao mesmo tempo, num ladrilho largo.",
         screenshots:
           "As últimas capturas de tela do Windows, para abrir ou arrastar para uma conversa ou pasta.",
+        files:
+          "Os arquivos abertos por último em qualquer programa, para abrir de novo ou arrastar.",
       } satisfies Record<CreatableKind, string>,
       /** The add button of a card, and its accessible name. */
       add: "Adicionar",
@@ -1136,6 +1139,17 @@ const messages = {
     keyboard: {
       settingsTitle: "Ajustes do Layout do teclado",
       hint: "Clique no Layout do teclado, no dock, para passar ao próximo layout instalado. Os layouts ficam nas configurações de idioma do Windows.",
+    },
+    /** The Arquivos (F9 of estudo 0002): the files opened last. */
+    files: {
+      settingsTitle: "Ajustes dos Arquivos",
+      listLabel: "Arquivos abertos por último, do mais novo para o mais antigo",
+      loading: "Lendo os arquivos recentes…",
+      failed: "Não foi possível ler os arquivos recentes.",
+      empty: "Nenhum arquivo aberto ainda.",
+      open: "Abrir {name}, em {folder}",
+      hint: "Clique para abrir; arraste para uma pasta, uma conversa ou um e-mail.",
+      footer: "Os recentes do Windows",
     },
     /** The Capturas de tela (F9 of estudo 0002). */
     screenshots: {

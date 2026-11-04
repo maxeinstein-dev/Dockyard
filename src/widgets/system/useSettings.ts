@@ -22,7 +22,8 @@ type SystemKind =
   | "launcher"
   | "keyboard"
   | "world-clock"
-  | "screenshots";
+  | "screenshots"
+  | "files";
 
 /** The error code of a refused command; anything else counts as a failed
  * write (the contract rejects only with a `WidgetCommandError`). */

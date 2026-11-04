@@ -48,7 +48,10 @@ mod tests {
 
     #[test]
     fn the_config_is_empty_and_reads_the_old_shape() {
-        assert_eq!(serde_json::to_string(&FilesConfig::default()).unwrap(), "{}");
+        assert_eq!(
+            serde_json::to_string(&FilesConfig::default()).unwrap(),
+            "{}"
+        );
         let old: FilesConfig = serde_json::from_str(r#"{"folder": "C:\\"}"#).unwrap();
         assert_eq!(old, FilesConfig::default());
         assert_eq!(old.validate(), Ok(()));

@@ -105,6 +105,10 @@ const GLYPHS: Readonly<Record<CreatableKind, readonly string[]>> = {
     "M4.5 8.5a2 2 0 0 1 2 -2h2l1.5 -2h4l1.5 2h2a2 2 0 0 1 2 2v9a2 2 0 0 1 -2 2h-11a2 2 0 0 1 -2 -2z",
     "M9 13a3 3 0 1 0 6 0a3 3 0 1 0 -6 0",
   ],
+  files: [
+    "M7 3.5h6.5l4 4v13h-10.5a1.5 1.5 0 0 1 -1.5 -1.5v-14a1.5 1.5 0 0 1 1.5 -1.5z",
+    "M13.5 3.5v4h4M12 11.5v3l2 1.5",
+  ],
   countdown: [
     "M7 4h10M7 20h10M8 4c0 4 4 5 4 8s-4 4-4 8M16 4c0 4-4 5-4 8s4 4 4 8",
   ],

@@ -692,6 +692,7 @@ export const en: Messages = {
       keyboard: "Keyboard",
       "world-clock": "World clock",
       screenshots: "Screenshots",
+      files: "Files",
     },
     common: {
       adjust: "Options",
@@ -866,6 +867,7 @@ export const en: Messages = {
         "world-clock": "The time in several cities at once, on a wide tile.",
         screenshots:
           "The latest Windows screenshots, to open or drag into a chat or folder.",
+        files: "The files opened last in any program, to open again or drag.",
       },
       add: "Add",
       addNamed: "Add {name}",
@@ -920,6 +922,16 @@ export const en: Messages = {
         "Auto shows the day; after 6 PM, tomorrow's until noon. The card scrolls with the mouse wheel.",
       showTasks: "Google Tasks",
       showTasksOptions: { show: "Show", hide: "Hide" },
+    },
+    files: {
+      settingsTitle: "Files options",
+      listLabel: "Files opened last, newest first",
+      loading: "Reading the recent files…",
+      failed: "The recent files could not be read.",
+      empty: "No file opened yet.",
+      open: "Open {name}, in {folder}",
+      hint: "Click to open; drag into a folder, a chat or an e-mail.",
+      footer: "Windows' recent files",
     },
     screenshots: {
       settingsTitle: "Screenshots options",

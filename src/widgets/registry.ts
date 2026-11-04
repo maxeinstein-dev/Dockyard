@@ -58,6 +58,9 @@ import WorldClockTile from "./world-clock/WorldClockTile";
 import ScreenshotsPanel from "./screenshots/ScreenshotsPanel";
 import ScreenshotsSettings from "./screenshots/ScreenshotsSettings";
 import ScreenshotsTile from "./screenshots/ScreenshotsTile";
+import FilesPanel from "./files/FilesPanel";
+import FilesSettings from "./files/FilesSettings";
+import FilesTile from "./files/FilesTile";
 import NotePanel from "./notes/NotePanel";
 import NoteSettings from "./notes/NoteSettings";
 import NoteTile from "./notes/NoteTile";
@@ -90,7 +93,8 @@ export type GlazeClass =
   | "t-launcher"
   | "t-keyboard"
   | "t-world-clock"
-  | "t-screenshots";
+  | "t-screenshots"
+  | "t-files";
 
 export interface WidgetDefinition<K extends CreatableKind> {
   kind: K;
@@ -276,6 +280,15 @@ export const WIDGET_REGISTRY: {
     Panel: ScreenshotsPanel,
     panelTick: null,
     Settings: ScreenshotsSettings,
+  },
+  files: {
+    kind: "files",
+    nameKey: "files",
+    glaze: "t-files",
+    Tile: FilesTile,
+    Panel: FilesPanel,
+    panelTick: null,
+    Settings: FilesSettings,
   },
 };
 
