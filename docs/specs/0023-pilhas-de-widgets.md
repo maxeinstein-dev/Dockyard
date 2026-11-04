@@ -42,7 +42,17 @@ No menu de um widget, ou de uma pilha, que é o menu do widget de cima:
 - Um widget apagado sai das pilhas pela cascata. Na leitura, uma pilha com um só widget aparece como pilha de um, sem pontinhos, e uma vazia é pulada. Tirar e remover desfazem a pilha na hora em que ela fica com um.
 - Memória: um `StackItem` (id, widgets, de cima) por pilha mostrada. Nenhum bitmap a mais: só o de cima é desenhado.
 
-## 6. Verificação ao vivo: pendente
+## 6. Verificação ao vivo: parcial
+
+Rodada de 2026-11-04, no build de lançamento com uma cópia dos dados do autor:
+
+- Botão direito no Ciclo › "Calendário" (embaixo de "Empilhar com"): os dois viraram um ladrilho, no lugar do Calendário, com o Ciclo em cima. A árvore de UI Automation passou de 18 para 17 botões, e a pilha diz "Ciclo, 2 de 2 na pilha".
+- Ctrl+roda para baixo em cima da pilha pôs o Calendário em cima ("Calendário, 1 de 2 na pilha"), e o ladrilho passou a ter a largura dele.
+- "Tirar da pilha" soltou o Calendário e desfez a pilha: 18 botões de novo.
+- Sem erro nem pânico no log, e a barra do Windows ficou como estava.
+- Os pontinhos aparecem nos dois ladrilhos. Com a marca branca do autor, o aceso quase não se distinguia dos outros: o de cima ficou maior (raio 2,25) e os outros menores e mais apagados. Essa troca ainda não foi vista ao vivo.
+
+Ainda falta conferir à mão os passos 4 e 5 abaixo, e a roda sem Ctrl trocando de espaço.
 
 Roteiro curto (build de lançamento com cópia dos dados):
 

@@ -2769,14 +2769,15 @@ impl Painter {
 
     /// A stack's dots (spec 0023): one per widget in a row near the bottom
     /// of the tile, on a dim pill so they read on any face; the one on top
-    /// in the mark's color, the others faint.
+    /// larger and in the mark's color, the others smaller and faint (a
+    /// white mark would not tell them apart by color alone).
     fn stack_dots(&mut self, scene: &Scene, tile: Area, count: usize, top: usize) {
-        let (gap, radius) = (6.0, 1.75_f32);
+        let gap = 6.0;
         let row = gap * (count as f64 - 1.0);
         let cy = tile.y + tile.height - 5.5;
         let pill = self.solid(Color::BLACK.with_alpha(0.35)).clone();
         let lit = self.solid(scene.indicator_color.with_alpha(1.0)).clone();
-        let faint = self.solid(Color::WHITE.with_alpha(0.5)).clone();
+        let faint = self.solid(Color::WHITE.with_alpha(0.4)).clone();
         unsafe {
             self.target.FillRoundedRectangle(
                 &D2D1_ROUNDED_RECT {
@@ -2793,13 +2794,18 @@ impl Painter {
             );
             for index in 0..count {
                 let x = tile.center_x() - row / 2.0 + gap * index as f64;
+                let (radius, ink) = if index == top {
+                    (2.25_f32, &lit)
+                } else {
+                    (1.5, &faint)
+                };
                 self.target.FillEllipse(
                     &D2D1_ELLIPSE {
                         point: v(x, cy),
                         radiusX: radius,
                         radiusY: radius,
                     },
-                    if index == top { &lit } else { &faint },
+                    ink,
                 );
             }
         }
