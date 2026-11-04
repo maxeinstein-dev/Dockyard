@@ -182,29 +182,53 @@ pub const SWITCHER_WIDTH: f64 = 12.0;
 pub const DOT_RADIUS: f64 = 3.0;
 pub const ACTIVE_DOT_RADIUS: f64 = 4.0;
 
-/// The centres of `count` workspace dots in the column `area`, top first:
-/// spread over its height, at most 12 px apart.
+/// The centres of `count` workspace dots in `area`, the first first: a
+/// column spread over its height, at most 12 px apart; in an area wider
+/// than tall (the strip of a dock on a side, spec 0028), a row spread over
+/// its width.
 pub fn switcher_dots(area: Area, count: usize) -> Vec<(f64, f64)> {
     if count == 0 {
         return Vec::new();
     }
-    let pitch = (area.height / count as f64).min(12.0);
-    let first = area.y + area.height / 2.0 - pitch * (count as f64 - 1.0) / 2.0;
+    let row = area.width > area.height;
+    let length = if row { area.width } else { area.height };
+    let pitch = (length / count as f64).min(12.0);
+    let start = if row {
+        area.center_x()
+    } else {
+        area.center_y()
+    };
+    let first = start - pitch * (count as f64 - 1.0) / 2.0;
     (0..count)
-        .map(|index| (area.center_x(), first + pitch * index as f64))
+        .map(|index| {
+            let along = first + pitch * index as f64;
+            if row {
+                (along, area.center_y())
+            } else {
+                (area.center_x(), along)
+            }
+        })
         .collect()
 }
 
-/// The dot of the column `area` under the point, by its row: the one whose
-/// centre is nearest across, within the column.
+/// The dot of `area` under the point: the one whose centre is nearest along
+/// the dots, within the area.
 pub fn switcher_hit(area: Area, count: usize, x: f64, y: f64) -> Option<usize> {
     if !area.contains(x, y) {
         return None;
     }
+    let row = area.width > area.height;
+    let off = |centre: &(f64, f64)| {
+        if row {
+            (centre.0 - x).abs()
+        } else {
+            (centre.1 - y).abs()
+        }
+    };
     switcher_dots(area, count)
         .iter()
         .enumerate()
-        .min_by(|(_, a), (_, b)| (a.1 - y).abs().total_cmp(&(b.1 - y).abs()))
+        .min_by(|(_, a), (_, b)| off(a).total_cmp(&off(b)))
         .map(|(index, _)| index)
 }
 
@@ -222,9 +246,21 @@ pub fn tray_width(icon: f64, count: usize) -> f64 {
 }
 
 /// The cells of a tray strip in `area` (as tall as an item): column by
-/// column, the top one first.
-pub fn tray_cells(area: Area, count: usize, icon: f64) -> Vec<Area> {
+/// column, the top one first. `standing` (a dock on a side, spec 0028):
+/// two columns, row by row, the left one first.
+pub fn tray_cells(area: Area, count: usize, icon: f64, standing: bool) -> Vec<Area> {
     let cell = tray_cell(icon);
+    if standing {
+        let left = area.x + (area.width - 2.0 * cell) / 2.0;
+        return (0..count)
+            .map(|index| Area {
+                x: left + (index % 2) as f64 * cell,
+                y: area.y + (index / 2) as f64 * cell,
+                width: cell,
+                height: cell,
+            })
+            .collect();
+    }
     let top = area.y + (area.height - 2.0 * cell) / 2.0;
     (0..count)
         .map(|index| Area {
@@ -1299,7 +1335,7 @@ mod tests {
         assert_eq!(tray_cell(48.0), 24.0);
         assert!((tray.width - 72.0).abs() < 1e-9);
         assert!((status.x - (tray.x + tray.width + 7.0)).abs() < 1e-9);
-        let cells = tray_cells(tray, 5, 48.0);
+        let cells = tray_cells(tray, 5, 48.0, false);
         assert_eq!(cells.len(), 5);
         assert!((cells[1].x - cells[0].x).abs() < 1e-9);
         assert!((cells[1].y - cells[0].y - 24.0).abs() < 1e-9);
@@ -1414,7 +1450,7 @@ mod tests {
                 let window = window_size(&shape, DockEdge::Bottom, motion, &labels);
                 let placement = place(&shape, edge, window, None);
                 let icon = shape.size.geometry().icon;
-                let cells = tray_cells(placement.tray.unwrap(), shape.tray, icon);
+                let cells = tray_cells(placement.tray.unwrap(), shape.tray, icon, false);
                 for (index, cell) in cells.iter().enumerate() {
                     assert!(
                         pill_fits(*cell, labels[1 + index], edge, window),
@@ -1460,7 +1496,7 @@ mod tests {
                         );
                     }
                     let icon = shape.size.geometry().icon;
-                    let cells = tray_cells(placement.tray.unwrap(), shape.tray, icon);
+                    let cells = tray_cells(placement.tray.unwrap(), shape.tray, icon, false);
                     for (index, cell) in cells.iter().enumerate() {
                         assert!(pill_fits(*cell, strip[index], edge, window));
                     }
@@ -1788,5 +1824,48 @@ mod tests {
         assert_eq!(tip_anchor(tile, Side::Top), (124.0, 248.0 + TIP_GAP));
         assert_eq!(tip_anchor(tile, Side::Left), (148.0 + TIP_GAP, 224.0));
         assert_eq!(tip_anchor(tile, Side::Right), (100.0 - TIP_GAP, 224.0));
+    }
+
+    #[test]
+    fn on_a_side_the_dots_lie_in_a_row_and_the_tray_stands_in_two_columns() {
+        let shape = full_shape();
+        let placed = place(&shape, Side::Left, (300.0, 900.0), None);
+        let dots_area = placed.switcher.unwrap();
+        assert!(dots_area.width > dots_area.height);
+        let dots = switcher_dots(dots_area, 3);
+        assert!(
+            dots.windows(2)
+                .all(|pair| pair[0].0 < pair[1].0 && pair[0].1 == pair[1].1)
+        );
+        for (index, (x, y)) in dots.iter().enumerate() {
+            assert_eq!(switcher_hit(dots_area, 3, *x, *y), Some(index));
+        }
+
+        let tray = placed.tray.unwrap();
+        // Three icons in two columns: as tall as wide, or taller.
+        assert!(tray.height >= tray.width);
+        let icon = shape.size.geometry().icon;
+        let cells = tray_cells(tray, 3, icon, true);
+        // Two to a row, the left first, then down.
+        assert!(cells[0].x < cells[1].x && cells[0].y == cells[1].y);
+        assert_eq!(cells[2].x, cells[0].x);
+        assert!(cells[2].y > cells[0].y);
+        for cell in &cells {
+            assert!(cell.x >= tray.x - 1e-9 && cell.x + cell.width <= tray.x + tray.width + 1e-9);
+            assert!(cell.y >= tray.y - 1e-9 && cell.y + cell.height <= tray.y + tray.height + 1e-9);
+        }
+    }
+
+    #[test]
+    fn on_the_bottom_the_dots_stand_in_a_column_and_the_tray_lies_in_two_rows() {
+        let column = area(10.0, 0.0, SWITCHER_WIDTH, 48.0);
+        let dots = switcher_dots(column, 3);
+        assert!(
+            dots.windows(2)
+                .all(|pair| pair[0].1 < pair[1].1 && pair[0].0 == pair[1].0)
+        );
+        let strip = area(0.0, 0.0, tray_width(48.0, 3), 48.0);
+        let cells = tray_cells(strip, 3, 48.0, false);
+        assert!(cells[1].y > cells[0].y && cells[2].x > cells[0].x);
     }
 }

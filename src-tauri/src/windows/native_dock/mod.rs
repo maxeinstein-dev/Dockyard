@@ -1392,7 +1392,10 @@ impl Dock {
         let icon = self.shape().size.geometry().icon;
         self.placement_now()
             .tray
-            .map(|area| dock_layout::tray_cells(area, self.strip.len(), icon))
+            .map(|area| {
+                let standing = matches!(self.edge(), DockEdge::Left | DockEdge::Right);
+                dock_layout::tray_cells(area, self.strip.len(), icon, standing)
+            })
             .unwrap_or_default()
     }
 
@@ -2183,11 +2186,29 @@ impl Dock {
                 text: self.data.workspaces.get(index)?.name.clone(),
             })
         });
+        // On a side (spec 0028 Q7) the clock stands in a column an icon
+        // wide: the time over the day and month; the whole date is in its
+        // label.
+        let standing = matches!(edge, DockEdge::Left | DockEdge::Right);
+        let whole_date = format!("{:02}/{:02}/{:04}", clock.wDay, clock.wMonth, clock.wYear);
         let status = now_placement.status.map(|area| Status {
             area,
             time: format!("{:02}:{:02}", clock.wHour, clock.wMinute),
-            date: format!("{:02}/{:02}/{:04}", clock.wDay, clock.wMonth, clock.wYear),
+            date: if standing {
+                format!("{:02}/{:02}", clock.wDay, clock.wMonth)
+            } else {
+                whole_date.clone()
+            },
             hovered: self.status_hovered,
+        });
+        let tip = tip.or_else(|| {
+            let area = now_placement
+                .status
+                .filter(|_| standing && self.status_hovered)?;
+            Some(Tip {
+                anchor: dock_layout::tip_anchor(area, edge),
+                text: whole_date,
+            })
         });
         let workspace_color = settings
             .indicator_follows_workspace

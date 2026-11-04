@@ -3009,7 +3009,10 @@ impl Painter {
                 )
             };
         }
-        // Two lines, 16 and 14 px, 1 px apart, centered.
+        // Two lines, 16 and 14 px, 1 px apart, centered; in a column (a dock
+        // on a side, spec 0028), smaller, to fit an icon's width.
+        let narrow = area.height > area.width;
+        let (time_size, date_size) = if narrow { (12.0, 10.0) } else { (14.0, 11.0) };
         let top = area.y + (area.height - 31.0) / 2.0;
         let ink = scene.look.ink.unwrap_or(scene.palette.ink);
         // Without a bar behind it, a shadow keeps it legible.
@@ -3026,7 +3029,7 @@ impl Painter {
                     height: 16.0,
                     ..area
                 },
-                14.0,
+                time_size,
                 600,
                 false,
                 ink,
@@ -3038,7 +3041,7 @@ impl Painter {
                     height: 14.0,
                     ..area
                 },
-                11.0,
+                date_size,
                 400,
                 false,
                 ink.with_alpha(ink.a * 0.85),
