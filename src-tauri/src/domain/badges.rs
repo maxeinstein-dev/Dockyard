@@ -146,7 +146,10 @@ pub fn for_pinned(buttons: &[Button], identity: Option<&Identity>, name: &str) -
 }
 
 /// The badge of an open program that is not pinned, known by `key` (what its
-/// windows are grouped by: their AppID, else their file, lowercased).
+/// windows are grouped by: their AppID, else their file, lowercased). With
+/// no button for that key, the one with its name: Discord's windows carry
+/// no AppID, its button does (`com.squirrel.discord.discord`, seen live in
+/// F11 of estudo 0002).
 pub fn for_other(buttons: &[Button], key: Option<&str>, name: &str) -> Option<Badge> {
     let by_key = key.and_then(|key| {
         buttons.iter().find(|button| {
@@ -154,11 +157,7 @@ pub fn for_other(buttons: &[Button], key: Option<&str>, name: &str) -> Option<Ba
         })
     });
     by_key
-        .or_else(|| {
-            buttons
-                .iter()
-                .find(|button| button.app_id.is_none() && named(button, name))
-        })?
+        .or_else(|| buttons.iter().find(|button| named(button, name)))?
         .badge
 }
 
@@ -391,5 +390,24 @@ mod tests {
         );
         assert_eq!(for_tray(&buttons, r"c:\tools\other.exe"), None);
         assert_eq!(for_tray(&buttons, ""), None);
+    }
+
+    #[test]
+    fn an_open_program_whose_windows_name_no_appid_finds_its_button_by_name() {
+        // Discord, live: its windows are grouped by its file, its button
+        // has an AppID of its own.
+        let buttons = [Button {
+            name: "Discord - 1 janela em execução".into(),
+            app_id: Some("com.squirrel.discord.discord".into()),
+            path: None,
+            badge: Some(Badge::Count(9)),
+        }];
+        let file = r"c:\users\me\appdata\local\discord\app-1.0\discord.exe";
+
+        assert_eq!(
+            for_other(&buttons, Some(file), "Discord"),
+            Some(Badge::Count(9))
+        );
+        assert_eq!(for_other(&buttons, Some(file), "Disc"), None);
     }
 }
