@@ -38,8 +38,11 @@ pub const READY_TIMEOUT: Duration = Duration::from_millis(400);
 
 /// How long a panel waits for a window that is being made, and for its page
 /// to mount, before it gives up on it (`Action::Fallback`). A cold start of
-/// WebView2 takes 400-700 ms (spec 0011 §2); this is far past that.
-pub const MOUNT_TIMEOUT: Duration = Duration::from_secs(4);
+/// WebView2 takes 400-700 ms (spec 0011 §2), but the first one after an
+/// update took over 4 s on the author's machine (2026-11-04); a window that
+/// fails to be made gives up at once (`window_failed`), so this only bounds
+/// a window that never answers.
+pub const MOUNT_TIMEOUT: Duration = Duration::from_secs(20);
 
 /// Largest panel window side accepted from the page, in logical pixels.
 pub const MAX_PANEL_SIZE: f64 = 4096.0;
@@ -992,7 +995,7 @@ fn fallback(id: PanelId) {
         _ => {
             log::warn!("panel: no window ({failures} this run)");
             let text = &crate::i18n::messages().dock;
-            super::webview_failure::tell_once("panel", text.panel_failed);
+            super::webview_failure::tell_once("panel", text.panel_failed, text.panel_failed_disk);
         }
     }
 }

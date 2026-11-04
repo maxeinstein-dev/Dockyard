@@ -2,7 +2,9 @@
 //! the disk full, WebView2 can't write its profile and the window never comes
 //! up, and the log can't be written either. So the user is told, once per
 //! run and per window, by a message of Windows' own, and the failures are
-//! counted for the log.
+//! counted for the log. The message blames the disk only when it is nearly
+//! full: a WebView2 slow to start (the first time after an update) is not
+//! the disk's fault.
 
 use std::collections::HashMap;
 use std::sync::{Mutex, PoisonError};
@@ -33,12 +35,44 @@ fn first_telling(which: &'static str) -> bool {
     })
 }
 
-/// Shows `line` in a message box, the first time only for `which`. Off the
-/// caller's thread: the box waits for its click.
-pub fn tell_once(which: &'static str, line: &'static str) {
+/// Below this many free bytes where WebView2 keeps its profile, the disk is
+/// the likely cause of the failure.
+const LOW_DISK: u64 = 1024 * 1024 * 1024;
+
+/// Whether `free` bytes count as a nearly full disk (unknown: not).
+fn disk_low(free: Option<u64>) -> bool {
+    free.is_some_and(|free| free < LOW_DISK)
+}
+
+/// The free bytes on the disk of `%LOCALAPPDATA%`, where WebView2 keeps its
+/// profile.
+#[cfg(windows)]
+fn free_bytes() -> Option<u64> {
+    use windows::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;
+    let folder = std::env::var("LOCALAPPDATA").ok()?;
+    let mut free = 0u64;
+    let folder = windows::core::HSTRING::from(folder);
+    unsafe { GetDiskFreeSpaceExW(&folder, Some(&mut free), None, None) }.ok()?;
+    Some(free)
+}
+
+#[cfg(not(windows))]
+fn free_bytes() -> Option<u64> {
+    None
+}
+
+/// Shows `line` in a message box (`disk_line` when the disk is nearly
+/// full), the first time only for `which`. Off the caller's thread: the box
+/// waits for its click.
+pub fn tell_once(which: &'static str, line: &'static str, disk_line: &'static str) {
     if !first_telling(which) {
         return;
     }
+    let line = if disk_low(free_bytes()) {
+        disk_line
+    } else {
+        line
+    };
     #[cfg(windows)]
     {
         let spawned = std::thread::Builder::new()
@@ -92,6 +126,15 @@ mod tests {
         let first = count("test-a");
         assert_eq!(count("test-a"), first + 1);
         assert_eq!(count("test-b"), 1);
+    }
+
+    #[test]
+    fn only_a_nearly_full_disk_is_blamed() {
+        assert!(disk_low(Some(0)));
+        assert!(disk_low(Some(LOW_DISK - 1)));
+        assert!(!disk_low(Some(LOW_DISK)));
+        assert!(!disk_low(Some(90 * LOW_DISK)));
+        assert!(!disk_low(None));
     }
 
     #[test]
