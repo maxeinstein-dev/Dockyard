@@ -26,6 +26,7 @@ const INSTANCES = {
   launcher: WIDGET_FIXTURES["launcher-default"],
   keyboard: WIDGET_FIXTURES["keyboard-default"],
   "world-clock": WIDGET_FIXTURES["world-clock-sample"],
+  screenshots: WIDGET_FIXTURES["screenshots-default"],
 } as const;
 
 // 2026-10-15 18:07:05 UTC, a Thursday.

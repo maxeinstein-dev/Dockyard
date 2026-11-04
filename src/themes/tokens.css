@@ -325,6 +325,13 @@
   --l: 40%;
 }
 
+/* Lima: as Capturas de tela (F9 do estudo 0002). */
+.t-screenshots {
+  --h: 100;
+  --sat: 36%;
+  --l: 34%;
+}
+
 /* Argila. */
 .t-calendar {
   --h: 16;

@@ -195,6 +195,7 @@ pub fn view() -> Option<View> {
                         crate::domain::widgets::WidgetConfig::Weather(_) => "weather",
                         crate::domain::widgets::WidgetConfig::Keyboard(_) => "time",
                         crate::domain::widgets::WidgetConfig::WorldClock(_) => "agenda",
+                        crate::domain::widgets::WidgetConfig::Screenshots(_) => "glyph",
                         crate::domain::widgets::WidgetConfig::Claude(config) => {
                             if config.width > 1 { "meters" } else { "ring" }
                         }

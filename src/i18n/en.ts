@@ -692,6 +692,7 @@ export const en: Messages = {
       launcher: "Launcher",
       keyboard: "Keyboard layout",
       "world-clock": "World clock",
+      screenshots: "Screenshots",
     },
     addNames: {
       clock: "Clock",
@@ -711,6 +712,7 @@ export const en: Messages = {
       launcher: "Launcher",
       keyboard: "Keyboard",
       "world-clock": "World clock",
+      screenshots: "Screenshots",
     },
     common: {
       adjust: "Options",
@@ -883,6 +885,8 @@ export const en: Messages = {
         keyboard:
           "The keyboard layout of the window in front, as on the Windows taskbar; a click goes to the next.",
         "world-clock": "The time in several cities at once, on a wide tile.",
+        screenshots:
+          "The latest Windows screenshots, to open or drag into a chat or folder.",
       },
       add: "Add",
       addNamed: "Add {name}",
@@ -937,6 +941,19 @@ export const en: Messages = {
         "Auto shows the day; after 6 PM, tomorrow's until noon. The card scrolls with the mouse wheel.",
       showTasks: "Google Tasks",
       showTasksOptions: { show: "Show", hide: "Hide" },
+    },
+    screenshots: {
+      settingsTitle: "Screenshots options",
+      listLabel: "Screenshots, newest first",
+      loading: "Reading the screenshots…",
+      failed: "The screenshots folder could not be read.",
+      empty: "No screenshots yet. Print Screen and Win+Shift+S save here.",
+      noFolder:
+        "Windows has no screenshots folder yet. It appears with the first screenshot saved.",
+      open: "Open {name}",
+      openFolder: "Open the folder",
+      hint: "Click to open; drag into a folder, a chat or an e-mail.",
+      footer: "Pictures › Screenshots",
     },
     worldClock: {
       settingsTitle: "World clock options",
