@@ -23,6 +23,27 @@ export const en: Messages = {
     closeHint: { key: "Esc", action: "closes" },
   },
   settings: {
+    copy: {
+      title: "Settings copy",
+      lead: "Takes your dock to another computer or keeps a way back. Connected accounts don't go along: connect them again after importing.",
+      export: "Export…",
+      import: "Import…",
+      exported: "Copy exported.",
+      summary:
+        "Copy from {date}, Dockyard {version}. Workspaces: {workspaces} · Apps: {apps} · Widgets: {widgets} · Own icons: {icons}.",
+      replaces:
+        "Importing replaces the current settings, workspaces, apps and widgets and restarts Dockyard. What is here now is kept in the “Antes-de-importar” folder, in Dockyard's data.",
+      confirm: "Import and restart",
+      cancel: "Cancel",
+      restarting: "Restarting Dockyard…",
+      errors: {
+        tooBig: "The file is too big to be a Dockyard copy.",
+        notACopy: "This file is not a Dockyard copy.",
+        newer: "This copy is from a newer Dockyard. Update before importing.",
+        damaged: "The copy is damaged. Nothing was changed.",
+        failed: "The file could not be read or written. Nothing was changed.",
+      },
+    },
     groups: {
       theme: "Color mode",
       language: "Language",

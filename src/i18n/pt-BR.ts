@@ -69,6 +69,31 @@ const messages = {
     closeHint: { key: "Esc", action: "fecha" },
   },
   settings: {
+    /** Configurações › Sobre › Cópia das configurações (spec 0026). */
+    copy: {
+      title: "Cópia das configurações",
+      lead: "Leva o dock montado para outro computador ou guarda um ponto de volta. As contas conectadas não vão junto: conecte de novo depois de importar.",
+      export: "Exportar…",
+      import: "Importar…",
+      exported: "Cópia exportada.",
+      /** `{date}`, `{version}` and the counts of what the file holds. */
+      summary:
+        "Cópia de {date}, do Dockyard {version}. Espaços: {workspaces} · Apps: {apps} · Widgets: {widgets} · Ícones próprios: {icons}.",
+      replaces:
+        "Importar substitui as configurações, os espaços, os apps e os widgets de agora e reinicia o Dockyard. O que está aqui hoje fica guardado na pasta “Antes-de-importar”, nos dados do Dockyard.",
+      confirm: "Importar e reiniciar",
+      cancel: "Cancelar",
+      restarting: "Reiniciando o Dockyard…",
+      /** By `TransferError` code. */
+      errors: {
+        tooBig: "O arquivo é grande demais para ser uma cópia do Dockyard.",
+        notACopy: "Este arquivo não é uma cópia do Dockyard.",
+        newer:
+          "Esta cópia é de um Dockyard mais novo. Atualize antes de importar.",
+        damaged: "A cópia está danificada. Nada foi mudado.",
+        failed: "Não foi possível ler ou gravar o arquivo. Nada foi mudado.",
+      },
+    },
     /** Label of each option group, by setting. */
     groups: {
       theme: "Modo de cor",

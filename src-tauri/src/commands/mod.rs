@@ -14,6 +14,7 @@ pub mod settings;
 pub mod skins;
 pub mod system;
 pub mod tour;
+pub mod transfer;
 pub mod tray;
 pub mod update;
 pub mod weather;
