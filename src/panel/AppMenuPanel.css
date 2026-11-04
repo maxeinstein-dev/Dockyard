@@ -28,6 +28,16 @@
   border-top: 0;
 }
 
+/* A choice of "Ícone", under its line: set in further, the one worn
+   marked. */
+.app-menu-choice {
+  padding-left: 46px;
+}
+
+.app-menu-choice[aria-checked="true"] {
+  font-weight: 600;
+}
+
 .app-menu-heading {
   margin: 0;
   padding: 2px 6px;

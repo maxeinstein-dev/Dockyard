@@ -72,6 +72,18 @@ fn packs(app: &AppHandle) -> Arc<Vec<Found>> {
     kept.unwrap_or_else(|| rescan(app).0)
 }
 
+/// The usable packs of the folder, by id and name: what a program's "Ícone"
+/// offers (spec 0024).
+pub fn usable(app: &AppHandle) -> Vec<(String, String)> {
+    packs(app)
+        .iter()
+        .filter_map(|found| {
+            let pack = found.pack.as_ref().ok()?;
+            Some((found.id.clone(), pack.manifest.name.clone()))
+        })
+        .collect()
+}
+
 /// The pack `id`, if it is in the folder and valid.
 pub fn pack_named(app: &AppHandle, id: &str) -> Option<Pack> {
     packs(app)

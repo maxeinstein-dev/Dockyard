@@ -98,6 +98,10 @@ const EXPECTED_CAPABILITIES: &[(&str, &str, &[&str], &[&str])] = &[
             // last shown, never by a path.
             "allow-launch-app",
             "allow-app-menu",
+            // A program's icon (spec 0024), from its menu.
+            "allow-app-icon-options",
+            "allow-set-app-icon",
+            "allow-choose-app-icon-image",
             "allow-run-app-entry",
             "allow-reveal-app",
             "allow-list-open-apps",

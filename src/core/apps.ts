@@ -114,7 +114,23 @@ export const APP_COMMANDS = {
   menu: "app_menu",
   runEntry: "run_app_entry",
   reveal: "reveal_app",
+  iconOptions: "app_icon_options",
+  setIcon: "set_app_icon",
+  chooseIconImage: "choose_app_icon_image",
 } as const;
+
+/** What a program wears instead of the dock's pack (spec 0024). */
+export type AppIconChoice =
+  | { kind: "original" }
+  | { kind: "pack"; pack: string }
+  | { kind: "image"; file: string };
+
+/** A program's "Ícone": its choice (`null`: the dock's pack) and the packs
+ * it can wear. */
+export interface AppIconOptions {
+  current: AppIconChoice | null;
+  packs: { id: string; name: string }[];
+}
 
 /** Event every window receives with an `AppsSnapshot` after a change. */
 export const APPS_CHANGED_EVENT = "apps-changed";
@@ -221,6 +237,32 @@ export function runAppEntry(id: WidgetId, key: number): Promise<void> {
 export function revealApp(id: WidgetId): Promise<void> {
   return run(APP_COMMANDS.reveal, { id }, (error) =>
     log.warn(`apps: reveal failed: ${errorKind(error)}`),
+  );
+}
+
+/** The icon of the pinned program `id` and the packs it can wear. */
+export function appIconOptions(id: WidgetId): Promise<AppIconOptions> {
+  return run(APP_COMMANDS.iconOptions, { id }, (error) =>
+    log.warn(`apps: icon options failed: ${errorKind(error)}`),
+  );
+}
+
+/** Has the pinned program `id` wear its Windows icon or a pack's image;
+ * `null` for the dock's pack again. */
+export function setAppIcon(
+  id: WidgetId,
+  icon: Exclude<AppIconChoice, { kind: "image" }> | null,
+): Promise<void> {
+  return run(APP_COMMANDS.setIcon, { id, icon }, (error) =>
+    log.warn(`apps: set icon failed: ${errorKind(error)}`),
+  );
+}
+
+/** "Escolher imagem…": Rust opens the Windows dialog and keeps the image;
+ * `false` when it was cancelled or refused. */
+export function chooseAppIconImage(id: WidgetId): Promise<boolean> {
+  return run(APP_COMMANDS.chooseIconImage, { id }, (error) =>
+    log.warn(`apps: choose icon failed: ${errorKind(error)}`),
   );
 }
 
