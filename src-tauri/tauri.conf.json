@@ -48,7 +48,7 @@
         "https://github.com/maxeinstein-dev/Dockyard/releases/latest/download/latest.json"
       ],
       "windows": {
-        "installMode": "passive"
+        "installMode": "quiet"
       }
     }
   }
