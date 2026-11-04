@@ -63,6 +63,11 @@ export const otherText: Messages = {
         about: "About",
       },
       brand: "Settings",
+      search: {
+        label: "Search settings",
+        results: "Search results",
+        none: "No setting matches “{query}”.",
+      },
       leads: {
         general: "How Dockyard fits into Windows.",
         workspaces: "A dock for each thing you do.",
@@ -475,6 +480,13 @@ export const otherText: Messages = {
       closeWindows: "Close all windows",
       pin: "Pin to dock",
       moveTo: "Move to {name}",
+      icon: {
+        title: "Icon: {current}",
+        custom: "Own image",
+        dock: "The dock's",
+        original: "Windows original",
+        image: "Choose image…",
+      },
       openFooter: "An open app that is not pinned",
       footer: "The taskbar menu",
     },

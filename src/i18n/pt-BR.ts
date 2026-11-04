@@ -108,6 +108,12 @@ const messages = {
       },
       /** The top of the side bar (spec 0014 R1). */
       brand: "Configurações",
+      /** The search at the top of the side bar (estudo 0002 F6). */
+      search: {
+        label: "Buscar nos ajustes",
+        results: "Resultados da busca",
+        none: "Nenhum ajuste com “{query}”.",
+      },
       /** The line under each section's title. */
       leads: {
         general: "Como o Dockyard se encaixa no Windows.",
@@ -664,6 +670,15 @@ const messages = {
       pin: "Fixar no dock",
       /** Spec 0013 C3. */
       moveTo: "Mover para {name}",
+      /** Spec 0024: what the program wears instead of the dock's pack. */
+      icon: {
+        /** The line that opens the choices: `{current}` what it wears. */
+        title: "Ícone: {current}",
+        custom: "Imagem própria",
+        dock: "O do dock",
+        original: "Original do Windows",
+        image: "Escolher imagem…",
+      },
       footer: "O menu da barra de tarefas",
       openFooter: "Um app aberto, que não está fixado",
     },

@@ -183,6 +183,15 @@ impl DockSettings {
         {
             return Err(SettingsError::LookOutOfRange);
         }
+        if self.app_icons.len() > super::app_icon::MAX_APP_ICONS
+            || self.app_icons.iter().any(|(app_id, icon)| {
+                !super::apps::is_valid_app_id(app_id)
+                    || *app_id != super::app_icon::choice_key(app_id)
+                    || !icon.is_valid()
+            })
+        {
+            return Err(SettingsError::LookOutOfRange);
+        }
         if self.tray_in_dock.len() > MAX_TRAY_IN_DOCK
             || self.tray_in_dock.iter().any(|key| !is_tray_key(key))
         {
@@ -285,6 +294,11 @@ pub struct DockSettings {
     /// out of the file while `None`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub custom_skin: Option<String>,
+    /// The icon chosen for each program (spec 0024), by `choice_key` of its
+    /// id in the Apps folder: one with no entry wears `icon_pack`. Left out
+    /// of the file while empty.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub app_icons: BTreeMap<String, super::app_icon::AppIcon>,
     /// What a program's icon does while it opens (spec 0006 B2).
     pub open_animation: OpenAnimation,
     /// Whether the open programs that are not pinned show on the dock, after
@@ -349,6 +363,7 @@ impl Default for DockSettings {
             icon_shape: IconShape::default(),
             icon_pack: None,
             custom_skin: None,
+            app_icons: BTreeMap::new(),
             open_animation: OpenAnimation::default(),
             show_open_apps: true,
             show_badges: true,

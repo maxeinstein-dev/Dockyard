@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { AppIconChoice } from "./apps";
 import { errorKind, log } from "./log";
 import { useTauriSnapshot, type SnapshotSource } from "./snapshot";
 
@@ -237,6 +238,10 @@ export interface DockSettings {
   /** The skin of the `Skins` folder the bar wears with the `custom` style:
    * the name of its folder. Rust leaves the field out while there is none. */
   customSkin?: string | null;
+  /** The icon chosen for each program (spec 0024), by its id in the Apps
+   * folder in lowercase. Rust leaves the field out while it is empty; set
+   * from a program's menu, never from Configurações. */
+  appIcons?: Record<string, AppIconChoice>;
   openAnimation: OpenAnimation;
   /** Whether the open programs that are not pinned show on the dock, after
    * the widgets (spec 0009 D2). */

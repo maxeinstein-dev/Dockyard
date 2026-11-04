@@ -1,6 +1,7 @@
 //! Storage of domain values on disk. One concrete implementation per value,
 //! without storage traits (spec 0002, Q26); tests use temporary folders.
 
+pub mod app_icons;
 pub mod apps_repo;
 pub mod bundled_packs;
 pub mod database;

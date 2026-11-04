@@ -77,6 +77,9 @@ struct DockSettingsInput {
     /// out.
     #[serde(default)]
     custom_skin: Option<String>,
+    /// Left out of the settings while empty, so the interface may leave it out.
+    #[serde(default)]
+    app_icons: std::collections::BTreeMap<String, crate::domain::app_icon::AppIcon>,
     open_animation: OpenAnimation,
     show_open_apps: bool,
     show_badges: bool,
@@ -144,6 +147,7 @@ impl From<SettingsInput> for Settings {
                 icon_shape: dock.icon_shape,
                 icon_pack: dock.icon_pack,
                 custom_skin: dock.custom_skin,
+                app_icons: dock.app_icons,
                 open_animation: dock.open_animation,
                 show_open_apps: dock.show_open_apps,
                 show_badges: dock.show_badges,
@@ -548,6 +552,7 @@ mod tests {
                     icon_shape: IconShape::Uniform,
                     icon_pack: Some("pixel-system".into()),
                     custom_skin: None,
+                    app_icons: BTreeMap::new(),
                     open_animation: OpenAnimation::Pulse,
                     show_open_apps: false,
                     show_badges: false,
