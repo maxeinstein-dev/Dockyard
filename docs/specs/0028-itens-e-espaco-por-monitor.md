@@ -40,7 +40,23 @@ O que ainda **não** existe:
 4. **Monitor fixo e janelas:** nada é escondido num monitor fixo, e a janela levada a ele passa a ser do espaço dele.
 5. **Onde se escolhe:** Configurações › Espaços, numa seção "Monitores", e o menu do dock, com "Fixar este monitor em <espaço>" e "Soltar este monitor".
 
-## 4. Verificação (depois das decisões)
+## 4. Como ficou
+
+- **A, identidade estável.**
+  - `windows/monitors.rs` lê `QueryDisplayConfig` (com o resultado guardado por 2 s). A chave do monitor (`Monitor::key`) passa a ser o caminho do aparelho (`monitorDevicePath`, em minúsculas). Na falta dele, fica o nome do dispositivo.
+  - `Monitor` ganha `device`, o nome do dispositivo, e `name`, o nome que o Windows mostra.
+  - Na abertura, antes de os docks lerem o espaço, `adopt_monitor_keys` passa o espaço e a fixação guardados sob `\\.\DISPLAYn` para a chave nova (`workspaces_repo::adopt_monitor_key`).
+  - Um monitor que some e volta reencontra a sua chave em `meta`.
+- **C, monitor fixo.**
+  - Fica em `meta` como `workspace-fixed:<chave>`.
+  - Numa troca (bolinhas, roda, `Ctrl+Alt+n`, menu), `reached` não devolve nada se o monitor que pediu está fixo, e pula os fixos em "trocar em todos os monitores".
+  - O dock de um monitor fixo não mostra bolinhas e não lista espaços no menu.
+  - O menu do dock ganha "Fixar este monitor neste espaço" e, quando fixo, "Soltar este monitor".
+- **E, Configurações.**
+  - Espaços ganha o grupo "Monitores": cada monitor (o principal marcado) com o espaço que mostra e a chave "Fixar … neste espaço". O grupo também entra na busca.
+  - Comandos `list_monitors`, `set_monitor_workspace` e `set_monitor_fixed`, só na janela de Configurações. Escolher o espaço em Configurações move até um monitor fixo.
+
+## 5. Verificação
 
 - **Testes do modelo:**
   - a chave nova, com a migração da antiga;

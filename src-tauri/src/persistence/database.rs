@@ -262,6 +262,22 @@ impl Storage {
         Ok(())
     }
 
+    /// Whether the monitor `monitor` is held on the workspace it shows
+    /// (spec 0028 C).
+    pub fn monitor_fixed(&mut self, monitor: &str) -> Result<bool, WorkspaceError> {
+        workspaces_repo::fixed(self.connection()?, monitor)
+    }
+
+    /// Holds the monitor `monitor` on the workspace it shows, or lets it go.
+    pub fn set_monitor_fixed(&mut self, monitor: &str, fixed: bool) -> Result<(), WorkspaceError> {
+        workspaces_repo::set_fixed(self.connection()?, monitor, fixed)
+    }
+
+    /// A monitor now known by `new` (spec 0028 A) keeps what `old` had.
+    pub fn adopt_monitor_key(&mut self, old: &str, new: &str) -> Result<(), WorkspaceError> {
+        workspaces_repo::adopt_monitor_key(self.connection()?, old, new)
+    }
+
     /// Puts the item `key` at the end of the workspace `id`, unless it is
     /// there.
     pub fn add_to_workspace(&mut self, id: &str, key: &str) -> Result<(), WorkspaceError> {

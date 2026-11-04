@@ -64,6 +64,12 @@ export function searchIndex(t: Messages): SearchEntry[] {
     general(groups.startup, groups.startup),
     general(s.launchAtLogin, groups.startup),
     { section: "workspaces" as const, label: t.workspaces.name },
+    // Spec 0028: the monitors, each one's workspace and hold.
+    {
+      section: "workspaces" as const,
+      label: t.workspaces.monitors.title,
+      group: t.workspaces.monitors.title,
+    },
     inLook(groups.themes, groups.themes),
     inLook(look.themes, groups.themes),
     inLook(groups.style, groups.style),

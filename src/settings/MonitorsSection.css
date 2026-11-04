@@ -1,0 +1,15 @@
+/* Configurações › Espaços › Monitores (spec 0028 E). Tokens of tokens.css
+   only. */
+
+.monitors-row {
+  display: grid;
+  gap: 4px;
+  padding: 8px 14px;
+}
+
+.monitors-note {
+  margin: 0;
+  padding: 8px 14px;
+  color: var(--ink-2);
+  font-size: var(--fs-caption);
+}

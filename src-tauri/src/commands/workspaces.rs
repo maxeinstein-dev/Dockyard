@@ -187,8 +187,16 @@ pub fn delete_workspace(
 }
 
 /// The monitors a switch on `monitor` reaches: every one with "Trocar em
-/// todos os monitores" (spec 0013 C3), `monitor` first; else `monitor`.
+/// todos os monitores" (spec 0013 C3), `monitor` first; else `monitor`. A
+/// monitor held on its workspace (spec 0028 C) is never reached: none, when
+/// it is `monitor`.
 fn reached(app: &AppHandle, monitor: &str) -> Vec<String> {
+    let state = app.state::<Mutex<Storage>>();
+    let mut storage = lock(&state);
+    let mut held = |key: &str| storage.monitor_fixed(key).unwrap_or(false);
+    if held(monitor) {
+        return Vec::new();
+    }
     let mut monitors = vec![monitor.to_owned()];
     #[cfg(windows)]
     if crate::commands::settings::current(app)
@@ -199,11 +207,9 @@ fn reached(app: &AppHandle, monitor: &str) -> Vec<String> {
             crate::windows::monitors::all()
                 .into_iter()
                 .map(|other| other.key)
-                .filter(|key| key != monitor),
+                .filter(|key| key != monitor && !held(key)),
         );
     }
-    #[cfg(not(windows))]
-    let _ = app;
     monitors
 }
 
@@ -211,8 +217,19 @@ fn reached(app: &AppHandle, monitor: &str) -> Vec<String> {
 /// `id`, which is now in use; with "Trocar em todos os monitores", every
 /// monitor does.
 pub fn switch(app: &AppHandle, monitor: &str, id: &str) {
-    let state = app.state::<Mutex<Storage>>();
     let monitors = reached(app, monitor);
+    if monitors.is_empty() {
+        log::info!("workspaces: a monitor held on its workspace does not switch");
+        return;
+    }
+    switch_these(app, &monitors, id);
+}
+
+/// The monitors `monitors` (the one that asked first) show the workspace
+/// `id`, and their windows follow.
+fn switch_these(app: &AppHandle, monitors: &[String], id: &str) {
+    let state = app.state::<Mutex<Storage>>();
+    let monitor = &monitors[0];
     let from: Vec<Option<String>> = {
         let mut storage = lock(&state);
         monitors
@@ -249,6 +266,121 @@ pub fn switch(app: &AppHandle, monitor: &str, id: &str) {
     }
     #[cfg(not(windows))]
     let _ = (switched, from);
+}
+
+/// A monitor as Configurações › Espaços lists it (spec 0028 E).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MonitorView {
+    /// What names it (`Monitor::key`); what the other commands take.
+    pub key: String,
+    pub name: String,
+    pub primary: bool,
+    /// The workspace it shows.
+    pub workspace: Option<String>,
+    /// Held on that workspace: it does not switch.
+    pub fixed: bool,
+}
+
+/// The monitors, the primary first, each with its workspace and whether it
+/// is held on it.
+#[tauri::command]
+pub fn list_monitors(state: State<'_, Mutex<Storage>>) -> Vec<MonitorView> {
+    #[cfg(windows)]
+    {
+        let mut storage = lock(&state);
+        crate::windows::monitors::all()
+            .into_iter()
+            .map(|monitor| MonitorView {
+                workspace: storage.shown_on(&monitor.key).ok().map(|w| w.id),
+                fixed: storage.monitor_fixed(&monitor.key).unwrap_or(false),
+                key: monitor.key,
+                name: monitor.name,
+                primary: monitor.primary,
+            })
+            .collect()
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = state;
+        Vec::new()
+    }
+}
+
+/// Whether `key` names a monitor there is now.
+fn known_monitor(key: &str) -> bool {
+    #[cfg(windows)]
+    {
+        crate::windows::monitors::all()
+            .iter()
+            .any(|monitor| monitor.key == key)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = key;
+        false
+    }
+}
+
+/// Configurações › Espaços › Monitores: the monitor `monitor` shows the
+/// workspace `workspace`, held on it or not (a choice made there moves a
+/// held monitor too).
+#[tauri::command]
+pub fn set_monitor_workspace(
+    app: AppHandle,
+    monitor: String,
+    workspace: String,
+) -> Result<(), WorkspaceCommandError> {
+    if !known_monitor(&monitor) {
+        return Err(WorkspaceError::NotFound.into());
+    }
+    switch_these(&app, &[monitor], &workspace);
+    Ok(())
+}
+
+/// Holds the monitor `monitor` on the workspace it shows (`fixed`), or lets
+/// it go: from Configurações › Espaços and from the dock's menu.
+#[tauri::command]
+pub fn set_monitor_fixed(
+    app: AppHandle,
+    state: State<'_, Mutex<Storage>>,
+    monitor: String,
+    fixed: bool,
+) -> Result<(), WorkspaceCommandError> {
+    if !known_monitor(&monitor) {
+        return Err(WorkspaceError::NotFound.into());
+    }
+    change(&app, &state, "hold a monitor", |storage| {
+        storage.set_monitor_fixed(&monitor, fixed)
+    })
+}
+
+/// "Fixar este monitor neste espaço" and "Soltar este monitor" in the dock's
+/// menu.
+pub fn hold_from_dock(app: &AppHandle, monitor: &str, fixed: bool) {
+    let state = app.state::<Mutex<Storage>>();
+    let _ = set_monitor_fixed(app.clone(), state, monitor.to_owned(), fixed);
+}
+
+/// A monitor known by a new key (spec 0028 A) keeps the workspace and the
+/// hold kept under its device's name; at start, once per monitor.
+pub fn adopt_monitor_keys(app: &AppHandle) {
+    #[cfg(windows)]
+    {
+        let Some(state) = app.try_state::<Mutex<Storage>>() else {
+            return;
+        };
+        let mut storage = lock(&state);
+        for monitor in crate::windows::monitors::all() {
+            if let Err(error) = storage.adopt_monitor_key(&monitor.device, &monitor.key) {
+                log::warn!(
+                    "workspaces: a monitor's workspace could not move to its new key: {error}"
+                );
+            }
+        }
+    }
+    #[cfg(not(windows))]
+    let _ = app;
 }
 
 /// Every monitor parks the windows that are not of the workspace it shows

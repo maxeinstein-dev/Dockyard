@@ -488,6 +488,15 @@ export const en: Messages = {
     },
   },
   workspaces: {
+    monitors: {
+      title: "Monitors",
+      loading: "Reading the monitors…",
+      primary: "{name} (main)",
+      workspace: "{name}'s workspace",
+      fixed: "Hold {name} on this workspace",
+      fixedHint:
+        "Held on the chosen workspace: its dock shows no dots, and the wheel, the shortcuts and switching every monitor leave it alone.",
+    },
     title: "Workspaces",
     lead: "Each workspace has its own dock and keeps its own windows. Switch with the dots on the dock, the mouse wheel over it or Ctrl+Alt+number. Editing here doesn't change what the dock shows.",
     loading: "Reading the workspaces…",

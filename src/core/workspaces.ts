@@ -117,7 +117,22 @@ export const WORKSPACE_COMMANDS = {
   moveSpacer: "move_spacer",
   moveStack: "move_stack",
   dissolveStack: "dissolve_stack",
+  listMonitors: "list_monitors",
+  setMonitorWorkspace: "set_monitor_workspace",
+  setMonitorFixed: "set_monitor_fixed",
 } as const;
+
+/** A monitor as Configurações › Espaços lists it (spec 0028 E):
+ * `MonitorView` in `src-tauri/src/commands/workspaces.rs`. */
+export interface MonitorView {
+  key: string;
+  name: string;
+  primary: boolean;
+  /** The workspace it shows. */
+  workspace: string | null;
+  /** Held on that workspace: it does not switch. */
+  fixed: boolean;
+}
 
 /** Event every window receives with a `WorkspacesSnapshot` after a change. */
 export const WORKSPACES_CHANGED_EVENT = "workspaces-changed";
@@ -131,6 +146,27 @@ function run<T>(command: string, args: Record<string, unknown>): Promise<T> {
     const notReady: WorkspaceCommandError = { code: "notReady" };
     throw notReady;
   });
+}
+
+/** The monitors, the primary first (spec 0028). */
+export function listMonitors(): Promise<MonitorView[]> {
+  return run(WORKSPACE_COMMANDS.listMonitors, {});
+}
+
+/** The monitor `monitor` shows `workspace`, held or not. */
+export function setMonitorWorkspace(
+  monitor: string,
+  workspace: string,
+): Promise<void> {
+  return run(WORKSPACE_COMMANDS.setMonitorWorkspace, { monitor, workspace });
+}
+
+/** Holds the monitor `monitor` on the workspace it shows, or lets it go. */
+export function setMonitorFixed(
+  monitor: string,
+  fixed: boolean,
+): Promise<void> {
+  return run(WORKSPACE_COMMANDS.setMonitorFixed, { monitor, fixed });
 }
 
 export function listWorkspaces(): Promise<WorkspacesSnapshot> {

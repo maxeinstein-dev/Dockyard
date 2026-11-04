@@ -162,6 +162,8 @@ pub fn setup(app: &AppHandle) -> Result<(), Box<dyn Error>> {
             }
         }
         apply_taskbar(app, commands::settings::current(app).dock.taskbar);
+        // Before the docks read their workspace (spec 0028 A).
+        commands::workspaces::adopt_monitor_keys(app);
     }
     native_dock::start(app)?;
     native_dock::show();

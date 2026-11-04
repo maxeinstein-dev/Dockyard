@@ -295,6 +295,9 @@ pub struct TrayMessages {
     /// The dock's menu: the Downloads and the Recycle Bin (spec 0025).
     pub add_downloads: &'static str,
     pub add_recycle_bin: &'static str,
+    /// The dock's menu: a monitor held on its workspace (spec 0028 C).
+    pub hold_monitor: &'static str,
+    pub release_monitor: &'static str,
     pub remove_spacer: &'static str,
     /// The "Abrir" dialog of "Escolher imagem…" (spec 0024): `{name}` the
     /// program's; the kind of file it shows.
@@ -342,6 +345,8 @@ const PT_BR: Messages = Messages {
         add_large_spacer: "Adicionar espaçador grande",
         add_downloads: "Adicionar Downloads",
         add_recycle_bin: "Adicionar Lixeira",
+        hold_monitor: "Fixar este monitor neste espaço",
+        release_monitor: "Soltar este monitor",
         remove_spacer: "Remover espaçador",
         choose_icon_title: "Escolher o ícone de {name}",
         image_files: "Imagens (PNG, ICO)",
@@ -576,6 +581,8 @@ const EN: Messages = Messages {
         add_large_spacer: "Add large spacer",
         add_downloads: "Add Downloads",
         add_recycle_bin: "Add Recycle Bin",
+        hold_monitor: "Hold this monitor on this workspace",
+        release_monitor: "Release this monitor",
         remove_spacer: "Remove spacer",
         choose_icon_title: "Choose the icon of {name}",
         image_files: "Images (PNG, ICO)",

@@ -40,6 +40,10 @@ pub(super) enum MenuChoice {
     /// menu opened on (spec 0025).
     PinDownloads,
     PinRecycleBin,
+    /// Hold this monitor on the workspace it shows, or let it go (spec 0028
+    /// C).
+    HoldMonitor,
+    ReleaseMonitor,
 }
 
 /// One line of the dock's menu: what it does and how it shows (spec 0014
@@ -66,6 +70,8 @@ pub(super) const SPACER_GLYPH: char = '\u{E745}';
 pub(super) const STACK_GLYPH: char = '\u{E8FD}';
 pub(super) const DOWNLOADS_GLYPH: char = '\u{E896}';
 pub(super) const BIN_GLYPH: char = '\u{E74D}';
+/// The font's pin.
+pub(super) const HOLD_GLYPH: char = '\u{E718}';
 
 impl MenuEntry {
     fn item(choice: MenuChoice, item: menu::Item) -> MenuEntry {
@@ -171,6 +177,24 @@ pub(super) fn dock_menu_items(
         MenuEntry::item(MenuChoice::Quit, menu::Item::new(text.quit, QUIT_GLYPH)),
     ]);
     items
+}
+
+/// "Fixar este monitor neste espaço" or, held, "Soltar este monitor" (spec
+/// 0028 C), then a separator.
+pub(super) fn hold_items(fixed: bool) -> Vec<MenuEntry> {
+    let text = &crate::i18n::messages().tray;
+    let entry = if fixed {
+        MenuEntry::item(
+            MenuChoice::ReleaseMonitor,
+            menu::Item::new(text.release_monitor, HOLD_GLYPH),
+        )
+    } else {
+        MenuEntry::item(
+            MenuChoice::HoldMonitor,
+            menu::Item::new(text.hold_monitor, HOLD_GLYPH),
+        )
+    };
+    vec![entry, MenuEntry::separator()]
 }
 
 /// "Adicionar Downloads" and "Adicionar Lixeira" (spec 0025), for the ones
@@ -507,6 +531,12 @@ pub(super) fn act(
         }
         MenuChoice::PinDownloads => {
             crate::commands::apps::pin_place(app, Place::Folder, workspace, on.after);
+        }
+        MenuChoice::HoldMonitor => {
+            crate::commands::workspaces::hold_from_dock(app, monitor, true);
+        }
+        MenuChoice::ReleaseMonitor => {
+            crate::commands::workspaces::hold_from_dock(app, monitor, false);
         }
         MenuChoice::PinRecycleBin => {
             crate::commands::apps::pin_place(app, Place::RecycleBin, workspace, on.after);

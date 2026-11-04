@@ -946,6 +946,67 @@ pub fn set_active(conn: &mut Connection, monitor: &str, id: &str) -> Result<(), 
     Ok(())
 }
 
+/// Prefix in `meta` of a monitor held on the workspace it shows (spec
+/// 0028 C): `workspace-fixed:` and the monitor's key.
+const FIXED_PREFIX: &str = "workspace-fixed:";
+
+/// Whether the monitor `monitor` is held on the workspace it shows: it does
+/// not switch.
+pub fn fixed(conn: &Connection, monitor: &str) -> Result<bool, WorkspaceError> {
+    let kept: Option<String> = conn
+        .query_row(
+            "SELECT value FROM meta WHERE key = ?1",
+            params![format!("{FIXED_PREFIX}{monitor}")],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(read_failed)?;
+    Ok(kept.as_deref() == Some("1"))
+}
+
+/// Holds the monitor `monitor` on the workspace it shows, or lets it go.
+pub fn set_fixed(conn: &mut Connection, monitor: &str, fixed: bool) -> Result<(), WorkspaceError> {
+    let key = format!("{FIXED_PREFIX}{monitor}");
+    if fixed {
+        conn.execute(
+            "INSERT INTO meta (key, value) VALUES (?1, '1') \
+             ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+            params![key],
+        )
+    } else {
+        conn.execute("DELETE FROM meta WHERE key = ?1", params![key])
+    }
+    .map_err(write_failed)?;
+    Ok(())
+}
+
+/// A monitor known by a new key (spec 0028 A: its device's path instead of
+/// its name, `\\.\DISPLAY1`): what was kept under `old` goes under `new`,
+/// unless `new` has its own already.
+pub fn adopt_monitor_key(
+    conn: &mut Connection,
+    old: &str,
+    new: &str,
+) -> Result<(), WorkspaceError> {
+    if old == new {
+        return Ok(());
+    }
+    let tx = conn.transaction().map_err(write_failed)?;
+    for prefix in [ACTIVE_PREFIX, FIXED_PREFIX] {
+        let (from, to) = (format!("{prefix}{old}"), format!("{prefix}{new}"));
+        tx.execute(
+            "INSERT OR IGNORE INTO meta (key, value) \
+             SELECT ?2, value FROM meta WHERE key = ?1",
+            params![from, to],
+        )
+        .map_err(write_failed)?;
+        tx.execute("DELETE FROM meta WHERE key = ?1", params![from])
+            .map_err(write_failed)?;
+    }
+    tx.commit().map_err(write_failed)?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1387,5 +1448,38 @@ mod tests {
         assert!(set_in_use(&mut conn, &second).unwrap());
         assert!(!set_in_use(&mut conn, &second).unwrap());
         assert_eq!(in_use(&conn).unwrap(), Some(second));
+    }
+
+    #[test]
+    fn a_monitor_can_be_held_on_its_workspace() {
+        let mut conn = database();
+        assert!(!fixed(&conn, "M1").unwrap());
+
+        set_fixed(&mut conn, "M1", true).unwrap();
+        assert!(fixed(&conn, "M1").unwrap());
+        assert!(!fixed(&conn, "M2").unwrap());
+
+        set_fixed(&mut conn, "M1", false).unwrap();
+        assert!(!fixed(&conn, "M1").unwrap());
+    }
+
+    #[test]
+    fn a_monitor_known_by_a_new_key_keeps_its_workspace_and_hold() {
+        let mut conn = database();
+        let second = create(&mut conn, Some("Pessoal")).unwrap();
+        set_active(&mut conn, r"\\.\DISPLAY2", &second.id).unwrap();
+        set_fixed(&mut conn, r"\\.\DISPLAY2", true).unwrap();
+
+        adopt_monitor_key(&mut conn, r"\\.\DISPLAY2", "path-of-dell").unwrap();
+
+        assert_eq!(
+            active(&conn, "path-of-dell").unwrap(),
+            Some(second.id.clone())
+        );
+        assert!(fixed(&conn, "path-of-dell").unwrap());
+        assert!(!fixed(&conn, r"\\.\DISPLAY2").unwrap());
+        // Done again (the next start), nothing changes.
+        adopt_monitor_key(&mut conn, r"\\.\DISPLAY2", "path-of-dell").unwrap();
+        assert_eq!(active(&conn, "path-of-dell").unwrap(), Some(second.id));
     }
 }
