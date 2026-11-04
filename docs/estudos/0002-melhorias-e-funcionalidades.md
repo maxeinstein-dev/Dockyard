@@ -23,7 +23,9 @@ Levantamento de 2026-10-30, depois da primeira leva da [spec 0020](../specs/0020
   - F7: na main. "Duplicar" um espaço entrou no PR #164; "Nova janela" e "Procurar…", no PR #168.
   - F8 Exportar e importar: em andamento (spec 0026). O teste ao vivo achou um problema no reinício depois de importar, já corrigido no código e à espera de um novo teste ao vivo.
   - F9 Widgets que faltam: Layout do teclado em revisão (PR #169); Relógio mundial em andamento.
-  - F10 a F15: a fazer, na ordem da lista. F13 e F14 começam por uma spec, para o autor decidir antes do código; F15 fica por último.
+  - F10 Prévias pelo teclado e Espiar: feita ([spec 0027](../specs/0027-previas-pelo-teclado.md)). F11 Selos: em andamento.
+  - F12 Dock vertical: o Dockyard não tem dock na lateral, então a F12 virou o dock lateral inteiro, de tamanho G. A [spec 0028](../specs/0028-dock-lateral.md) espera as decisões do autor.
+  - F13 a F15: a fazer. F13 e F14 começam por uma spec, para o autor decidir antes do código; F15 fica por último.
 - **Itens adiados da spec 0020:** os quatro entraram (ver "Como ler"). Os pacotes de pixel ganharam os launchers de jogos (PR #167).
 
 ## Resumo
@@ -59,7 +61,7 @@ Levantamento de 2026-10-30, depois da primeira leva da [spec 0020](../specs/0020
 | F9 | Widgets que faltam do catálogo | M por widget | Baixo |
 | F10 | Prévias: Espiar, cartão pelo teclado | M | Médio |
 | F11 | Selos na bandeja e selos sem número | M | Médio |
-| F12 | Dock vertical completo para widgets | M | Médio |
+| F12 | Dock vertical completo para widgets (virou o dock lateral, spec 0028) | G | Alto |
 | F13 | Itens e espaço por monitor | G | Alto |
 | F14 | Extensões do lançador | G | Alto |
 | F15 | Temas sazonais | M | Baixo |
