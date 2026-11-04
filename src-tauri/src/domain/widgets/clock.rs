@@ -43,7 +43,7 @@ impl ClockConfig {
 /// spelling `Intl` may not take. `Etc/Unknown` has no IANA name and is
 /// rejected as well, and so is `Factory`: it is in the database, but it
 /// means "time zone not set", not a place.
-fn is_iana_time_zone(name: &str) -> bool {
+pub(super) fn is_iana_time_zone(name: &str) -> bool {
     name != "Factory"
         && TimeZoneDatabase::bundled()
             .get(name)

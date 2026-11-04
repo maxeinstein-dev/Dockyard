@@ -311,6 +311,20 @@
   --l: 36%;
 }
 
+/* Mostarda: o Layout do teclado (F9 do estudo 0002). */
+.t-keyboard {
+  --h: 50;
+  --sat: 48%;
+  --l: 36%;
+}
+
+/* Malva: o Relógio mundial (F9 do estudo 0002). */
+.t-world-clock {
+  --h: 292;
+  --sat: 28%;
+  --l: 40%;
+}
+
 /* Argila. */
 .t-calendar {
   --h: 16;

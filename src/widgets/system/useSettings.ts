@@ -19,7 +19,9 @@ type SystemKind =
   | "media"
   | "claude"
   | "weather"
-  | "launcher";
+  | "launcher"
+  | "keyboard"
+  | "world-clock";
 
 /** The error code of a refused command; anything else counts as a failed
  * write (the contract rejects only with a `WidgetCommandError`). */

@@ -49,6 +49,12 @@ import NetworkTile from "./network/NetworkTile";
 import LauncherPanel from "./launcher/LauncherPanel";
 import LauncherSettings from "./launcher/LauncherSettings";
 import LauncherTile from "./launcher/LauncherTile";
+import KeyboardPanel from "./keyboard/KeyboardPanel";
+import KeyboardSettings from "./keyboard/KeyboardSettings";
+import KeyboardTile from "./keyboard/KeyboardTile";
+import WorldClockPanel from "./world-clock/WorldClockPanel";
+import WorldClockSettings from "./world-clock/WorldClockSettings";
+import WorldClockTile from "./world-clock/WorldClockTile";
 import NotePanel from "./notes/NotePanel";
 import NoteSettings from "./notes/NoteSettings";
 import NoteTile from "./notes/NoteTile";
@@ -78,7 +84,9 @@ export type GlazeClass =
   | "t-music"
   | "t-claude"
   | "t-weather"
-  | "t-launcher";
+  | "t-launcher"
+  | "t-keyboard"
+  | "t-world-clock";
 
 export interface WidgetDefinition<K extends CreatableKind> {
   kind: K;
@@ -237,6 +245,24 @@ export const WIDGET_REGISTRY: {
     Panel: LauncherPanel,
     panelTick: null,
     Settings: LauncherSettings,
+  },
+  keyboard: {
+    kind: "keyboard",
+    nameKey: "keyboard",
+    glaze: "t-keyboard",
+    Tile: KeyboardTile,
+    Panel: KeyboardPanel,
+    panelTick: null,
+    Settings: KeyboardSettings,
+  },
+  "world-clock": {
+    kind: "world-clock",
+    nameKey: "world-clock",
+    glaze: "t-world-clock",
+    Tile: WorldClockTile,
+    Panel: WorldClockPanel,
+    panelTick: MINUTE_MS,
+    Settings: WorldClockSettings,
   },
 };
 

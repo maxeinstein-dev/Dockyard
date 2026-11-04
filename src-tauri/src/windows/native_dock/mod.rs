@@ -112,6 +112,11 @@ const ACTIVITY_TIMER: usize = 7;
 const MARQUEE_TIMER: usize = 9;
 /// Looks at the pointer while the dock hides on its own.
 const AUTO_HIDE_TIMER: usize = 5;
+/// A moment after the Layout do teclado asked for the next layout: the
+/// window in front has taken it, and the tile shows it.
+const LAYOUT_TIMER: usize = 11;
+/// How long the window in front takes to switch its layout.
+const LAYOUT_DELAY: u32 = 200;
 /// The key of a workspace dot for assistive technology, before its id.
 const WORKSPACE_KEY: &str = "workspace:";
 const AUTO_HIDE_EVERY: u32 = 100;
@@ -364,6 +369,9 @@ pub struct Dock {
     /// Since when the Calendário's long titles roll: they start over with
     /// the battery saving, as the Tocando agora's.
     calendar_since: Instant,
+    /// The layout the Layout do teclado shows (F9 of estudo 0002), to
+    /// redraw it only when the window in front's changes.
+    layout_shown: Option<String>,
     landing: Option<Landing>,
     /// How far each item is drawn from its place at rest, sideways: the
     /// room made for a dragged item, or the way to a new place, eased.
@@ -554,6 +562,7 @@ fn make_dock(app: &AppHandle, monitor: Monitor) -> Option<Dock> {
         media_art: None,
         media_since: Instant::now(),
         calendar_since: Instant::now(),
+        layout_shown: None,
         landing: None,
         slide: Vec::new(),
         open: None,
@@ -745,6 +754,8 @@ fn names() -> Names {
         claude: dock.claude,
         weather: dock.weather,
         launcher: dock.launcher,
+        keyboard: dock.keyboard,
+        world_clock: dock.world_clock,
     }
 }
 
@@ -775,6 +786,13 @@ fn stack_name(names: &Names, item: &Item) -> String {
 fn is_launcher(item: &Item) -> bool {
     item.widget()
         .is_some_and(|widget| matches!(widget.config, WidgetConfig::Launcher(_)))
+}
+
+/// Whether `item` is a Layout do teclado (F9 of estudo 0002): a click goes
+/// to the next layout, not to a panel.
+fn is_keyboard(item: &Item) -> bool {
+    item.widget()
+        .is_some_and(|widget| matches!(widget.config, WidgetConfig::Keyboard(_)))
 }
 
 /// The panel an item opens: a program's is its menu. A spacer has none.
@@ -1007,6 +1025,12 @@ impl Dock {
                 let name = names.of(item);
                 if is_launcher(item) {
                     crate::domain::widgets::launcher::tip(&name, hotkey, space)
+                } else if is_keyboard(item) {
+                    // Its tip and what the Narrator reads say the layout.
+                    match super::keyboard_layout::name() {
+                        Some(layout) => format!("{name}: {layout}"),
+                        None => name,
+                    }
                 } else {
                     name
                 }
@@ -1236,9 +1260,24 @@ impl Dock {
     /// not come.
     fn read_system(&mut self) {
         self.check_power();
+        self.check_keyboard();
         let now = Some(super::system_status::read_shared());
         if now != self.system {
             self.system = now;
+            self.rebuild();
+        }
+    }
+
+    /// The layout of the window in front changed (another window came to
+    /// the front, or the Layout do teclado switched it): the tile and its
+    /// name say the new one.
+    fn check_keyboard(&mut self) {
+        if !self.items.iter().any(is_keyboard) {
+            return;
+        }
+        let now = super::keyboard_layout::label();
+        if now != self.layout_shown {
+            self.layout_shown = now;
             self.rebuild();
         }
     }
@@ -2569,6 +2608,12 @@ impl Dock {
             // apps…", where it opens today (spec 0012): with the hotkey off
             // in Configurações too, since that only lets the hotkey go.
             _ if is_launcher(&item) => super::launcher::toggle(),
+            // The Layout do teclado goes to the next layout, as the
+            // taskbar's language button (F9 of estudo 0002).
+            _ if is_keyboard(&item) => {
+                super::keyboard_layout::switch_next();
+                unsafe { SetTimer(Some(self.hwnd), LAYOUT_TIMER, LAYOUT_DELAY, None) };
+            }
             Item::Spacer(_) => {}
             _ => {
                 if let Some(widget) = item.widget()
@@ -3109,6 +3154,10 @@ fn handle(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
                 dock.check_bin();
             }),
             STATUS_TIMER => with_dock(hwnd, Dock::read_system),
+            LAYOUT_TIMER => with_dock(hwnd, |dock| {
+                let _ = unsafe { KillTimer(Some(dock.hwnd), LAYOUT_TIMER) };
+                dock.check_keyboard();
+            }),
             CARD_TIMER => with_dock(hwnd, |dock| {
                 let _ = unsafe { KillTimer(Some(dock.hwnd), CARD_TIMER) };
                 dock.show_card();

@@ -314,6 +314,39 @@ pub fn todo(config: &crate::domain::widgets::TodoConfig, size: DockSize) -> Face
     }
 }
 
+/// The Relógio mundial's face (F9 of estudo 0002): a line per place, as
+/// many as the tile is icons wide (`Londres 14:05`), the place's name and
+/// its time, as the Clock's digital face writes it. A zone the bundled
+/// database lacks (never accepted) shows no time.
+pub fn world_clock(config: &crate::domain::widgets::WorldClockConfig) -> Face {
+    use crate::domain::widgets::world_clock::city;
+    let size = if config.width >= 3 { 0.16 } else { 0.2 };
+    let lines = config
+        .zones
+        .iter()
+        .take(usize::from(config.width))
+        .map(|zone| {
+            let time = jiff::tz::TimeZoneDatabase::bundled()
+                .get(zone)
+                .ok()
+                .map(|tz| {
+                    let at = jiff::Timestamp::now().to_zoned(tz);
+                    live_faces::clock_text(at.hour() as u8, at.minute() as u8, config.hour_cycle)
+                })
+                .unwrap_or_else(|| crate::i18n::messages().dock.no_value.to_string());
+            AgendaLine {
+                text: format!("{} {time}", city(zone)),
+                size,
+                strong: true,
+            }
+        })
+        .collect();
+    Face::Agenda {
+        glaze: Glaze::WORLD_CLOCK,
+        lines,
+    }
+}
+
 /// The Beber água's face (spec 0017 F3-2): a ring of the day's goal and
 /// the cups so far; the small size shows only the ring.
 pub fn water(config: &crate::domain::widgets::WaterConfig, size: DockSize) -> Face {
@@ -490,6 +523,14 @@ pub fn widget(
         WidgetConfig::Launcher(_) => Face::Symbol {
             glaze: Glaze::LAUNCHER,
             glyph: super::SEARCH_GLYPH,
+        },
+        // The layout of the window in front, as the taskbar's button
+        // (F9 of estudo 0002): `PTB`, `ENU`.
+        WidgetConfig::WorldClock(config) => world_clock(config),
+        WidgetConfig::Keyboard(_) => Face::Time {
+            glaze: Glaze::KEYBOARD,
+            text: crate::windows::keyboard_layout::label()
+                .unwrap_or_else(|| crate::i18n::messages().dock.no_value.to_string()),
         },
         // Drawn by the dock itself, which holds the cover (`Dock::media_face`).
         WidgetConfig::Media(_) => Face::Glyph {

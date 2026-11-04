@@ -168,6 +168,10 @@ pub struct DockMessages {
     /// The Lançador (spec 0012), and the Space key in its tip's hotkey
     /// ("Lançador (Alt+Espaço)").
     pub launcher: &'static str,
+    /// The Layout do teclado (F9 of estudo 0002).
+    pub keyboard: &'static str,
+    /// The Relógio mundial (F9 of estudo 0002).
+    pub world_clock: &'static str,
     pub space_key: &'static str,
     /// The media buttons of a window preview (F4).
     pub media_previous: &'static str,
@@ -379,6 +383,8 @@ const PT_BR: Messages = Messages {
         claude_week_short: "Sem",
         weather: "Clima",
         launcher: "Lançador",
+        keyboard: "Layout do teclado",
+        world_clock: "Relógio mundial",
         space_key: "Espaço",
         media_previous: "Anterior",
         media_play: "Tocar",
@@ -607,6 +613,8 @@ const EN: Messages = Messages {
         claude_week_short: "Wk",
         weather: "Weather",
         launcher: "Launcher",
+        keyboard: "Keyboard layout",
+        world_clock: "World clock",
         space_key: "Space",
         media_previous: "Previous",
         media_play: "Play",
