@@ -89,6 +89,8 @@ fn main() {
             "recolor_workspace",
             "move_workspace",
             "delete_workspace",
+            "remove_spacer",
+            "move_spacer",
             "move_app_windows",
             "move_open_windows",
             "share_widget",

@@ -155,3 +155,23 @@
   height: 18px;
   filter: none;
 }
+
+/* A spacer (spec 0022): an empty room, a dashed outline in the mini tile's
+   place, narrow for a small one and wider for a large one. */
+.dock-items-spacer-cell {
+  display: grid;
+  place-items: center;
+  height: 26px;
+}
+
+.dock-items-spacer {
+  box-sizing: border-box;
+  width: 8px;
+  height: 22px;
+  border: 1px dashed var(--ink-2);
+  border-radius: 4px;
+}
+
+.dock-items-spacer.large {
+  width: 14px;
+}

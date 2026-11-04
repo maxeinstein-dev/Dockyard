@@ -111,7 +111,7 @@ impl Dock {
         let Some(item) = self.items.get(index).cloned() else {
             return;
         };
-        if self.open.as_ref() == Some(&panel_of(&item)) {
+        if self.is_open(&item) {
             // Already open: it reads the event it should show.
             self.effects.push(Box::new(|app| {
                 let _ = tauri::Emitter::emit(app, super::super::calendar::OPEN_EVENT, ());
@@ -119,7 +119,9 @@ impl Dock {
             return;
         }
         let anchor = self.rest().items[index];
-        self.toggle(panel_of(&item), anchor);
+        if let Some(panel) = panel_of(&item) {
+            self.toggle(panel, anchor);
+        }
     }
 
     /// The pointer is on another item: with a card already shown it changes

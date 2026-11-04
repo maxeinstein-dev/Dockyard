@@ -28,13 +28,26 @@ export const WORKSPACE_COLORS = [
   "#8E8E93",
 ] as const;
 
+/** How much room a spacer leaves (spec 0022): a quarter or half of an
+ * icon. */
+export type SpacerSize = "small" | "large";
+
+/** An empty room between two items of a workspace's dock (spec 0022). */
+export interface WorkspaceSpacer {
+  id: string;
+  size: SpacerSize;
+}
+
 export interface Workspace {
   id: string;
   name: string;
   /** One of `WORKSPACE_COLORS`. */
   color: string;
-  /** Its items in dock order: `app:<id>` and `widget:<id>`. */
+  /** Its items in dock order: `app:<id>`, `widget:<id>` and
+   * `spacer:<id>`. */
   items: string[];
+  /** Its spacers, in dock order: what the `spacer:<id>` keys stand for. */
+  spacers: WorkspaceSpacer[];
 }
 
 /** Every workspace in order, and the one in use (the dock used last). */
@@ -89,6 +102,8 @@ export const WORKSPACE_COMMANDS = {
   delete: "delete_workspace",
   moveAppWindows: "move_app_windows",
   moveOpenWindows: "move_open_windows",
+  removeSpacer: "remove_spacer",
+  moveSpacer: "move_spacer",
 } as const;
 
 /** Event every window receives with a `WorkspacesSnapshot` after a change. */
@@ -147,6 +162,28 @@ export function moveOpenWindows(
   workspace: string,
 ): Promise<number> {
   return run(WORKSPACE_COMMANDS.moveOpenWindows, { key, workspace });
+}
+
+/** Removes the spacer `id` of `workspace` (the one in use without it) for
+ * good (spec 0022). */
+export function removeSpacer(id: string, workspace?: string): Promise<void> {
+  return run(
+    WORKSPACE_COMMANDS.removeSpacer,
+    workspace === undefined ? { id } : { id, workspace },
+  );
+}
+
+/** Moves the spacer `id` one place up or down among the widgets and the
+ * spacers of `workspace` (Itens do dock lists them together). */
+export function moveSpacer(
+  id: string,
+  direction: MoveDirection,
+  workspace?: string,
+): Promise<void> {
+  return run(
+    WORKSPACE_COMMANDS.moveSpacer,
+    workspace === undefined ? { id, direction } : { id, direction, workspace },
+  );
 }
 
 /** A name the user may give: one line, no spaces at the ends, 1 to

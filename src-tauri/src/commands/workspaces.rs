@@ -3,7 +3,8 @@
 //!
 //! The programs and the widgets of a workspace are changed with the apps and
 //! widgets commands, which take the workspace (`workspace`); these commands
-//! change the workspaces themselves.
+//! change the workspaces themselves, and their spacers (spec 0022), which
+//! belong to no other list.
 
 use std::sync::Mutex;
 
@@ -13,7 +14,8 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use crate::commands::widgets::lock;
 use crate::domain::widgets::MoveDirection;
 use crate::domain::workspaces::{
-    MAX_WORKSPACES, Workspace, WorkspaceError, WorkspaceErrorCode, neighbor,
+    MAX_WORKSPACES, SPACER_PREFIX, SpacerSize, Workspace, WorkspaceError, WorkspaceErrorCode,
+    neighbor,
 };
 use crate::persistence::database::Storage;
 
@@ -385,6 +387,88 @@ pub fn use_from_dock(app: &AppHandle, monitor: &str) {
     if changed {
         notify(app);
     }
+}
+
+/// The workspace `id`, which must exist, or the one in use.
+fn workspace_or_in_use(
+    storage: &mut Storage,
+    id: Option<&str>,
+) -> Result<Workspace, WorkspaceError> {
+    match id {
+        Some(id) => storage
+            .workspaces()?
+            .into_iter()
+            .find(|known| known.id == id)
+            .ok_or(WorkspaceError::NotFound),
+        None => storage.in_use(),
+    }
+}
+
+/// The key of the spacer `id` of `workspace`; `NotFound` when it has none
+/// such (an id from the interface is never trusted).
+fn spacer_key(workspace: &Workspace, id: &str) -> Result<String, WorkspaceError> {
+    workspace
+        .spacers
+        .iter()
+        .find(|spacer| spacer.id == id)
+        .map(|spacer| format!("{SPACER_PREFIX}{}", spacer.id))
+        .ok_or(WorkspaceError::NotFound)
+}
+
+/// Makes a spacer of `size` in the workspace `workspace` (the one the dock
+/// shows; the one in use without it), right after its item `after` or at
+/// its end ("Adicionar espaçador" in the dock's menu, spec 0022). A refusal
+/// is only logged.
+pub fn add_spacer(app: &AppHandle, workspace: Option<&str>, size: SpacerSize, after: Option<&str>) {
+    let state = app.state::<Mutex<Storage>>();
+    // `change` logs a refusal.
+    let _ = change(app, &state, "add spacer", |storage| {
+        let id = workspace_or_in_use(storage, workspace)?.id;
+        storage.add_spacer(&id, size, after)
+    });
+}
+
+/// Removes the spacer `id` for good ("Remover espaçador" in its menu).
+pub fn remove_spacer_from_dock(app: &AppHandle, id: &str) {
+    let state = app.state::<Mutex<Storage>>();
+    // `change` logs a refusal.
+    let _ = change(app, &state, "remove spacer", |storage| {
+        storage.remove_spacer(id)
+    });
+}
+
+/// Removes the spacer `id` of the workspace `workspace` (or the one in
+/// use) for good: Configurações › Itens do dock (spec 0022).
+#[tauri::command]
+pub fn remove_spacer(
+    app: AppHandle,
+    state: State<'_, Mutex<Storage>>,
+    id: String,
+    workspace: Option<String>,
+) -> Result<(), WorkspaceCommandError> {
+    change(&app, &state, "remove spacer", |storage| {
+        let found = workspace_or_in_use(storage, workspace.as_deref())?;
+        spacer_key(&found, &id)?;
+        storage.remove_spacer(&id)
+    })
+}
+
+/// Moves the spacer `id` one place up or down among the widgets and the
+/// spacers of the workspace `workspace` (or the one in use), as Itens do
+/// dock lists them; at either end nothing changes.
+#[tauri::command]
+pub fn move_spacer(
+    app: AppHandle,
+    state: State<'_, Mutex<Storage>>,
+    id: String,
+    direction: MoveDirection,
+    workspace: Option<String>,
+) -> Result<(), WorkspaceCommandError> {
+    change(&app, &state, "move spacer", |storage| {
+        let found = workspace_or_in_use(storage, workspace.as_deref())?;
+        let key = spacer_key(&found, &id)?;
+        storage.shift_in_workspace(&found.id, &key, direction == MoveDirection::Up)
+    })
 }
 
 /// Whether one more workspace can be made.

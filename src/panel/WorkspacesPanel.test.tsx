@@ -27,12 +27,14 @@ const MAIN: Workspace = {
   name: "Principal",
   color: "#0A84FF",
   items: ["app:a1", "widget:c1", "app:a2"],
+  spacers: [],
 };
 const WORK: Workspace = {
   id: "w-work",
   name: "Trabalho",
   color: "#FF9F0A",
   items: ["widget:c1"],
+  spacers: [],
 };
 const SNAPSHOT: WorkspacesSnapshot = {
   workspaces: [MAIN, WORK],

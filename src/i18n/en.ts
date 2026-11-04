@@ -1119,6 +1119,7 @@ export const en: Messages = {
       add: "Add",
       fromOthers: "From other workspaces",
       limit: "Limit of {max} widgets",
+      spacers: { small: "Small spacer", large: "Large spacer" },
       footer: "The order is the dock's",
       footerUnavailable: "Settings and About still work",
       recovered: {
