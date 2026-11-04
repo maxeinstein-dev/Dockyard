@@ -231,6 +231,8 @@ export const en: Messages = {
     edge: {
       bottom: "Bottom",
       top: "Top",
+      left: "Left",
+      right: "Right",
     },
     size: {
       small: "Small",

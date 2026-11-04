@@ -297,6 +297,8 @@ const messages = {
     edge: {
       bottom: "Embaixo",
       top: "Em cima",
+      left: "Esquerda",
+      right: "Direita",
     } satisfies Record<DockEdge, string>,
     size: {
       small: "Pequeno",

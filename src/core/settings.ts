@@ -18,7 +18,9 @@ export type Language = "system" | "pt-BR" | "en";
 export const LANGUAGES: readonly Language[] = ["system", "pt-BR", "en"];
 
 /** Screen edge the dock sits on. */
-export type DockEdge = "bottom" | "top";
+/** The screen edge the dock is on. The sides (spec 0028) are read and kept,
+ * but Configurações offers them only from step 8, with the column done. */
+export type DockEdge = "bottom" | "top" | "left" | "right";
 
 /** Dock background: simulated glass or opaque. Panels are always opaque. */
 export type DockOpacity = "translucent" | "solid";

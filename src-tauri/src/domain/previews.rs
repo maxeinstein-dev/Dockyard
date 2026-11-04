@@ -150,15 +150,20 @@ pub fn card(
         .collect();
 
     // Centred on the icon, kept on the screen; over a dock at the bottom,
-    // under one at the top.
-    let centre = icon.x + icon.width / 2.0;
+    // under one at the top, beside one on a side (spec 0028).
     let left_most = screen.x + MARGIN * scale;
     let right_most = screen.x + screen.width - MARGIN * scale - card_width;
-    let x = (centre - card_width / 2.0).min(right_most).max(left_most);
-    let y = match edge {
-        DockEdge::Bottom => icon.y - OFFSET * scale - card_height,
-        DockEdge::Top => icon.y + icon.height + OFFSET * scale,
+    let centred_x = (icon.x + icon.width / 2.0 - card_width / 2.0)
+        .min(right_most)
+        .max(left_most);
+    let centred_y = icon.y + icon.height / 2.0 - card_height / 2.0;
+    let (x, y) = match edge {
+        DockEdge::Bottom => (centred_x, icon.y - OFFSET * scale - card_height),
+        DockEdge::Top => (centred_x, icon.y + icon.height + OFFSET * scale),
+        DockEdge::Left => (icon.x + icon.width + OFFSET * scale, centred_y),
+        DockEdge::Right => (icon.x - OFFSET * scale - card_width, centred_y),
     };
+    let x = x.min(right_most).max(left_most);
     let y = y.min(screen.y + screen.height - card_height).max(screen.y);
     Some(Card {
         area: Area {
@@ -271,11 +276,15 @@ pub const KEY_DOWN: u16 = 0x28;
 pub const KEY_DELETE: u16 = 0x2E;
 
 /// The arrow that goes from a dock on `edge` to its card (up from a dock at
-/// the bottom), and the one that comes back.
+/// the bottom), and the one that comes back. On a side (spec 0028 Q8) the
+/// arrow toward the screen's middle opens the card; its cells take the
+/// left and right arrows, so only Esc comes back.
 pub fn card_keys(edge: DockEdge) -> (u16, Option<u16>) {
     match edge {
         DockEdge::Bottom => (KEY_UP, Some(KEY_DOWN)),
         DockEdge::Top => (KEY_DOWN, Some(KEY_UP)),
+        DockEdge::Left => (KEY_RIGHT, None),
+        DockEdge::Right => (KEY_LEFT, None),
     }
 }
 
@@ -364,6 +373,31 @@ mod tests {
         )
         .unwrap();
         assert_eq!(card.area.y, 4.0 + 48.0 + OFFSET);
+    }
+
+    #[test]
+    fn the_card_stands_beside_a_dock_on_a_side() {
+        let sizes = [(800.0, 600.0)];
+        let left = card(icon(4.0, 500.0), DockEdge::Left, SCREEN, 1.0, &sizes, false).unwrap();
+        assert_eq!(left.area.x, 4.0 + 48.0 + OFFSET);
+        let middle = left.area.y + left.area.height / 2.0;
+        assert!((middle - 524.0).abs() <= 1.0);
+        let right = card(
+            icon(1868.0, 500.0),
+            DockEdge::Right,
+            SCREEN,
+            1.0,
+            &sizes,
+            false,
+        )
+        .unwrap();
+        assert_eq!(right.area.x + right.area.width, 1868.0 - OFFSET);
+        // Near the top of the screen it stays on it.
+        let high = card(icon(4.0, 0.0), DockEdge::Left, SCREEN, 1.0, &sizes, false).unwrap();
+        assert!(high.area.y >= 0.0);
+        // The arrow toward the screen's middle opens it.
+        assert_eq!(card_keys(DockEdge::Left).0, KEY_RIGHT);
+        assert_eq!(card_keys(DockEdge::Right).0, KEY_LEFT);
     }
 
     #[test]

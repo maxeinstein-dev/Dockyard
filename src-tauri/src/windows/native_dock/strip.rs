@@ -40,9 +40,12 @@ impl Cell {
     pub fn glyph(&self, edge: DockEdge) -> Option<(char, f32)> {
         Some(match self {
             Cell::Arrow => match edge {
-                // ChevronUp, or ChevronDown with the dock on top.
+                // ChevronUp, or ChevronDown with the dock on top; on a side,
+                // toward the screen's middle (spec 0028).
                 DockEdge::Bottom => ('\u{E70E}', 1.0),
                 DockEdge::Top => ('\u{E70D}', 1.0),
+                DockEdge::Left => ('\u{E76C}', 1.0),
+                DockEdge::Right => ('\u{E76B}', 1.0),
             },
             Cell::Tray(_) => return None,
             Cell::Network(Network::Wifi) => ('\u{E701}', 1.0),

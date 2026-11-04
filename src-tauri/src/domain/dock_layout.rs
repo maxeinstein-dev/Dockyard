@@ -76,11 +76,7 @@ impl Area {
 pub enum Side {
     Bottom,
     Top,
-    // The settings reach the sides from step 2 of spec 0028; until then only
-    // the tests lay them out.
-    #[allow(dead_code)]
     Left,
-    #[allow(dead_code)]
     Right,
 }
 
@@ -105,6 +101,8 @@ impl From<DockEdge> for Side {
         match edge {
             DockEdge::Bottom => Side::Bottom,
             DockEdge::Top => Side::Top,
+            DockEdge::Left => Side::Left,
+            DockEdge::Right => Side::Right,
         }
     }
 }
@@ -589,9 +587,11 @@ fn lying(
     let height = icon + 2.0 * pad;
     let bar = Area {
         x: (viewport.0 - row.width) / 2.0,
-        y: match edge {
-            DockEdge::Bottom => viewport.1 - height,
-            DockEdge::Top => 0.0,
+        // Only the lying edges reach here (`Side::lying`).
+        y: if edge == DockEdge::Bottom {
+            viewport.1 - height
+        } else {
+            0.0
         },
         width: row.width,
         height,
@@ -617,9 +617,10 @@ fn lying(
                 let tall = icon * item.magnification.scale;
                 Area {
                     x: bar.x + item.x,
-                    y: match edge {
-                        DockEdge::Bottom => top + icon - item.magnification.lift - tall,
-                        DockEdge::Top => top + item.magnification.lift,
+                    y: if edge == DockEdge::Bottom {
+                        top + icon - item.magnification.lift - tall
+                    } else {
+                        top + item.magnification.lift
                     },
                     width: item.width,
                     height: tall,
@@ -1339,9 +1340,10 @@ mod tests {
                             let (x, y) = tip_anchor(*tile, edge);
                             let width = LABELS[index];
                             let x = tip_center(x, width, window.0);
-                            let pill_y = match edge {
-                                DockEdge::Bottom => y - TIP_HEIGHT - ROOM,
-                                DockEdge::Top => y,
+                            let pill_y = if edge == DockEdge::Bottom {
+                                y - TIP_HEIGHT - ROOM
+                            } else {
+                                y
                             };
                             assert!(
                                 within(area(
@@ -1364,9 +1366,10 @@ mod tests {
     fn pill_fits(named: Area, width: f64, edge: DockEdge, window: (f64, f64)) -> bool {
         let (x, y) = tip_anchor(named, edge);
         let x = tip_center(x, width, window.0);
-        let top = match edge {
-            DockEdge::Bottom => y - TIP_HEIGHT,
-            DockEdge::Top => y,
+        let top = if edge == DockEdge::Bottom {
+            y - TIP_HEIGHT
+        } else {
+            y
         };
         x - width / 2.0 >= ROOM - 1e-9
             && x + width / 2.0 <= window.0 - ROOM + 1e-9

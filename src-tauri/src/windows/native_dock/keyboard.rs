@@ -109,12 +109,14 @@ impl Dock {
     /// item's side away from the screen edge, on the screen.
     pub(super) fn keyboard_menu_point(&self) -> Option<POINT> {
         let area = self.keyboard_area()?;
-        let y = match self.edge() {
-            DockEdge::Bottom => area.y,
-            DockEdge::Top => area.y + area.height,
+        let (x, y) = match self.edge() {
+            DockEdge::Bottom => (area.center_x(), area.y),
+            DockEdge::Top => (area.center_x(), area.y + area.height),
+            DockEdge::Left => (area.x + area.width, area.center_y()),
+            DockEdge::Right => (area.x, area.center_y()),
         };
         Some(POINT {
-            x: self.window.x + (area.center_x() * self.scale).round() as i32,
+            x: self.window.x + (x * self.scale).round() as i32,
             y: self.window.y + (y * self.scale).round() as i32,
         })
     }
