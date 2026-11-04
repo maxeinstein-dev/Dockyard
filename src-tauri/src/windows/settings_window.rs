@@ -271,7 +271,11 @@ fn open_at(app: &AppHandle, section: Option<Section>) -> Result<(), Box<dyn Erro
                         "settings: the window could not be made ({failures} this run): {error}"
                     );
                     let text = &crate::i18n::messages().dock;
-                    super::webview_failure::tell_once("settings", text.settings_failed);
+                    super::webview_failure::tell_once(
+                        "settings",
+                        text.settings_failed,
+                        text.settings_failed_disk,
+                    );
                 }
             }
         });
