@@ -56,6 +56,11 @@ export const en: Messages = {
         about: "About",
       },
       brand: "Settings",
+      search: {
+        label: "Search settings",
+        results: "Search results",
+        none: "No setting matches “{query}”.",
+      },
       leads: {
         general: "How Dockyard fits into Windows.",
         workspaces: "A dock for each thing you do.",
