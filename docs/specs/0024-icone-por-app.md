@@ -41,9 +41,21 @@ Na janela dos painéis:
 - `set_app_icon { id, icon }`: Original, um pacote ou `null`. Imagem só vem do comando abaixo.
 - `choose_app_icon_image { id }`: abre o diálogo e guarda a imagem. Devolve `false` se o diálogo foi cancelado ou a imagem recusada.
 
-## 6. Verificação ao vivo: pendente
+## 6. Verificação ao vivo: parcial
 
-1. Botão direito num programa fixado › "Ícone" › um pacote: o ícone dele muda e os outros não.
-2. "Original do Windows" com um pacote no dock: só ele volta ao do Windows.
-3. "Escolher imagem…" › um PNG: o ícone muda. Trocar o pacote do dock em Configurações não mexe nele.
-4. "O do dock": volta ao pacote, e a imagem some de `AppIcons`.
+Feita em 2026-11-04 (build de lançamento `.medir`, cópia dos dados do autor), com o FileZilla:
+
+- A linha "Ícone: O do dock" aparece no menu e abre a lista.
+- "Escolher imagem…" abre o diálogo "Escolher o ícone de FileZilla". Um PNG magenta de 128 px foi aceito.
+- O pixel do FileZilla no dock ficou magenta, e a imagem foi guardada em `AppIcons`.
+- A linha passou a dizer "Ícone: Imagem própria".
+- "O do dock" devolveu o ícone de antes e apagou a imagem de `AppIcons`.
+- O log tem `icons: choosing an image for a program` seguido de `icons: image chosen: true`. Não houve WARN nem ERROR.
+- A barra do Windows ficou como estava.
+
+Ainda falta conferir à mão:
+
+1. Escolher um pacote: o ícone do programa muda e os dos outros não.
+2. "Original do Windows" com um pacote no dock: só esse programa volta ao ícone do Windows.
+3. Trocar o pacote do dock em Configurações não mexe na imagem própria.
+4. Escolher um ICO.
