@@ -51,6 +51,20 @@ Com o Dockyard 0.9.0. Uma parte rodou por roteiro no build de teste (`dockyard-e
   - CPU em repouso: de 0,03 % a 0,05 %.
   - WebView2: 5 processos e 126 a 127 MB do começo ao fim.
 
+## Resultado da 0.9.2 (2026-11-04)
+
+O autor atualizou da 0.9.1 para a 0.9.2 pelo aviso do próprio app.
+
+- **Passou:**
+  - O painel do Calendário abre ao clicar no widget ([PR #156](https://github.com/maxeinstein-dev/Dockyard/pull/156)).
+  - O título do compromisso corre como letreiro, com letras maiores ([PR #159](https://github.com/maxeinstein-dev/Dockyard/pull/159)).
+- **Esperado:** a atualização ainda mostrou a janela do instalador, porque quem instala é a versão antiga (a 0.9.1, no modo passivo).
+
+## 7. Pendências da 0.9.2
+
+- [ ] **Atualização sem janela** ([PR #157](https://github.com/maxeinstein-dev/Dockyard/pull/157)): ao atualizar da 0.9.2 para a próxima, o instalador roda sem janela e o Dockyard volta sozinho.
+- [ ] **Entrar no Claude pelo painel Uso do Claude** ([PR #158](https://github.com/maxeinstein-dev/Dockyard/pull/158)): o terminal abre com o login e fecha sozinho quando ele termina, e o painel passa a mostrar o uso. Se o login falhar, o terminal fica aberto com o erro. *Não testado: o botão só aparece com o Claude Code deslogado ou com o acesso vencido, e o autor preferiu não deslogar para não interromper as sessões em andamento. Testar na próxima vez que o acesso vencer.*
+
 ## 1. Cliques no dock (uns 10 minutos)
 
 - [x] **Esquerdo num programa fixado fechado:** abre o programa, com a animação de abertura escolhida. (Roteiro, 2026-11-03.)
