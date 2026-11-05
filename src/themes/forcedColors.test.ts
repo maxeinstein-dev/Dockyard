@@ -16,6 +16,10 @@ const NOT_CONTROLS: Record<string, string> = {
   // The tour's title takes the focus from the code, so a screen reader
   // reads it; the keyboard never lands on it.
   ".tour-title:focus": "../tour/tour.css",
+  // The same in Configurações (spec 0029 §3, §8.5): the section's title
+  // when opened by the keyboard, a group's from the index.
+  ".section-header h1:focus": "../settings/SettingsApp.css",
+  ".settings-group-title:focus": "../settings/SettingsApp.css",
 };
 
 /** The inside of every `@media (forced-colors: active)` block of `css`. */

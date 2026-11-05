@@ -366,6 +366,19 @@ function LookPanel({
           disabled={disabled}
           onSelect={(indicatorColor) => update({ indicatorColor })}
         />
+        {/* Beside the color it takes the place of (spec 0029 §2.1); the
+            panel keeps it among the switches of Geral. */}
+        {grouped ? (
+          <ToggleField
+            label={t.settings.indicatorFollowsWorkspace}
+            hint={t.settings.indicatorFollowsWorkspaceHint}
+            checked={dock?.indicatorFollowsWorkspace ?? false}
+            disabled={disabled}
+            onChange={(indicatorFollowsWorkspace) =>
+              update({ indicatorFollowsWorkspace })
+            }
+          />
+        ) : null}
       </SettingsGroup>
       <SettingsGroup title={groups.icons} grouped={grouped}>
         {grouped ? (

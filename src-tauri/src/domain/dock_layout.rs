@@ -86,6 +86,53 @@ impl Side {
         matches!(self, Side::Left | Side::Right)
     }
 
+    /// Where the point (`x`, `y`) is along the bar, growing in the bar's
+    /// order: x on a row, y down the left's column, and up the right's (read
+    /// from the bottom up, Q2). What a drag follows and what is dropped
+    /// between (spec 0028, step 5).
+    pub fn along(self, x: f64, y: f64) -> f64 {
+        match self {
+            Side::Bottom | Side::Top => x,
+            Side::Left => y,
+            Side::Right => -y,
+        }
+    }
+
+    /// `area` as the bar sees it, lying and in its order: as it is on a
+    /// row, turned on a side, and turned and mirrored on the right (its x
+    /// is then `along` of its far end). Its x and width are where it starts
+    /// and how long it is along the bar.
+    pub fn along_area(self, area: Area) -> Area {
+        match self {
+            Side::Bottom | Side::Top => area,
+            Side::Left => area.transposed(),
+            Side::Right => Area {
+                x: -(area.y + area.height),
+                y: area.x,
+                width: area.height,
+                height: area.width,
+            },
+        }
+    }
+
+    /// `area` moved `offset` along the bar, in its order.
+    pub fn shifted(self, area: Area, offset: f64) -> Area {
+        match self {
+            Side::Bottom | Side::Top => Area {
+                x: area.x + offset,
+                ..area
+            },
+            Side::Left => Area {
+                y: area.y + offset,
+                ..area
+            },
+            Side::Right => Area {
+                y: area.y - offset,
+                ..area
+            },
+        }
+    }
+
     /// The lying edge a side is laid out as before it is turned: the screen
     /// edge nearest the origin (the top, the left) is the top.
     fn lying(self) -> DockEdge {
@@ -1934,5 +1981,44 @@ mod tests {
         }
         assert!(previous.y + previous.height < toggle.y);
         assert!(toggle.y + toggle.height < next.y);
+    }
+
+    #[test]
+    fn along_the_bar_a_drag_reads_the_bar_in_its_order_on_every_edge() {
+        let shape = full_shape();
+        for side in [Side::Bottom, Side::Top, Side::Left, Side::Right] {
+            let viewport = if side.standing() {
+                (300.0, 900.0)
+            } else {
+                (900.0, 300.0)
+            };
+            let placed = place(&shape, side, viewport, None);
+            let along: Vec<Area> = placed
+                .items
+                .iter()
+                .map(|&area| side.along_area(area))
+                .collect();
+            // In the bar's order, one after the other, as on a row.
+            assert!(
+                along
+                    .windows(2)
+                    .all(|pair| pair[0].x + pair[0].width <= pair[1].x + 1e-9),
+                "{side:?}"
+            );
+            for (area, seen) in placed.items.iter().zip(&along) {
+                // A point inside the item is inside it along the bar.
+                let at = side.along(area.center_x(), area.center_y());
+                assert!((at - seen.center_x()).abs() < 1e-9, "{side:?}");
+                // Moving it along the bar moves it on the screen.
+                let moved = side.shifted(*area, 10.0);
+                let seen_moved = side.along_area(moved);
+                assert!((seen_moved.x - seen.x - 10.0).abs() < 1e-9, "{side:?}");
+            }
+            // The drag rules hold as they are: past the second item's
+            // centre, the first lands after it.
+            let centers: Vec<f64> = along.iter().map(Area::center_x).collect();
+            assert_eq!(drop_index(&centers, 0, centers[1] + 1.0), 1, "{side:?}");
+            assert!(drag_pitch(&along, 0) > 0.0, "{side:?}");
+        }
     }
 }

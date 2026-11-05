@@ -84,10 +84,12 @@ describe("SettingsApp", () => {
         .map((button) => button.textContent),
     ).toEqual([
       "Geral",
-      "Espaços de trabalho",
-      "Aparência do dock",
-      "Apps do dock",
+      "Aparência",
+      "Comportamento",
+      "Espaços",
+      "Apps",
       "Widgets",
+      "Lançador",
       "Contas",
       "Sobre",
     ]);
@@ -148,7 +150,7 @@ describe("SettingsApp", () => {
 
   it("shows the look's choices as cards, the chosen one moving", async () => {
     await renderApp();
-    fireEvent.click(sectionButton("Aparência do dock"));
+    fireEvent.click(sectionButton("Aparência"));
     await act(async () => {});
 
     const look = ptBR.settings.look;
@@ -174,38 +176,167 @@ describe("SettingsApp", () => {
     expect(shake.querySelector(".thumb")).not.toHaveAttribute("data-chosen");
   });
 
-  it("puts Geral in titled groups, the launcher among them", async () => {
+  it("puts Geral in titled groups (spec 0029 §2)", async () => {
     await renderApp();
 
     expect(
       screen
         .getAllByRole("heading", { level: 2 })
         .map((heading) => heading.textContent),
-    ).toEqual([
-      text.groups.dock,
-      text.groups.taskbar,
-      text.groups.behavior,
-      text.groups.launcher,
-      ptBR.settings.groups.language,
-      text.groups.startup,
-    ]);
+    ).toEqual([text.groups.dock, text.groups.taskbar, text.groups.startup]);
+    const startup = within(
+      screen.getByRole("region", { name: text.groups.startup }),
+    );
     expect(
-      within(
-        screen.getByRole("region", { name: text.groups.startup }),
-      ).getByRole("switch", { name: ptBR.settings.launchAtLogin }),
+      startup.getByRole("switch", { name: ptBR.settings.launchAtLogin }),
+    ).toBeInTheDocument();
+    expect(
+      startup.getByRole("group", { name: ptBR.settings.groups.language }),
     ).toBeInTheDocument();
   });
 
-  it("changes the dock's hotkey in Comportamento (M14)", async () => {
+  it("splits the old Geral into Comportamento and Lançador", async () => {
     await renderApp();
+    fireEvent.click(sectionButton("Comportamento"));
+    await act(async () => {});
 
     expect(
+      screen
+        .getAllByRole("heading", { level: 2 })
+        .map((heading) => heading.textContent),
+    ).toEqual([
+      text.groups.showHide,
+      text.groups.previews,
+      text.groups.appsInDock,
+      text.groups.energy,
+      text.groups.monitors,
+      text.groups.advanced,
+    ]);
+    // The dock's hotkey (M14), in Avançado.
+    expect(
       within(
-        screen.getByRole("region", { name: text.groups.behavior }),
+        screen.getByRole("region", { name: text.groups.advanced }),
       ).getByRole("button", {
         name: "Alterar o atalho do dock, hoje Alt+Win+Z",
       }),
     ).toBeInTheDocument();
+
+    fireEvent.click(sectionButton("Lançador"));
+    await act(async () => {});
+    expect(
+      screen
+        .getAllByRole("heading", { level: 2 })
+        .map((heading) => heading.textContent),
+    ).toEqual([
+      text.groups.launcher,
+      ptBR.settings.launcher.keywords.label,
+      text.groups.advanced,
+    ]);
+    expect(
+      within(
+        screen.getByRole("region", { name: text.groups.advanced }),
+      ).getByRole("button", { name: ptBR.settings.launcher.clear }),
+    ).toBeInTheDocument();
+  });
+
+  it("puts the indicator in the workspace color beside its color", async () => {
+    await renderApp();
+    fireEvent.click(sectionButton("Aparência"));
+    await act(async () => {});
+
+    expect(
+      within(
+        screen.getByRole("region", { name: text.groups.indicator }),
+      ).getByRole("switch", { name: ptBR.settings.indicatorFollowsWorkspace }),
+    ).toBeInTheDocument();
+  });
+
+  it("names its bands, a group each (spec 0029 §8.4)", async () => {
+    await renderApp();
+
+    for (const [band, first] of [
+      [text.bands.dock, "Geral"],
+      [text.bands.content, "Espaços"],
+      [text.bands.more, "Lançador"],
+    ] as const) {
+      const group = within(nav()).getByRole("group", { name: band });
+      expect(within(group).getAllByRole("button")[0]).toHaveTextContent(first);
+    }
+  });
+
+  it("moves among the sections with the arrows, one stop of Tab", async () => {
+    await renderApp();
+
+    const buttons = within(nav()).getAllByRole("button");
+    expect(buttons.filter((button) => button.tabIndex === 0)).toEqual([
+      sectionButton("Geral"),
+    ]);
+    sectionButton("Geral").focus();
+    fireEvent.keyDown(document.activeElement!, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(sectionButton("Aparência"));
+    fireEvent.keyDown(document.activeElement!, { key: "End" });
+    expect(document.activeElement).toBe(sectionButton("Sobre"));
+    fireEvent.keyDown(document.activeElement!, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(sectionButton("Geral"));
+    fireEvent.keyDown(document.activeElement!, { key: "ArrowUp" });
+    expect(document.activeElement).toBe(sectionButton("Sobre"));
+    fireEvent.keyDown(document.activeElement!, { key: "Home" });
+    expect(document.activeElement).toBe(sectionButton("Geral"));
+    // Moving is not opening.
+    expect(sectionButton("Geral")).toHaveAttribute("aria-current", "page");
+  });
+
+  it("takes the focus to the title of a section opened by the keyboard", async () => {
+    await renderApp();
+
+    // A click with no pointer: Enter or Space.
+    fireEvent.click(sectionButton("Contas"), { detail: 0 });
+    await act(async () => {});
+    expect(document.activeElement).toBe(
+      screen.getByRole("heading", { level: 1, name: "Contas" }),
+    );
+    expect(sectionButton("Contas").tabIndex).toBe(0);
+
+    fireEvent.click(sectionButton("Sobre"), { detail: 1 });
+    await act(async () => {});
+    expect(document.activeElement).not.toBe(
+      screen.getByRole("heading", { level: 1, name: "Sobre" }),
+    );
+  });
+
+  it("indexes the groups of a section with 3 or more (spec 0029 §3)", async () => {
+    Element.prototype.scrollIntoView = vi.fn();
+    await renderApp();
+    fireEvent.click(sectionButton("Comportamento"));
+    await act(async () => {});
+
+    const index = screen.getByRole("navigation", { name: text.contents });
+    expect(
+      within(index)
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual([
+      text.groups.showHide,
+      text.groups.previews,
+      text.groups.appsInDock,
+      text.groups.energy,
+      text.groups.monitors,
+      text.groups.advanced,
+    ]);
+    fireEvent.click(
+      within(index).getByRole("button", { name: text.groups.energy }),
+    );
+    expect(document.activeElement).toBe(
+      screen.getByRole("heading", { level: 2, name: text.groups.energy }),
+    );
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+
+    // Lançador has two groups besides Avançado: no index.
+    fireEvent.click(sectionButton("Lançador"));
+    await act(async () => {});
+    expect(
+      screen.queryByRole("navigation", { name: text.contents }),
+    ).toBeNull();
   });
 
   it("shows the styles with the programs of the workspace in use", async () => {
@@ -250,7 +381,7 @@ describe("SettingsApp", () => {
     });
     await renderApp();
 
-    fireEvent.click(sectionButton("Aparência do dock"));
+    fireEvent.click(sectionButton("Aparência"));
     await act(async () => {});
 
     const card = within(
@@ -273,15 +404,12 @@ describe("SettingsApp", () => {
   it("shows the look of the dock with no Voltar, at a width that fits it", async () => {
     await renderApp();
 
-    fireEvent.click(sectionButton("Aparência do dock"));
+    fireEvent.click(sectionButton("Aparência"));
 
-    expect(sectionButton("Aparência do dock")).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+    expect(sectionButton("Aparência")).toHaveAttribute("aria-current", "page");
     expect(sectionButton("Geral")).not.toHaveAttribute("aria-current");
     expect(
-      screen.getByRole("heading", { level: 1, name: ptBR.settings.look.title }),
+      screen.getByRole("heading", { level: 1, name: text.sections.look }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Voltar" })).toBeNull();
     expect(document.querySelector(".settings-card")).toHaveAttribute(
@@ -291,7 +419,7 @@ describe("SettingsApp", () => {
   });
 
   it.each([
-    ["Apps do dock", ptBR.apps.title],
+    ["Apps", text.sections.apps],
     ["Widgets", ptBR.settings.app.sections.items],
     ["Sobre", ptBR.panel.titles.about],
   ])("shows %s under its own title", async (section, title) => {
