@@ -24,10 +24,10 @@ No build de lançamento (`.medir`, que assume a barra do Windows como o do autor
 
 A bandeja em duas colunas, o relógio `hh:mm` sobre `dd/mm` e os widgets em pé saíram como nas fotos fora da tela.
 
-Achado na rodada de lançamento: a barra do Windows do monitor principal voltou sem o `WS_EX_TOPMOST` (estilo 0x80, antes 0x88).
-- A do segundo monitor também voltou sem ele; um `SetWindowPos(HWND_TOPMOST)` devolveu o estilo nela.
-- Na principal, o Explorer tira o estilo de novo na hora.
-- Falta saber se isso vem do Dockyard ao devolver a barra (vale para qualquer borda, não só a lateral) ou do próprio Explorer.
+Achado na rodada de lançamento: logo depois do teste, a barra do Windows do monitor principal estava sem o `WS_EX_TOPMOST` (estilo 0x80, antes 0x88).
+- Um `SetWindowPos(HWND_TOPMOST)` era desfeito pelo Explorer na hora.
+- Minutos depois, com outra janela na frente, ela estava de novo em 0x88, sem nada feito.
+- O Dockyard pede o `HWND_TOPMOST` ao devolver a barra (`restore_file`). A explicação mais provável é o Explorer: ele tira o "sempre por cima" enquanto acha que há um programa em tela cheia, e a janela maximizada do roteiro cobria o monitor inteiro com a barra oculta.
 
 Ficou por ver:
 - as skins na lateral ao vivo (foram conferidas fora da tela);
