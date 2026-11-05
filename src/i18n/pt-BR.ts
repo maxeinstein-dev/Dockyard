@@ -193,13 +193,13 @@ const messages = {
     showBadgesHint: "O número de não lidas que o app põe na barra do Windows",
     autoHide: "Ocultar automaticamente",
     autoHideHint:
-      "O dock desce quando o ponteiro sai e sobe ao encostar na borda da tela",
+      "O dock se esconde quando o ponteiro sai e volta ao encostar na borda da tela",
     autoHideReveal: "Atraso para mostrar",
     autoHideRevealHint:
-      "Quanto tempo o ponteiro fica na borda antes de o dock subir",
+      "Quanto tempo o ponteiro fica na borda antes de o dock voltar",
     autoHideDelay: "Atraso para ocultar",
     autoHideDelayHint:
-      "Quanto tempo o ponteiro fica fora antes de o dock descer",
+      "Quanto tempo o ponteiro fica fora antes de o dock se esconder",
     everyMonitor: "Dock em todos os monitores",
     everyMonitorHint:
       "Cada monitor com o seu dock, no lugar da barra de tarefas",

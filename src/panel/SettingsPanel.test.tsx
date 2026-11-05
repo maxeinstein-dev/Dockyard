@@ -117,6 +117,8 @@ describe("SettingsPanel", () => {
     expect(options("Posição").map((button) => button.textContent)).toEqual([
       "Embaixo",
       "Em cima",
+      "Esquerda",
+      "Direita",
     ]);
     expect(options("Tamanho").map((button) => button.textContent)).toEqual([
       "Pequeno",
@@ -532,10 +534,10 @@ describe("SettingsPanel", () => {
 
     it("keeps the arrows inside their group", () => {
       render(<SettingsPanel settings={SETTINGS} />);
-      const top = option(text.groups.edge, text.edge.top);
-      top.focus();
+      const right = option(text.groups.edge, text.edge.right);
+      right.focus();
 
-      fireEvent.keyDown(top, { key: "ArrowRight" });
+      fireEvent.keyDown(right, { key: "ArrowRight" });
 
       expect(option(text.groups.edge, text.edge.bottom)).toHaveFocus();
     });

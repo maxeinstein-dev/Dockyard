@@ -127,13 +127,12 @@ export const en: Messages = {
     showBadgesHint: "The unread count the app puts on the Windows taskbar",
     autoHide: "Automatically hide",
     autoHideHint:
-      "The dock slides down when the pointer leaves and comes back up at the screen edge",
+      "The dock hides when the pointer leaves and comes back at the screen edge",
     autoHideReveal: "Show delay",
     autoHideRevealHint:
-      "How long the pointer stays at the edge before the dock comes up",
+      "How long the pointer stays at the edge before the dock comes back",
     autoHideDelay: "Hide delay",
-    autoHideDelayHint:
-      "How long the pointer stays away before the dock slides down",
+    autoHideDelayHint: "How long the pointer stays away before the dock hides",
     everyMonitor: "Dock on every monitor",
     everyMonitorHint: "Each monitor gets its own dock, in place of the taskbar",
     switchEveryMonitor: "Switch workspace on every monitor",
