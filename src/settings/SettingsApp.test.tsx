@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_LOOK, type Settings } from "../core/settings";
 import { ptBR } from "../i18n/pt-BR";
+import { forgetAdvanced } from "../panel/parts/advanced";
 import SettingsApp from "./SettingsApp";
 
 const text = ptBR.settings.app;
@@ -56,10 +57,16 @@ async function renderApp() {
 const nav = () => screen.getByRole("navigation", { name: text.nav });
 const sectionButton = (name: string) =>
   within(nav()).getByRole("button", { name });
+/** Opens the Avançado of the section shown. */
+const openAdvancedGroup = () =>
+  fireEvent.click(
+    screen.getByRole("button", { name: text.groups.advanced, expanded: false }),
+  );
 
 describe("SettingsApp", () => {
   beforeEach(() => {
     delete window.__DOCKYARD_SECTION__;
+    forgetAdvanced();
     listeners.clear();
     close.mockClear();
     invoke.mockReset();
@@ -152,6 +159,7 @@ describe("SettingsApp", () => {
     await renderApp();
     fireEvent.click(sectionButton("Aparência"));
     await act(async () => {});
+    openAdvancedGroup();
 
     const look = ptBR.settings.look;
     for (const [group, chosen] of [
@@ -213,6 +221,7 @@ describe("SettingsApp", () => {
       text.groups.advanced,
     ]);
     // The dock's hotkey (M14), in Avançado.
+    openAdvancedGroup();
     expect(
       within(
         screen.getByRole("region", { name: text.groups.advanced }),
@@ -232,10 +241,92 @@ describe("SettingsApp", () => {
       ptBR.settings.launcher.keywords.label,
       text.groups.advanced,
     ]);
+    openAdvancedGroup();
     expect(
       within(
         screen.getByRole("region", { name: text.groups.advanced }),
       ).getByRole("button", { name: ptBR.settings.launcher.clear }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps Avançado closed at first, saying what it holds (spec 0029 §4)", async () => {
+    await renderApp();
+    fireEvent.click(sectionButton("Comportamento"));
+    await act(async () => {});
+
+    const toggle = screen.getByRole("button", {
+      name: text.groups.advanced,
+      expanded: false,
+    });
+    expect(toggle).toHaveAccessibleDescription(text.advancedSummary.behavior);
+    expect(
+      screen.queryByRole("group", {
+        name: ptBR.settings.groups.middleClick,
+      }),
+    ).toBeNull();
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.getByRole("group", { name: ptBR.settings.groups.middleClick }),
+    ).toBeInTheDocument();
+
+    // Open while the window lives: away and back, it stays open.
+    fireEvent.click(sectionButton("Geral"));
+    fireEvent.click(sectionButton("Comportamento"));
+    await act(async () => {});
+    expect(
+      screen.getByRole("button", {
+        name: text.groups.advanced,
+        expanded: true,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("opens Avançado from the index, its button taking the focus", async () => {
+    Element.prototype.scrollIntoView = vi.fn();
+    await renderApp();
+    fireEvent.click(sectionButton("Aparência"));
+    await act(async () => {});
+
+    const index = screen.getByRole("navigation", { name: text.contents });
+    fireEvent.click(
+      within(index).getByRole("button", { name: text.groups.advanced }),
+    );
+    const toggle = screen.getByRole("button", {
+      name: text.groups.advanced,
+      expanded: true,
+    });
+    expect(document.activeElement).toBe(toggle);
+    expect(
+      screen.getByRole("radiogroup", {
+        name: ptBR.settings.look.openAnimation,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("leaves the folders in Avançado, their problems under the styles", async () => {
+    await renderApp();
+    fireEvent.click(sectionButton("Aparência"));
+    await act(async () => {});
+
+    const look = ptBR.settings.look;
+    expect(
+      screen.queryByRole("button", { name: look.openSkinsFolder }),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: look.reloadPacks })).toBeNull();
+    openAdvancedGroup();
+    const advanced = within(
+      screen.getByRole("region", { name: text.groups.advanced }),
+    );
+    expect(
+      advanced.getByRole("button", { name: look.openSkinsFolder }),
+    ).toBeInTheDocument();
+    expect(
+      advanced.getByRole("button", { name: look.openPacksFolder }),
+    ).toBeInTheDocument();
+    expect(
+      advanced.getByRole("button", { name: look.reloadPacks }),
     ).toBeInTheDocument();
   });
 

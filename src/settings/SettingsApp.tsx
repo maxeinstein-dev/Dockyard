@@ -5,6 +5,7 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
+import { flushSync } from "react-dom";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useApps } from "../core/apps";
@@ -25,6 +26,7 @@ import WorkspacePicker from "../panel/WorkspacePicker";
 import WorkspacesPanel from "../panel/WorkspacesPanel";
 import Icon from "../panel/parts/Icon";
 import { NamedBySection } from "../panel/parts/focus";
+import { openAdvanced } from "../panel/parts/advanced";
 import { inWorkspace } from "../core/workspaces";
 import {
   BANDS,
@@ -223,6 +225,12 @@ function SettingsApp() {
     target.current = null;
     const row = main.current ? findRow(main.current, wanted.label) : null;
     if (row === null) return;
+    // A row of a closed Avançado: open it, then come back once it shows.
+    if (row.closest("[hidden]") !== null && openAdvanced(row)) {
+      target.current = wanted;
+      setJumps((count) => count + 1);
+      return;
+    }
     row.scrollIntoView({ block: "center" });
     row.classList.add("search-hit");
     const control = firstControl(row);
@@ -252,13 +260,18 @@ function SettingsApp() {
     if (byKeyboard) setArrivals((count) => count + 1);
   }
 
-  /** A group of the index: scrolled to, its title focused. */
+  /** A group of the index: scrolled to, its title focused; Avançado opens,
+   * its button taking the focus. */
   function jump(group: string) {
     const card = main.current ? findRow(main.current, group) : null;
     if (card === null) return;
+    flushSync(() => openAdvanced(card));
     card.scrollIntoView({ block: "start" });
+    const toggle = card.querySelector<HTMLElement>(".settings-advanced-toggle");
     const title = card.querySelector<HTMLElement>(".settings-group-title");
-    if (title) {
+    if (toggle) {
+      toggle.focus({ preventScroll: true });
+    } else if (title) {
       title.tabIndex = -1;
       title.focus({ preventScroll: true });
     }
