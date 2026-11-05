@@ -139,7 +139,6 @@ function WorkspacesPanel({
   return (
     <div className="workspaces">
       <PanelHeader title={text.title} />
-      <p className="workspaces-lead">{text.lead}</p>
       {snapshot === null ? (
         <p className="workspaces-lead">{text.loading}</p>
       ) : (
@@ -184,6 +183,7 @@ function WorkspacesPanel({
           </div>
           {selected ? (
             <div className="workspace-card">
+              <p className="workspaces-lead">{text.editNote}</p>
               <TextField
                 label={text.name}
                 value={shownName}
@@ -284,6 +284,12 @@ function WorkspacesPanel({
       <PanelFooter alert={error && text.errors[error]}>
         {t.settings.footer}
       </PanelFooter>
+      <div className="toggle-row workspaces-howto">
+        <div className="toggle-text">
+          <span className="toggle-label">{text.howTo}</span>
+          <span className="toggle-hint">{text.howToHint}</span>
+        </div>
+      </div>
     </div>
   );
 }
