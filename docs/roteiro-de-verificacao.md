@@ -150,6 +150,95 @@ Em Configurações › Geral › Dock › Posição, passe por **Esquerda** e **
 
 Volte à posição de antes. A barra do Windows tem de ficar como estava.
 
+## 9. Antes da 1.0 (F1 a F13 do estudo 0002)
+
+O que os testes ao vivo das funcionalidades não cobriram. Cada passo diz de onde vem (spec ou PR). O dock lateral está no §8. Os passos que pedem o log se referem a `%LOCALAPPDATA%\dev.maxsueleinstein.dockmax\logs\dockmax.log`. O "primeiro `*.log`" da pasta é do WebView2.
+
+**F1 Economia de bateria** (spec 0021 §4)
+- [ ] Com "Na bateria" e o Tocando agora de título longo, tire o carregador: o letreiro para, e um app fixado abre sem pulo. Ponha o carregador de volta: o letreiro volta.
+- [ ] Com "Sempre", na tomada: o letreiro fica parado e o clique abre sem pulo.
+- [ ] No log aparecem `dock: battery saver on/off`.
+
+**F2 Espaçadores** (spec 0022 §7)
+- [ ] O espaçador pequeno, pelo menu do dock, abre um vão de ¼ de ícone. Até hoje só o grande foi visto.
+- [ ] O mouse sobre o vão: nada amplia, sem dica.
+- [ ] Arrastar o vão entre dois apps. Ele fica só no espaço dele.
+- [ ] Configurações › Itens: os espaçadores sobem, descem e saem.
+- [ ] Narrador: as setas pulam o vão.
+- [ ] Nas bordas de cima e de baixo, nos três tamanhos.
+- [ ] O log, sem WARN.
+
+**F3 Pilhas de widgets** (spec 0023 §6)
+- [ ] Configurações › Itens: a linha "Pilha: …" sobe, desce e se desfaz.
+- [ ] O Mídia por baixo de uma pilha não lê nada até ficar por cima.
+- [ ] A roda sem Ctrl em cima da pilha troca de espaço, como antes.
+- [ ] Os pontinhos: o de cima, maior, se distingue dos outros.
+- [ ] O log, sem WARN.
+
+**F4 Ícone por app** (spec 0024 §6)
+- [ ] Um pacote só para um app: os outros não mudam.
+- [ ] "Original do Windows" com um pacote no dock: só aquele app volta.
+- [ ] Trocar o pacote do dock não mexe numa imagem própria.
+- [ ] Escolher um ICO.
+
+**F5 Downloads, Lixeira e pastas** (spec 0025 §6)
+- [ ] Soltar uma pasta no dock: ela entra onde foi solta.
+- [ ] No painel da pasta, um arquivo abre e "Abrir no Explorador" abre a pasta.
+- [ ] "Esvaziar a Lixeira…" › "Não": nada é esvaziado.
+
+**F6 Busca em Configurações** (PR #163, spec 0029 §11)
+- [ ] O campo na barra lateral e a marca na linha encontrada.
+- [ ] Buscar algo do Avançado: o grupo abre e o foco vai à linha.
+- [ ] Buscar linhas de Apps e de Contas.
+- [ ] Teclado e Narrador no campo.
+
+**F7 Espaços e programas** (PRs #164 e #168)
+- [ ] Duplicar um espaço: o novo tem os mesmos itens.
+- [ ] "Nova janela" no menu de um app aberto.
+- [ ] "Procurar…" fixa um `.exe` de uma pasta portátil.
+
+**F8 Exportar e importar** (spec 0026)
+- [ ] Importar a cópia num computador sem dados do Dockyard.
+- [ ] Importar uma cópia com ícones próprios: eles aparecem no dock.
+
+**F9 Widgets novos** (PRs #169, #171, #173 e #175)
+- [ ] Layout do teclado: o tile desenhado, e um clique troca o layout.
+- [ ] Relógio mundial: o cartão largo com vários fusos.
+- [ ] Capturas de tela: o painel e o arrasto de uma captura para fora.
+- [ ] Arquivos recentes: o painel e o arrasto de um arquivo.
+- [ ] A memória com cada um no dock.
+
+**F10 Prévias pelo teclado e Espiar** (spec 0027)
+- [ ] Narrador lendo a miniatura escolhida pelo teclado. A UI Automation ainda dá o item do dock como focado, e o anúncio vem do evento de foco do cartão.
+- [ ] O Espiar com o ponteiro numa miniatura.
+
+**F11 Selos** (spec 0016 §8 e §9)
+- [ ] O "9+" do Discord desenhado no dock.
+- [ ] Um ícone da bandeja com selo: um programa só na bandeja, sem item no dock.
+- [ ] Um selo sem número de verdade (um app que escreva só "New messages").
+- [ ] Um selo mudando com a barra do Windows recolhida: atualiza em até 10 s.
+- [ ] O Narrador lendo "…, N notificações" no item.
+
+**F12 Dock lateral** (spec 0028 §7): o §8 deste roteiro, e mais:
+- [ ] escala de 150%;
+- [ ] um app em tela cheia;
+- [ ] o Narrador nas duas laterais.
+
+**F13 Monitores** (spec 0030 §5)
+- [ ] Desligar e religar um monitor: o espaço dele volta.
+- [ ] Configurações › Espaços › Monitores: a lista, trocar o espaço e fixar.
+- [ ] "Trocar em todos os monitores" pula um monitor fixo.
+
+**Configurações reorganizadas** (spec 0029)
+- [ ] A barra lateral com as faixas: setas, Home, End e a parada do Tab.
+- [ ] O foco vai ao título ao trocar de seção.
+- [ ] O índice no topo das seções com três grupos ou mais.
+- [ ] O Avançado fechado, que abre pelo índice e pela busca.
+- [ ] As galerias de tema e estilo em duas fileiras, com "Mostrar todos".
+- [ ] As dicas enxutas e a etiqueta "Padrão".
+- [ ] Comportamento e Lançador como seções, e o lançador achando as seções novas.
+- [ ] O Narrador na barra lateral e no índice.
+
 ## Depois da rodada
 
 Cada passo que falhar vira um item com o defeito descrito; os que passarem ficam marcados aqui, com a data. O roadmap aponta para este arquivo.
