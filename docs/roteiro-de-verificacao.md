@@ -255,9 +255,7 @@ O que os testes ao vivo das funcionalidades não cobriram. Cada passo diz de ond
 - [ ] "Trocar de espaço em todos os monitores" no alto de Espaços › Monitores, e nenhum switch de monitor em Comportamento (PR #192, Q13).
 - [ ] Espaços: a linha "Como trocar de espaço", com a dica "Ctrl+Alt+1 a 9, a roda do mouse no dock ou as bolinhas", no lugar do parágrafo longo, e a nota "Editar aqui não muda o que o dock mostra." no cartão do espaço (PR #192, Q14).
 
-**Barra do Windows** (PR #195)
-- [ ] Ao fechar o Dockyard, troque a janela da frente e espere uns 10 s: a barra continua por cima das janelas.
-- [ ] Com dois monitores, a barra do outro monitor também.
+**Barra do Windows** (PR #195): a conferência de "Depois da rodada", no fim de cada rodada, nos dois monitores.
 
 ## Depois da rodada
 
