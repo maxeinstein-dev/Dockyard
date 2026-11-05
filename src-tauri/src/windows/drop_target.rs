@@ -153,7 +153,7 @@ impl IDropTarget_Impl for DockDropTarget_Impl {
                     &self.app,
                     paths_of(data),
                     super::native_dock::monitor_of(self.hwnd),
-                    super::native_dock::dropped_before(self.hwnd, pt.x),
+                    super::native_dock::dropped_before(self.hwnd, pt.x, pt.y),
                 );
             }
             unsafe { *pdwEffect = effect_for(accepts) };

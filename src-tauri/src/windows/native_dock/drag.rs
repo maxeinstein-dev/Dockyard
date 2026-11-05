@@ -4,7 +4,7 @@ use super::*;
 
 impl Dock {
     /// The drag drawn: the one going on, or the one let go while its item
-    /// waits for its new place; with the pointer's x.
+    /// waits for its new place; with where the pointer is along the bar.
     pub(super) fn shown_drag(&self) -> Option<(Press, f64)> {
         self.press
             .filter(|press| press.dragging)
@@ -15,9 +15,10 @@ impl Dock {
     /// How far the dragged item is from its place at rest: with the pointer,
     /// inside its group.
     pub(super) fn drag_shift(press: Press, x: f64, rest: &dock_layout::Placement) -> f64 {
-        let first = rest.items[press.group.0];
-        let last = rest.items[press.group.0 + press.group.1 - 1];
-        let item = rest.items[press.index];
+        let along = |index: usize| rest.side.along_area(rest.items[index]);
+        let first = along(press.group.0);
+        let last = along(press.group.0 + press.group.1 - 1);
+        let item = along(press.index);
         drag_offset(
             x,
             press.start_x,
@@ -38,14 +39,18 @@ impl Dock {
         else {
             return targets;
         };
-        let group = &rest.items[press.range()];
+        // Along the bar: on a side, the column read in its order.
+        let group: Vec<Area> = rest.items[press.range()]
+            .iter()
+            .map(|&area| rest.side.along_area(area))
+            .collect();
         let centers: Vec<f64> = group.iter().map(Area::center_x).collect();
         let target = drop_index(&centers, press.local(), x);
         let room = make_room(
             press.group.1,
             press.local(),
             target,
-            drag_pitch(group, press.local()),
+            drag_pitch(&group, press.local()),
         );
         for (local, offset) in room.into_iter().enumerate() {
             targets[press.group.0 + local] = offset;
@@ -124,10 +129,11 @@ impl Dock {
         index.and_then(|index| self.program_id(index))
     }
 
-    /// Files dropped at the screen x `x` (physical pixels) that get pinned:
-    /// the key of the pinned program or widget they go before, `None` past
-    /// the last one (or with no such item).
-    pub(super) fn dropped_before(&self, x: i32) -> Option<String> {
+    /// Files dropped at the screen point (`x`, `y`) (physical pixels) that
+    /// get pinned: the key of the pinned program or widget they go before,
+    /// `None` past the last one (or with no such item). Along the bar: y
+    /// down a column, and up the right's, read from the bottom up.
+    pub(super) fn dropped_before(&self, x: i32, y: i32) -> Option<String> {
         let count = self.groups.first().copied().unwrap_or(0);
         let group = self.items.get(..count)?;
         if !group.iter().all(|item| {
@@ -143,13 +149,21 @@ impl Dock {
             .as_bool()
             .then_some(())?;
         let rest = self.rest();
+        let side = rest.side;
         let centers: Vec<f64> = rest
             .items
             .get(..count)?
             .iter()
-            .map(Area::center_x)
+            .map(|&area| side.along_area(area).center_x())
             .collect();
-        dock_items::dropped_before(group, &centers, x, origin.x, self.scale)
+        // The screen point and the client's origin along the bar: negated
+        // on the right, as `Side::along` reads it.
+        let (at, from) = match side {
+            Side::Bottom | Side::Top => (x, origin.x),
+            Side::Left => (y, origin.y),
+            Side::Right => (-y, -origin.y),
+        };
+        dock_items::dropped_before(group, &centers, at, from, self.scale)
     }
 
     /// The group an item can be dragged in, as its first index and its size:
@@ -178,7 +192,7 @@ impl Dock {
         let rest = self.rest();
         let centers: Vec<f64> = rest.items[press.range()]
             .iter()
-            .map(Area::center_x)
+            .map(|&area| rest.side.along_area(area).center_x())
             .collect();
         let target = drop_index(&centers, press.local(), x);
         if target == press.local() {

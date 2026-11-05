@@ -75,7 +75,7 @@ use crate::domain::apps::AppsSnapshot;
 use crate::domain::badges::{self, Badge};
 use crate::domain::dock_items::{self, Item, Names, SystemItem};
 use crate::domain::dock_layout::{
-    self, Area, DRAG_GROW, DRAG_LIFT, DRAG_THRESHOLD, DockSize, Hover, Magnification, Shape,
+    self, Area, DRAG_GROW, DRAG_LIFT, DRAG_THRESHOLD, DockSize, Hover, Magnification, Shape, Side,
     drag_offset, drag_pitch, drop_index, make_room, slide_step,
 };
 use crate::domain::folders::{Place, place_of};
@@ -246,6 +246,7 @@ struct Press {
     index: usize,
     /// The item's group, where it can go: its first index and its size.
     group: (usize, usize),
+    /// Where it was pressed along the bar (`Side::along`).
     start_x: f64,
     dragging: bool,
     /// Off the dock: a program's tile on its way to a folder (spec 0018).
@@ -258,7 +259,7 @@ struct Press {
 #[derive(Debug, Clone, Copy)]
 struct Landing {
     press: Press,
-    /// The pointer's x when it was let go.
+    /// Where the pointer was along the bar when it was let go.
     x: f64,
     since: Instant,
 }
@@ -2013,10 +2014,10 @@ impl Dock {
             if matches!(item, Item::Spacer(_)) && !dragging {
                 continue;
             }
-            let mut area = now_placement.tiles[index];
-            let mut box_area = now_placement.items[index];
-            area.x += offsets[index];
-            box_area.x += offsets[index];
+            // Moved along the bar: down or up a column (spec 0028).
+            let along = Side::from(edge);
+            let mut area = along.shifted(now_placement.tiles[index], offsets[index]);
+            let box_area = along.shifted(now_placement.items[index], offsets[index]);
             if dragging {
                 // Picked up: off the bar, a little bigger.
                 let (lift_x, lift_y) = match edge {
@@ -2035,19 +2036,38 @@ impl Dock {
             }
             let risen = self.widen.get(index).copied().unwrap_or(0.0);
             if risen > 0.0 {
-                // A floor above the others: wider by an icon, and up.
-                let wide = area.width * (1.0 + 0.5 * risen);
+                // A floor above the others: longer by an icon along the bar,
+                // and off it toward the screen's middle (beside a column,
+                // spec 0028).
+                let grow = 1.0 + 0.5 * risen;
                 let up = geometry.icon * 0.38 * risen;
-                area = Area {
-                    x: area.x - (wide - area.width) / 2.0,
-                    y: match edge {
-                        DockEdge::Bottom => area.y - up,
-                        // On a side the card rises toward the screen's
-                        // middle (spec 0028, step 5 places it there).
-                        DockEdge::Top | DockEdge::Left | DockEdge::Right => area.y + up,
-                    },
-                    width: wide,
-                    ..area
+                area = match edge {
+                    DockEdge::Bottom | DockEdge::Top => {
+                        let wide = area.width * grow;
+                        Area {
+                            x: area.x - (wide - area.width) / 2.0,
+                            y: if edge == DockEdge::Bottom {
+                                area.y - up
+                            } else {
+                                area.y + up
+                            },
+                            width: wide,
+                            ..area
+                        }
+                    }
+                    DockEdge::Left | DockEdge::Right => {
+                        let tall = area.height * grow;
+                        Area {
+                            x: if edge == DockEdge::Left {
+                                area.x + up
+                            } else {
+                                area.x - up
+                            },
+                            y: area.y - (tall - area.height) / 2.0,
+                            height: tall,
+                            ..area
+                        }
+                    }
                 };
             }
             if let Some(started) = self.opening.get(&item.key()) {
@@ -2333,15 +2353,22 @@ impl Dock {
         self.tracking = unsafe { TrackMouseEvent(&mut track) }.is_ok();
     }
 
+    /// Where the point (`x`, `y`) is along the bar (spec 0028): x on a row,
+    /// y on a column, read in the bar's order.
+    fn along(&self, x: f64, y: f64) -> f64 {
+        Side::from(self.edge()).along(x, y)
+    }
+
     fn mouse_move(&mut self, x: f64, y: f64) {
         self.track();
+        let along = self.along(x, y);
         let program = self
             .press
             .is_some_and(|press| self.program_id(press.index).is_some());
         // A program pulled straight off the dock is dragged too.
         let off = program && pointer_off(self.hwnd);
         if let Some(press) = self.press.as_mut() {
-            if !press.dragging && ((x - press.start_x).abs() >= DRAG_THRESHOLD || off) {
+            if !press.dragging && ((along - press.start_x).abs() >= DRAG_THRESHOLD || off) {
                 press.dragging = true;
                 self.hovered = None;
                 self.pressed = None;
@@ -2350,7 +2377,7 @@ impl Dock {
                 let index = press.index;
                 let out = off;
                 press.out = out;
-                self.drag_x = if out { press.start_x } else { x };
+                self.drag_x = if out { press.start_x } else { along };
                 self.show_drag_cursor(out.then_some(index));
                 self.animate();
                 return;
@@ -2493,14 +2520,15 @@ impl Dock {
         if let Some((index, group)) = index.and_then(|index| Some((index, group(index)?)))
             && self.open.is_none()
         {
+            let along = self.along(x, y);
             self.press = Some(Press {
                 index,
                 group,
-                start_x: x,
+                start_x: along,
                 dragging: false,
                 out: false,
             });
-            self.drag_x = x;
+            self.drag_x = along;
             unsafe { SetCapture(self.hwnd) };
         }
         self.paint();
@@ -2527,10 +2555,11 @@ impl Dock {
             return;
         }
         if let Some(press) = press.filter(|press| press.dragging) {
-            if self.drop_at(press, x) {
+            let along = self.along(x, y);
+            if self.drop_at(press, along) {
                 self.landing = Some(Landing {
                     press,
-                    x,
+                    x: along,
                     since: Instant::now(),
                 });
             }
