@@ -130,7 +130,7 @@ export const en: Messages = {
     showBadges: "Show notification badges",
     showBadgesHint: "The unread count the app puts on the Windows taskbar",
     autoHide: "Automatically hide",
-    autoHideHint: "Slides down when the pointer leaves, up at the screen edge",
+    autoHideHint: "Hides when the pointer leaves, back at the screen edge",
     autoHideReveal: "Show delay",
     autoHideRevealHint: "With the pointer on the edge",
     autoHideDelay: "Hide delay",
