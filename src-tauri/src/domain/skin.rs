@@ -48,7 +48,29 @@ pub struct SkinMeta {
     pub ink: Option<String>,
     #[serde(default)]
     pub indicator: Option<String>,
+    /// A drawing of its own for a dock on a side (spec 0028 Q4), only on a
+    /// folder skin: without it, the image is turned with the bar, as a
+    /// bundled skin's is.
+    #[serde(default)]
+    pub vertical: Option<Vertical>,
 }
+
+/// The upright image of a folder skin (`skin-vertical.png`): as wide as the
+/// column, with its ends at the top and the bottom and the middle between
+/// them repeating or stretching as the lying image's does (`middle`). It is
+/// drawn as it is on both sides.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct Vertical {
+    pub image: String,
+    pub width: u32,
+    pub height: u32,
+    /// The ends, in pixels of the image.
+    pub top: u32,
+    pub bottom: u32,
+}
+
+/// The name the upright image must have.
+pub const VERTICAL_IMAGE: &str = "skin-vertical.png";
 
 /// The nine-slice cut, in pixels of the image.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -210,6 +232,37 @@ pub fn pieces(meta: &SkinMeta, bar: Rect) -> Vec<Piece> {
     pieces
 }
 
+/// The pieces that draw the upright image `vertical` over the standing
+/// `bar`: the top end, the middle and the bottom end, all at the column's
+/// width. The same cut as [`pieces`], with x and y swapped.
+pub fn standing_pieces(meta: &SkinMeta, vertical: &Vertical, bar: Rect) -> Vec<Piece> {
+    let turn = |r: Rect| Rect {
+        x: r.y,
+        y: r.x,
+        width: r.height,
+        height: r.width,
+    };
+    let lying = SkinMeta {
+        width: vertical.height,
+        height: vertical.width,
+        slice: Slice {
+            top: 0,
+            right: vertical.bottom,
+            bottom: 0,
+            left: vertical.top,
+        },
+        vertical: None,
+        ..meta.clone()
+    };
+    pieces(&lying, turn(bar))
+        .into_iter()
+        .map(|piece| Piece {
+            from: turn(piece.from),
+            to: turn(piece.to),
+        })
+        .collect()
+}
+
 /// The folder of the user's skins, under the app's data folder.
 pub const FOLDER: &str = "Skins";
 
@@ -240,6 +293,8 @@ pub struct FolderSkin {
     pub id: String,
     pub meta: SkinMeta,
     pub png: Vec<u8>,
+    /// `skin-vertical.png`, when `skin.json` has `vertical`.
+    pub vertical_png: Option<Vec<u8>>,
 }
 
 /// Why a folder of the skins folder is not a skin. Shown to the user, by the
@@ -350,11 +405,41 @@ fn check(id: &str, dir: &Path) -> Result<FolderSkin, ProblemKind> {
     if size != (meta.width, meta.height) {
         return Err(ProblemKind::SizeMismatch);
     }
+    let vertical_png = match &meta.vertical {
+        Some(vertical) => Some(check_vertical(&dir, vertical)?),
+        None => None,
+    };
     Ok(FolderSkin {
         id: id.to_owned(),
         meta,
         png,
+        vertical_png,
     })
+}
+
+/// The upright image `vertical` says, in the skin's folder `dir` (a real
+/// path), under the same checks as `skin.png`; or why not.
+fn check_vertical(dir: &Path, vertical: &Vertical) -> Result<Vec<u8>, ProblemKind> {
+    if vertical.image != VERTICAL_IMAGE {
+        return Err(ProblemKind::BadImageName);
+    }
+    let sides = 1..=MAX_SIDE;
+    if !sides.contains(&vertical.width)
+        || !sides.contains(&vertical.height)
+        || vertical.top.saturating_add(vertical.bottom) >= vertical.height
+    {
+        return Err(ProblemKind::BadSlice);
+    }
+    let image = inside(dir, VERTICAL_IMAGE).ok_or(ProblemKind::NoImage)?;
+    let png = read_bounded(&image, MAX_PNG_BYTES).map_err(|unread| match unread {
+        Unread::Missing => ProblemKind::NoImage,
+        Unread::TooBig => ProblemKind::TooBig,
+    })?;
+    let size = png_size(&png).ok_or(ProblemKind::NotPng)?;
+    if size != (vertical.width, vertical.height) {
+        return Err(ProblemKind::SizeMismatch);
+    }
+    Ok(png)
 }
 
 /// Every skin of the skins folder `dir`, and the folders refused, both by
@@ -428,10 +513,12 @@ pub fn cached(dir: &Path, id: &str) -> Option<Arc<CachedSkin>> {
         return None;
     }
     let folder = dir.join(id);
+    // The upright image counts only when there is one.
     let key = format!(
-        "folder/{id}/{}/{}",
+        "folder/{id}/{}/{}/{}",
         stamp_of(&folder.join("skin.json"))?,
-        stamp_of(&folder.join("skin.png"))?
+        stamp_of(&folder.join("skin.png"))?,
+        stamp_of(&folder.join(VERTICAL_IMAGE)).unwrap_or_default()
     );
     let kept = CACHE.lock().unwrap_or_else(PoisonError::into_inner).clone();
     if let Some(kept) = kept.filter(|kept| kept.key == key) {
@@ -466,6 +553,7 @@ mod tests {
             dark: None,
             ink: None,
             indicator: None,
+            vertical: None,
         }
     }
 
@@ -842,5 +930,120 @@ mod tests {
 
         assert!(cached(root.path(), "Sumiu").is_none());
         assert!(cached(root.path(), "../Viva").is_none());
+    }
+
+    #[test]
+    fn an_upright_image_is_cut_along_the_column() {
+        let vertical = Vertical {
+            image: VERTICAL_IMAGE.into(),
+            width: 16,
+            height: 9,
+            top: 2,
+            bottom: 3,
+        };
+        let meta = meta(7, 2, 2, Middle::Stretch);
+        let bar = Rect {
+            x: 5.0,
+            y: 10.0,
+            width: 32.0,
+            height: 200.0,
+        };
+        let cut = standing_pieces(&meta, &vertical, bar);
+        assert_eq!(cut.len(), 3);
+        // The top end: the image's first 2 rows, at the column's width
+        // (twice the image's, so 4 px tall).
+        assert_eq!(
+            cut[0].from,
+            Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 16.0,
+                height: 2.0
+            }
+        );
+        assert_eq!(
+            cut[0].to,
+            Rect {
+                x: 5.0,
+                y: 10.0,
+                width: 32.0,
+                height: 4.0
+            }
+        );
+        // The middle stretched over the rest, the bottom end at the foot.
+        assert_eq!(cut[1].from.y, 2.0);
+        assert_eq!(cut[1].from.height, 4.0);
+        assert_eq!(
+            cut[2].from,
+            Rect {
+                x: 0.0,
+                y: 6.0,
+                width: 16.0,
+                height: 3.0
+            }
+        );
+        assert!((cut[2].to.y + cut[2].to.height - 210.0).abs() < 1e-9);
+        let covered: f64 = cut.iter().map(|piece| piece.to.height).sum();
+        assert!((covered - 200.0).abs() < 1e-9);
+        assert!(
+            cut.iter()
+                .all(|piece| piece.to.x == 5.0 && piece.to.width == 32.0)
+        );
+    }
+
+    fn with_vertical(json: &str, vertical: serde_json::Value) -> String {
+        let mut value: serde_json::Value = serde_json::from_str(json).unwrap();
+        value["vertical"] = vertical;
+        value.to_string()
+    }
+
+    #[test]
+    fn a_folder_skin_may_bring_an_upright_image() {
+        let root = tempfile::tempdir().unwrap();
+        let upright = serde_json::json!({
+            "image": "skin-vertical.png", "width": 6, "height": 12, "top": 3, "bottom": 3,
+        });
+        let good = with_vertical(&json(12, 6, 3, 3, "skin.png"), upright.clone());
+        skin_dir(root.path(), "Em pe", Some(&good), Some(&png(12, 6)));
+        fs::write(root.path().join("Em pe").join(VERTICAL_IMAGE), png(6, 12)).unwrap();
+        // Said but missing, the wrong size, the wrong name, ends too long.
+        skin_dir(root.path(), "Sem", Some(&good), Some(&png(12, 6)));
+        skin_dir(root.path(), "Tamanho", Some(&good), Some(&png(12, 6)));
+        fs::write(root.path().join("Tamanho").join(VERTICAL_IMAGE), png(6, 10)).unwrap();
+        let mut named = upright.clone();
+        named["image"] = "outra.png".into();
+        let named = with_vertical(&json(12, 6, 3, 3, "skin.png"), named);
+        skin_dir(root.path(), "Nome", Some(&named), Some(&png(12, 6)));
+        let mut long = upright;
+        long["top"] = 6.into();
+        long["bottom"] = 6.into();
+        let long = with_vertical(&json(12, 6, 3, 3, "skin.png"), long);
+        skin_dir(root.path(), "Pontas", Some(&long), Some(&png(12, 6)));
+
+        let (skins, _) = read_folder(root.path());
+
+        assert_eq!(skins.len(), 1);
+        assert_eq!(skins[0].vertical_png, Some(png(6, 12)));
+        assert_eq!(skins[0].meta.vertical.as_ref().map(|v| v.top), Some(3));
+        assert_eq!(problem_of(root.path(), "Sem"), Some(ProblemKind::NoImage));
+        assert_eq!(
+            problem_of(root.path(), "Tamanho"),
+            Some(ProblemKind::SizeMismatch)
+        );
+        assert_eq!(
+            problem_of(root.path(), "Nome"),
+            Some(ProblemKind::BadImageName)
+        );
+        assert_eq!(
+            problem_of(root.path(), "Pontas"),
+            Some(ProblemKind::BadSlice)
+        );
+        // Without it a skin has none, as before.
+        assert!(
+            read_folder(root.path())
+                .0
+                .iter()
+                .all(|skin| skin.id == "Em pe")
+        );
     }
 }
