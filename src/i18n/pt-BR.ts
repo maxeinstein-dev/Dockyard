@@ -174,9 +174,6 @@ const messages = {
         previews: "Prévias",
         appsInDock: "Apps no dock",
         energy: "Energia",
-        /** Comportamento's switches of the monitors, until the Monitores
-         * section (F13) takes them (spec 0029 §2.1). */
-        monitors: "Monitores",
         advanced: "Avançado",
         launcher: "Lançador",
         themes: "Temas",
@@ -637,7 +634,11 @@ const messages = {
         "Preso no espaço escolhido: o dock dele não mostra as bolinhas e a roda, os atalhos e a troca em todos os monitores não o mudam.",
     },
     title: "Espaços de trabalho",
-    lead: "Cada espaço tem o seu dock e guarda as suas janelas. Troque pelas bolinhas no dock, pela roda do mouse sobre ele ou com Ctrl+Alt+número. Editar aqui não muda o que o dock mostra.",
+    /** How to switch, a row of Espaços; the note on the card being
+     * edited (spec 0029 §7). */
+    howTo: "Como trocar de espaço",
+    howToHint: "Ctrl+Alt+1 a 9, a roda do mouse no dock ou as bolinhas",
+    editNote: "Editar aqui não muda o que o dock mostra.",
     loading: "Lendo os espaços…",
     listLabel: "Espaços",
     editing: "Espaço em edição",
