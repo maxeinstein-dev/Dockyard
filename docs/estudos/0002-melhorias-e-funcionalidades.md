@@ -21,11 +21,14 @@ Levantamento de 2026-10-30, depois da primeira leva da [spec 0020](../specs/0020
   - F5 Downloads, Lixeira e pastas: na main ([spec 0025](../specs/0025-pastas-no-dock.md), PR #166).
   - F6 Busca dentro de Configurações: na main (PR #163).
   - F7: na main. "Duplicar" um espaço entrou no PR #164; "Nova janela" e "Procurar…", no PR #168.
-  - F8 Exportar e importar: em andamento (spec 0026). O teste ao vivo achou um problema no reinício depois de importar, já corrigido no código e à espera de um novo teste ao vivo.
+  - F8 Exportar e importar: na main ([spec 0026](../specs/0026-exportar-importar.md), PR #172).
   - F9 Widgets que faltam: na main. Layout do teclado (PR #169), Relógio mundial (PR #171), Capturas de tela (PR #173) e Arquivos (PR #175). O Arquivos virou **Arquivos recentes** (decisão do autor, 2026-11-04): a lista de uma pasta, como a spec 0003 o previa, já é a pasta fixada da F5.
-  - F10 Prévias pelo teclado e Espiar: feita ([spec 0027](../specs/0027-previas-pelo-teclado.md)). F11 Selos: em andamento.
+  - F10 Prévias pelo teclado e Espiar: na main ([spec 0027](../specs/0027-previas-pelo-teclado.md), PR #174).
+  - F11 Selos: na main ([spec 0016](../specs/0016-selos-de-notificacao.md) §8, PR #178). Entraram a descrição do ícone sobreposto, o "9+" do Discord, a bandeja e o leitor de tela.
   - F12 Dock vertical: o Dockyard não tem dock na lateral, então a F12 virou o dock lateral inteiro, de tamanho G ([spec 0028](../specs/0028-dock-lateral.md)). O autor aprovou as propostas em 2026-11-04; o passo 1 (layout nas quatro bordas) está em andamento.
-  - F13 a F15: a fazer. F13 e F14 começam por uma spec, para o autor decidir antes do código; F15 fica por último.
+  - F13 Itens e espaço por monitor: na main ([spec 0030](../specs/0030-itens-e-espaco-por-monitor.md), PR #190). Entraram a chave estável, o monitor fixo e o grupo Monitores em Configurações.
+  - F14 Extensões do lançador: **retirada do roadmap** (decisão do autor, 2026-11-05). A spec e o ADR chegaram a ser escritos e decididos, mas não entraram.
+  - F15 Temas sazonais: a fazer, por último.
 - **Itens adiados da spec 0020:** os quatro entraram (ver "Como ler"). Os pacotes de pixel ganharam os launchers de jogos (PR #167).
 
 ## Resumo
@@ -63,7 +66,7 @@ Levantamento de 2026-10-30, depois da primeira leva da [spec 0020](../specs/0020
 | F11 | Selos na bandeja e selos sem número | M | Médio |
 | F12 | Dock vertical completo para widgets (virou o dock lateral, spec 0028) | G | Alto |
 | F13 | Itens e espaço por monitor | G | Alto |
-| F14 | Extensões do lançador | G | Alto |
+| ~~F14~~ | ~~Extensões do lançador~~ (retirada, 2026-11-05) | G | Alto |
 | F15 | Temas sazonais | M | Baixo |
 
 ## Melhorias
@@ -320,6 +323,8 @@ Entram depois dos quatro itens adiados da spec 0020. A ordem pesa o valor no uso
 - **Como verificar:** spec própria; testes do modelo; ao vivo com dois monitores.
 
 ### F14. Extensões do lançador
+
+> **Retirada do roadmap** pelo autor em 2026-11-05. O texto abaixo fica como registro.
 
 - **O que é:** o §9 da [spec 0012](../specs/0012-lancador.md): palavras-chave que chamam um script local e mostram o resultado, como as extensões do Ulauncher.
 - **Por que vale:** é o que torna o lançador uma ferramenta, não só uma busca.
