@@ -167,6 +167,25 @@
   align-items: flex-start;
 }
 
+/* On a side (spec 0028): a column against it, centered along it. */
+.thumb-screen[data-edge="left"] .thumb-desktop,
+.thumb-screen[data-edge="right"] .thumb-desktop {
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.thumb-screen[data-edge="right"] .thumb-desktop {
+  justify-content: flex-end;
+}
+
+.thumb-screen[data-edge="left"] .thumb-dock,
+.thumb-screen[data-edge="right"] .thumb-dock {
+  flex-direction: column;
+  /* Three tiles fit the screen's height above the taskbar. */
+  gap: 2px;
+  padding: 2px 3px;
+}
+
 .thumb-dock {
   display: flex;
   gap: 4px;

@@ -111,6 +111,45 @@ O autor atualizou da 0.9.1 para a 0.9.2 pelo aviso do próprio app.
 - [x] **Uso longo (algumas horas)**: memória privada e CPU em repouso no começo e no fim (o Gerenciador de Tarefas, aba Detalhes, coluna "Memória (conjunto de trabalho privado)"). (Roteiro, 2026-11-03: 2 h 25 min, números na rodada acima.)
 - [x] **Leitor de tela (Narrador, Ctrl+Win+Enter):** o dock é lido como barra de ferramentas, cada item pelo nome, e "Invocar" age como o clique. Os painéis e o app de Configurações são navegáveis pelo teclado. (Autor, 2026-11-03.)
 
+## 8. Dock na lateral (uns 20 minutos, spec 0028)
+
+Em Configurações › Geral › Dock › Posição, passe por **Esquerda** e **Direita**, e no fim volte para a posição de antes. Em cada lateral:
+
+1. **A coluna:**
+   - na esquerda, de cima para baixo: bolinhas, Lançador, apps, widgets, bandeja e relógio;
+   - na direita, a ordem ao contrário: relógio no topo, bolinhas no pé;
+   - o indicador do app aberto fica do lado da tela;
+   - os separadores atravessam a coluna;
+   - o reflexo sai para o lado da tela.
+2. **A dica e a ampliação:** passe o mouse pela coluna. A dica fica ao lado do ícone, do lado de dentro da tela, e a ampliação cresce ao longo da coluna.
+3. **O relógio:** a hora sobre a data curta (`dd/mm`); com o mouse em cima, a dica mostra a data completa.
+4. **A bandeja e as bolinhas:** a bandeja em duas colunas que descem; as bolinhas lado a lado; clicar numa bolinha troca de espaço.
+5. **Arrastar e soltar:**
+   - arraste um app para cima e para baixo: os vizinhos abrem espaço e ele fica onde foi solto;
+   - solte um arquivo entre dois apps fixados: ele é fixado ali.
+6. **Menus, painel e prévias:**
+   - o menu do botão direito abre para o lado de dentro;
+   - o painel de um widget abre ao lado da coluna, crescendo do lado dela;
+   - a prévia de um app aberto desliza vinda da coluna;
+   - o cartão do Calendário fica ao lado.
+7. **Teclado:**
+   - pelo atalho do dock, ↑ e ↓ andam na coluna (na direita, ↑ sobe na tela);
+   - a seta para dentro da tela abre as prévias;
+   - o Esc volta.
+8. **Widgets em pé:**
+   - Atividade, Uso do Claude, Atividade de rede, Calendário, Tocando agora (os botões numa coluna embaixo) e Clima;
+   - o Relógio mundial com uma cidade por ícone;
+   - a Lista de tarefas e a Contagem regressiva com o texto girado.
+9. **Skins:**
+   - uma embutida (Medieval, por exemplo) gira com a coluna;
+   - uma skin da pasta com `vertical` usa a arte em pé.
+10. **Ocultar automaticamente e a faixa reservada:**
+    - com ocultar automaticamente, a coluna sai pela lateral e volta ao encostar o ponteiro nela;
+    - sem ele, uma janela maximizada não fica por baixo da coluna.
+11. **Dois monitores**, se houver: a coluna fica na borda de fora de cada monitor.
+
+Volte à posição de antes. A barra do Windows tem de ficar como estava.
+
 ## Depois da rodada
 
 Cada passo que falhar vira um item com o defeito descrito; os que passarem ficam marcados aqui, com a data. O roadmap aponta para este arquivo.

@@ -198,7 +198,7 @@ const messages = {
     showBadges: "Mostrar selos de notificação",
     showBadgesHint: "O número de não lidas que o app põe na barra do Windows",
     autoHide: "Ocultar automaticamente",
-    autoHideHint: "Desce quando o ponteiro sai e sobe ao encostar na borda",
+    autoHideHint: "Some quando o ponteiro sai e volta ao encostar na borda",
     autoHideReveal: "Atraso para mostrar",
     autoHideRevealHint: "Com o ponteiro na borda",
     autoHideDelay: "Atraso para ocultar",
