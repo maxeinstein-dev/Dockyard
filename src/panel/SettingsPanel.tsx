@@ -33,7 +33,7 @@ import { useSettingsEditor } from "./useSettingsEditor";
 const THEMES: readonly Theme[] = ["system", "light", "dark"];
 /** The edges offered: the sides (spec 0028) come with step 8, once the
  * column is whole. */
-const EDGES: readonly DockEdge[] = ["bottom", "top"];
+const EDGES: readonly DockEdge[] = ["bottom", "top", "left", "right"];
 const SIZES: readonly SizePreset[] = ["small", "medium", "large"];
 const OPACITIES: readonly DockOpacity[] = ["translucent", "solid"];
 const TASKBARS: readonly TaskbarMode[] = ["visible", "autohide", "hidden"];
