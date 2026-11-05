@@ -2,7 +2,7 @@
 
 F12 do [estudo 0002](../estudos/0002-melhorias-e-funcionalidades.md). O estudo pedia "os widgets largos viram altos com o dock na esquerda ou na direita". Só que o Dockyard ainda não tem dock na lateral: só existem as bordas de baixo e de cima (`DockEdge { Bottom, Top }`). Por isso a F12 vira o dock lateral inteiro, e os widgets em pé são uma parte dele.
 
-**Status:** aprovada em 2026-11-04, com as propostas do §8. Os passos do §5 entram um por PR.
+**Status:** aprovada em 2026-11-04, com as propostas do §8. Os oito passos do §5 foram feitos entre 2026-11-04 e 2026-11-05 (PRs #177, #179, #180, #182, #183, #185, #187 e o do passo 8). A pintura foi conferida fora da tela, com o mesmo código do dock, no passo 6 (as faces em pé) e no 7 (as skins). Falta o teste ao vivo nas quatro bordas: o roteiro está em [roteiro-de-verificacao.md](../roteiro-de-verificacao.md) §8.
 
 ## 1. O que muda para quem usa
 
