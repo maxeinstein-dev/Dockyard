@@ -64,6 +64,22 @@ pub const RESTORE_FLAG: &str = "--restore-taskbar";
 
 const CLASSES: [&str; 2] = ["Shell_TrayWnd", "Shell_SecondaryTrayWnd"];
 
+/// The taskbar windows given back on top, next to the state file: what the
+/// watchdog keeps on top a little longer (`hold_topmost`).
+pub const TOPMOST_FILE: &str = "taskbar-topmost.json";
+
+/// How long, and how often, the watchdog looks at the taskbar after it was
+/// given back.
+const HOLD_FOR: std::time::Duration = std::time::Duration::from_secs(10);
+const HOLD_EVERY: std::time::Duration = std::time::Duration::from_secs(1);
+
+/// The taskbar windows of a run that went back on top.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+struct Topmost {
+    pid: u32,
+    hwnds: Vec<isize>,
+}
+
 /// `STILL_ACTIVE`, the exit code of a process that has not ended.
 const STILL_ACTIVE: u32 = 259;
 
@@ -456,6 +472,7 @@ fn restore_file(path: &Path, pid: u32) {
             .iter()
             .map(|faded| (faded.hwnd, false, was_topmost(faded))),
     );
+    let mut on_top = Vec::new();
     for (value, hidden, topmost) in touched {
         let hwnd = hwnd_of(value);
         if unsafe { IsWindow(Some(hwnd)) }.as_bool() {
@@ -468,6 +485,7 @@ fn restore_file(path: &Path, pid: u32) {
             if !topmost {
                 continue;
             }
+            on_top.push(value);
             let _ = unsafe {
                 SetWindowPos(
                     hwnd,
@@ -498,6 +516,95 @@ fn restore_file(path: &Path, pid: u32) {
         }
     }
     let _ = fs::remove_file(path);
+    // For the watchdog: Explorer may take the taskbar off the top again
+    // after this (seen live on 2026-11-05).
+    if !on_top.is_empty() {
+        let list = Topmost { pid, hwnds: on_top };
+        if let Ok(text) = serde_json::to_vec(&list) {
+            let _ = fs::write(path.with_file_name(TOPMOST_FILE), text);
+        }
+    }
+}
+
+/// Whether the taskbar window `hwnd` should be put back on top now: it is a
+/// window, it is not on top, and the window in front does not cover its
+/// monitor (a program in full screen, which Explorer lets above the
+/// taskbar on purpose).
+fn wants_topmost(hwnd: HWND) -> bool {
+    use ::windows::Win32::Graphics::Gdi::{
+        GetMonitorInfoW, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromWindow,
+    };
+    use ::windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowRect};
+    if !unsafe { IsWindow(Some(hwnd)) }.as_bool() {
+        return false;
+    }
+    let style = unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) };
+    if style & WS_EX_TOPMOST.0 as isize != 0 {
+        return false;
+    }
+    let front = unsafe { GetForegroundWindow() };
+    let mut window = ::windows::Win32::Foundation::RECT::default();
+    let mut info = MONITORINFO {
+        cbSize: size_of::<MONITORINFO>() as u32,
+        ..Default::default()
+    };
+    let monitor = unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) };
+    let read = !front.is_invalid()
+        && unsafe { GetWindowRect(front, &mut window) }.is_ok()
+        && unsafe { GetMonitorInfoW(monitor, &mut info) }.as_bool();
+    let bounds = |r: ::windows::Win32::Foundation::RECT| crate::domain::fullscreen::Bounds {
+        left: r.left,
+        top: r.top,
+        right: r.right,
+        bottom: r.bottom,
+    };
+    !(read && crate::domain::fullscreen::covers(bounds(window), bounds(info.rcMonitor)))
+}
+
+/// The watchdog, once the run `pid` gave the taskbar back: for `HOLD_FOR`,
+/// puts back on top each taskbar window that went back there and that
+/// Explorer took off it again. Stops when another run holds the taskbar
+/// (its state file is there): it lowers the taskbar on purpose.
+fn hold_topmost(state_path: &Path, pid: u32) {
+    let file = state_path.with_file_name(TOPMOST_FILE);
+    let Some(list) = fs::read(&file)
+        .ok()
+        .and_then(|bytes| serde_json::from_slice::<Topmost>(&bytes).ok())
+    else {
+        return;
+    };
+    let _ = fs::remove_file(&file);
+    if list.pid != pid {
+        return;
+    }
+    let mut raised = 0;
+    let tries = HOLD_FOR.as_millis() / HOLD_EVERY.as_millis();
+    for _ in 0..tries {
+        std::thread::sleep(HOLD_EVERY);
+        if state_path.exists() {
+            break;
+        }
+        for &value in &list.hwnds {
+            let hwnd = hwnd_of(value);
+            if wants_topmost(hwnd) {
+                let _ = unsafe {
+                    SetWindowPos(
+                        hwnd,
+                        Some(HWND_TOPMOST),
+                        0,
+                        0,
+                        0,
+                        0,
+                        SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+                    )
+                };
+                raised += 1;
+            }
+        }
+    }
+    if raised > 0 {
+        log::warn!("taskbar: put back on top {raised} times after it was given back");
+    }
 }
 
 /// Whether a process is still running.
@@ -639,6 +746,7 @@ pub fn watch(pid: u32, state_path: &Path) {
     }
     restore_file(state_path, pid);
     super::window_spaces::restore_file(&state_path.with_file_name(super::window_spaces::FILE), pid);
+    hold_topmost(state_path, pid);
 }
 
 /// `--restore-taskbar <state file>`: restores whatever the file holds,
@@ -935,5 +1043,47 @@ mod tests {
                 "{bad}"
             );
         }
+    }
+
+    #[test]
+    fn the_watchdog_holds_on_top_only_what_its_run_gave_back() {
+        let dir = tempdir().unwrap();
+        let state = dir.path().join(STATE_FILE);
+        let list = dir.path().join(TOPMOST_FILE);
+        // Handles that are not windows: nothing on this machine changes.
+        let write = |pid| {
+            fs::write(
+                &list,
+                serde_json::to_vec(&Topmost {
+                    pid,
+                    hwnds: vec![1, 2],
+                })
+                .unwrap(),
+            )
+            .unwrap();
+        };
+
+        // Another run's list is read and dropped, at once.
+        write(7);
+        let started = std::time::Instant::now();
+        hold_topmost(&state, 8);
+        assert!(!list.exists());
+        assert!(started.elapsed() < HOLD_EVERY);
+
+        // Its own: dropped too; another run holding the taskbar (its state
+        // file there) ends the watch at the first look.
+        write(8);
+        fs::write(&state, b"{}").unwrap();
+        let started = std::time::Instant::now();
+        hold_topmost(&state, 8);
+        assert!(!list.exists());
+        assert!(started.elapsed() < HOLD_EVERY * 3);
+        // No list: nothing to do.
+        hold_topmost(&state, 8);
+    }
+
+    #[test]
+    fn what_is_not_a_window_is_never_put_on_top() {
+        assert!(!wants_topmost(hwnd_of(1)));
     }
 }
