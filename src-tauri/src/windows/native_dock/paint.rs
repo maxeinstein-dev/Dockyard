@@ -1196,6 +1196,29 @@ impl Painter {
     /// they are and the middle in tiles, at the bar's height, without
     /// smoothing for pixel art.
     fn skin_bar(&mut self, scene: &Scene, bar: Area) {
+        // On a side, a folder skin's own upright image, drawn standing
+        // (spec 0028 Q4); the others turn with the bar.
+        if standing(scene.edge)
+            && scene.look.style == DockStyle::Custom
+            && let Some(custom) = &scene.custom_skin
+            && let (Some(vertical), Some(png)) =
+                (&custom.skin.meta.vertical, &custom.skin.vertical_png)
+        {
+            let key = format!("{}/vertical", custom.key);
+            let standing_bar = bar.transposed();
+            let area = crate::domain::skin::Rect {
+                x: standing_bar.x,
+                y: standing_bar.y,
+                width: standing_bar.width,
+                height: standing_bar.height,
+            };
+            let pieces = crate::domain::skin::standing_pieces(&custom.skin.meta, vertical, area);
+            // Undo the bar's turn for it, and turn again after.
+            self.transform(&IDENTITY);
+            self.skin_pieces(&key, png, custom.skin.meta.pixelated, &pieces);
+            self.transform(&TRANSPOSE);
+            return;
+        }
         let (key, png, meta) = match (scene.look.style, &scene.custom_skin) {
             (DockStyle::Custom, Some(custom)) => (
                 custom.key.as_str(),
@@ -1209,6 +1232,24 @@ impl Painter {
                 (skin.id, skin.png, skin.meta())
             }
         };
+        let area = crate::domain::skin::Rect {
+            x: bar.x,
+            y: bar.y,
+            width: bar.width,
+            height: bar.height,
+        };
+        let pieces = crate::domain::skin::pieces(meta, area);
+        self.skin_pieces(key, png, meta.pixelated, &pieces);
+    }
+
+    /// The skin image `png` (kept as a bitmap by `key`) drawn in `pieces`.
+    fn skin_pieces(
+        &mut self,
+        key: &str,
+        png: &[u8],
+        pixelated: bool,
+        pieces: &[crate::domain::skin::Piece],
+    ) {
         if !self.skins.contains_key(key) {
             let Some(bitmap) = self.bitmap(png) else {
                 return;
@@ -1223,7 +1264,7 @@ impl Painter {
         let Some(bitmap) = self.skins.get(key) else {
             return;
         };
-        let mode = if meta.pixelated {
+        let mode = if pixelated {
             D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR
         } else {
             D2D1_BITMAP_INTERPOLATION_MODE_LINEAR
@@ -1234,16 +1275,10 @@ impl Painter {
             right: (r.x + r.width) as f32,
             bottom: (r.y + r.height) as f32,
         };
-        let area = crate::domain::skin::Rect {
-            x: bar.x,
-            y: bar.y,
-            width: bar.width,
-            height: bar.height,
-        };
         // Hard edges: tiles side by side must not show a seam where one
         // ends on a fraction of a pixel.
         unsafe { self.target.SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED) };
-        for piece in crate::domain::skin::pieces(meta, area) {
+        for piece in pieces {
             unsafe {
                 self.target.DrawBitmap(
                     bitmap,
