@@ -176,6 +176,68 @@ body {
   color: var(--ink-2);
 }
 
+/* The title focused when a section is opened by the keyboard (spec 0029
+   §8.5): read aloud, no ring. */
+.section-header h1:focus {
+  outline: none;
+}
+
+/* The bands of the side bar (spec 0029 §2): a small title over the
+   sections it holds. */
+.settings-band {
+  display: grid;
+  gap: 3px;
+}
+
+.settings-band + .settings-band {
+  margin-top: 10px;
+}
+
+.settings-band-title {
+  padding: 0 8px 2px;
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+/* The index of the groups, under the lead (spec 0029 §3): names in a line,
+   " · " between them. */
+.section-index {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: -6px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.section-index-item {
+  padding: 2px 0;
+  border: 0;
+  font: inherit;
+  color: var(--accent);
+  background: transparent;
+  cursor: pointer;
+}
+
+.section-index-dot {
+  padding: 0 8px;
+}
+
+.section-index-item:hover {
+  text-decoration: underline;
+}
+
+.section-index-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-radius: 3px;
+}
+
+.settings-group-title:focus {
+  outline: none;
+}
+
 /* The search of the side bar (estudo 0002 F6): the field under the brand,
    and the results in place of the sections while it holds something. */
 .settings-search {

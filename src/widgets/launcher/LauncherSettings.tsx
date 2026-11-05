@@ -7,7 +7,7 @@ import type { WidgetSettingsProps } from "../contract";
 import { useSystemSettings } from "../system/useSettings";
 
 /** The "Ajustes" view of a Lançador panel: label and "Remover do dock".
- * The hotkey is the launcher's, in Configurações › Geral. */
+ * The hotkey is the launcher's, in Configurações › Lançador. */
 function LauncherSettings({
   instance,
   onUpdate,

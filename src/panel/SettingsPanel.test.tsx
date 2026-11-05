@@ -195,7 +195,9 @@ describe("SettingsPanel", () => {
     ["Configurações", true],
   ])("chooses when the battery is saved, in %s (spec 0021)", (_, grouped) => {
     invoke.mockReturnValue(new Promise(() => {}));
-    render(<SettingsPanel settings={SETTINGS} grouped={grouped} />);
+    render(
+      <SettingsPanel settings={SETTINGS} grouped={grouped} part="behavior" />,
+    );
     // Literal on purpose: the three options and the default.
     expect(
       options("Economia de bateria").map((button) => button.textContent),
@@ -246,7 +248,7 @@ describe("SettingsPanel", () => {
 
   it("turns the notification badges on and off in Configurações too", () => {
     invoke.mockReturnValue(new Promise(() => {}));
-    render(<SettingsPanel settings={SETTINGS} grouped />);
+    render(<SettingsPanel settings={SETTINGS} grouped part="behavior" />);
     const toggle = screen.getByRole("switch", { name: text.showBadges });
 
     fireEvent.click(toggle);

@@ -547,6 +547,21 @@ Folha opaca ancorada, com cara de flyout do Windows 11.
 - **Rodapé:** Caption em `--ink-2`, fio superior `--hair`, 10 px de respiro, texto à esquerda (corta com reticências, salvo o erro da Nota) e dica de tecla à direita.
 - **Fechamento:** Esc (devolve o foco ao item), clique fora ou novo clique no item.
 
+### Janela de Configurações
+Janela própria de 880×640 (mínimo 720×480; spec 0011 §3), com a linguagem da spec 0014 §3 e a arquitetura da spec 0029. O painel antigo de Configurações, descrito acima, não abre mais por ela.
+- **Barra lateral (220 px):** fundo `--track`, fio `--hair` à direita. No topo, a marca "Dockyard" em Display com "Configurações" em Caption `--ink-2`, e a busca (Ctrl+F). Embaixo vêm as **faixas**: Dock (Geral, Aparência, Comportamento), Conteúdo (Espaços, Apps, Widgets) e Mais (Lançador, Contas, Sobre).
+  - Cada faixa tem um título em Caption 600 `--ink-2`, 10 px acima de cada faixa a partir da segunda, e é um `role="group"` nomeado por esse título.
+  - Cada seção é uma linha com a placa de 24 px (o esmalte `.t-*` e o ícone de linha, decorativa) e o nome. A seção aberta tem `aria-current="page"`, fundo `--hair` e traço `--accent` de 2 px à esquerda.
+  - **Teclado:** a barra é uma parada só de Tab, na seção aberta. ↑/↓ andam por todas as seções, atravessando as faixas e dando a volta nas pontas; Home e End vão à primeira e à última. Andar não abre: Enter ou Espaço abrem. Aberta pelo teclado, a seção leva o foco ao seu título (`h1`, `tabIndex=-1`, sem anel), para o leitor de tela anunciar.
+  - **Busca:** enquanto há texto, as faixas dão lugar aos resultados: as seções que casam e as opções, cada uma com "Seção › Grupo" em Caption.
+- **Seção:** coluna de até 640 px, 18 px entre blocos.
+  - **Cabeçalho:** a placa grande de 44 px, o título em Display 22 px e a frase de apoio em 13 px `--ink-2`.
+  - **Índice:** logo abaixo do cabeçalho, só quando a seção tem 3 grupos ou mais, sem contar o Avançado (`nav` "Nesta seção"). São os nomes dos grupos em `--accent`, 13 px, separados por " · " (decorativo), com sublinhado no hover. Cada nome rola até o grupo e foca o título dele.
+- **Grupo:** título pequeno em `--ink-2` (`h2.settings-group-title`) e, abaixo, um cartão com as linhas separadas por fios `--hair`. Cada linha leva o nome em Label Strong, a dica embaixo e o controle à direita. As escolhas visuais são cartões com miniatura (`ChoiceCards`).
+  - O grupo "Avançado" vem por último na seção e guarda ajuste fino ou raramente mexido.
+  - Uma linha que só aparece com um switch ligado fica ao lado desse switch.
+- **Rodapé:** "Salvo automaticamente", no fim das seções de ajustes.
+
 ### Controle segmentado
 - **Trilho:** `--track`, raio 6 px, padding e gap de 2 px.
 - **Segmento:** transparente, Label, raio 4 px, padding 6 px, largura igual entre os segmentos. Hover: `--track`.
