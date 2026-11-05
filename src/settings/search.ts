@@ -85,6 +85,12 @@ export function searchIndex(t: Messages): SearchEntry[] {
     behavior(s.groups.middleClick, groups.advanced),
     behavior(s.dockHotkey.label, groups.advanced),
     { section: "workspaces" as const, label: t.workspaces.name },
+    // Spec 0030: the monitors, each one's workspace and hold.
+    {
+      section: "workspaces" as const,
+      label: t.workspaces.monitors.title,
+      group: t.workspaces.monitors.title,
+    },
     { section: "apps" as const, label: t.apps.add },
     { section: "items" as const, label: t.widgets.catalog.title },
     launcher(groups.launcher, groups.launcher),

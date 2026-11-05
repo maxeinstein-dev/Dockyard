@@ -300,6 +300,8 @@ struct Data {
     /// for the switcher; `None` and empty when they can't be read.
     workspace: Option<Workspace>,
     workspaces: Vec<Workspace>,
+    /// The monitor is held on its workspace (spec 0030 C): no switcher.
+    fixed: bool,
     /// The icons of the notification area (while the dock holds it).
     tray: Vec<crate::commands::tray::TrayIcon>,
     /// The folder skin of the Custom style (spec 0020, Q14), read here so
@@ -690,10 +692,11 @@ fn read_data(app: &AppHandle, monitor: &str) -> Data {
     let settings = crate::commands::settings::current(app);
     #[cfg(windows)]
     let tray = crate::commands::tray::icons();
-    let (widgets, apps, workspace, workspaces): (_, _, Option<Workspace>, _) =
+    let (widgets, apps, workspace, workspaces, fixed): (_, _, Option<Workspace>, _, _) =
         match app.try_state::<Mutex<Storage>>() {
             Some(state) => {
                 let mut storage = state.lock().unwrap_or_else(PoisonError::into_inner);
+                let fixed = storage.monitor_fixed(monitor).unwrap_or(false);
                 (
                     crate::commands::widgets::snapshot(&storage).ok(),
                     crate::commands::apps::snapshot(&storage).ok(),
@@ -702,9 +705,10 @@ fn read_data(app: &AppHandle, monitor: &str) -> Data {
                         .inspect_err(|error| log::warn!("dock: no workspace to show: {error}"))
                         .ok(),
                     storage.workspaces().unwrap_or_default(),
+                    fixed,
                 )
             }
-            None => (None, None, None, Vec::new()),
+            None => (None, None, None, Vec::new(), false),
         };
     let custom_skin = crate::commands::skins::chosen(app, &settings.dock);
     Data {
@@ -715,6 +719,7 @@ fn read_data(app: &AppHandle, monitor: &str) -> Data {
         open: super::open_apps::snapshot_for(workspace.as_ref().map(|w| w.id.as_str())),
         workspace,
         workspaces,
+        fixed,
         tray,
     }
 }
@@ -879,7 +884,12 @@ impl Dock {
             hover: Hover::of(dock.hover, dock.hover_scale),
             status: dock.taskbar != TaskbarMode::Visible,
             tray: self.strip.len(),
-            switcher: self.data.workspaces.len(),
+            // A monitor held on its workspace has no switcher (spec 0030 C).
+            switcher: if self.data.fixed {
+                0
+            } else {
+                self.data.workspaces.len()
+            },
             spans: self.items.iter().map(Item::span).collect(),
             spacers: self.items.iter().map(Item::spacer_size).collect(),
         }
@@ -3003,10 +3013,16 @@ impl Dock {
             let no_bin = !has(&|id: &str| place_of(id) == Place::RecycleBin);
             items.extend(place_items(no_downloads, no_bin));
         }
+        // Holding the monitor on its workspace (spec 0030 C), with two or
+        // more; held, it lists no workspace to switch to.
+        if shown.is_some() && self.data.workspaces.len() >= 2 {
+            items.extend(hold_items(self.data.fixed));
+        }
+        let fixed = self.data.fixed;
         items.extend(dock_menu_items(
             self.data.settings.dock.auto_hide,
-            &workspaces,
-            crate::commands::workspaces::can_create(&self.data.workspaces),
+            if fixed { &[] } else { &workspaces },
+            !fixed && crate::commands::workspaces::can_create(&self.data.workspaces),
             shown.is_some(),
         ));
         let widget = widget.map(|widget| widget.id);
