@@ -2,7 +2,36 @@
 
 F12 do [estudo 0002](../estudos/0002-melhorias-e-funcionalidades.md). O estudo pedia "os widgets largos viram altos com o dock na esquerda ou na direita". Só que o Dockyard ainda não tem dock na lateral: só existem as bordas de baixo e de cima (`DockEdge { Bottom, Top }`). Por isso a F12 vira o dock lateral inteiro, e os widgets em pé são uma parte dele.
 
-**Status:** aprovada em 2026-11-04, com as propostas do §8. Os oito passos do §5 foram feitos entre 2026-11-04 e 2026-11-05 (PRs #177, #179, #180, #182, #183, #185, #187 e o do passo 8). A pintura foi conferida fora da tela, com o mesmo código do dock, no passo 6 (as faces em pé) e no 7 (as skins). Falta o teste ao vivo nas quatro bordas: o roteiro está em [roteiro-de-verificacao.md](../roteiro-de-verificacao.md) §8.
+**Status:** aprovada em 2026-11-04, com as propostas do §8. Os oito passos do §5 foram feitos entre 2026-11-04 e 2026-11-05 (PRs #177, #179, #180, #182, #183, #185, #187 e o do passo 8). A pintura foi conferida fora da tela, com o mesmo código do dock, no passo 6 (as faces em pé) e no 7 (as skins). O roteiro ao vivo está em [roteiro-de-verificacao.md](../roteiro-de-verificacao.md) §8.
+
+**Ao vivo, 2026-11-05.** Duas rodadas, sempre com uma cópia dos dados do autor (estilo Flutuante, barra do Windows oculta), na esquerda e na direita.
+
+No build de teste (`dockyard-e2e.exe`), passaram:
+- a janela é uma coluna encostada na borda e centrada na altura;
+- a ordem: na esquerda de cima para baixo; na direita de baixo para cima, com o relógio no topo;
+- a dica fica ao lado do ícone, do lado de dentro;
+- o menu do botão direito abre do lado de dentro, centrado no ícone;
+- arrastar o primeiro app para depois do segundo troca os dois, e arrastar de volta devolve a ordem.
+
+No build de lançamento (`.medir`, que assume a barra do Windows como o do autor), passaram:
+- **a faixa reservada fica do lado da coluna**: na esquerda, a área de trabalho começa em x=54, depois da coluna; na direita, termina em x=2506, antes dela;
+- uma janela maximizada não fica por baixo da coluna;
+- pelo atalho do dock, ↓ desce e ↑ sobe na coluna. Na direita, o primeiro item fica no pé da coluna, então lá ↓ não tem para onde ir;
+- a prévia de um programa aberto abre do lado de dentro, na altura do item;
+- o painel da Atividade abre ao lado da coluna, do lado de dentro;
+- com ocultar automaticamente não há faixa: a coluna sai pela lateral com o ponteiro longe e volta ao encostar na borda;
+- depois de fechar, a área de trabalho e a barra do Windows (estado, visível, sem `WS_EX_LAYERED|WS_EX_TRANSPARENT`) ficam como antes.
+
+A bandeja em duas colunas, o relógio `hh:mm` sobre `dd/mm` e os widgets em pé saíram como nas fotos fora da tela.
+
+Achado na rodada de lançamento: a barra do Windows do monitor principal voltou sem o `WS_EX_TOPMOST` (estilo 0x80, antes 0x88).
+- A do segundo monitor também voltou sem ele; um `SetWindowPos(HWND_TOPMOST)` devolveu o estilo nela.
+- Na principal, o Explorer tira o estilo de novo na hora.
+- Falta saber se isso vem do Dockyard ao devolver a barra (vale para qualquer borda, não só a lateral) ou do próprio Explorer.
+
+Ficou por ver:
+- as skins na lateral ao vivo (foram conferidas fora da tela);
+- o dock em todos os monitores com a borda numa lateral.
 
 ## 1. O que muda para quem usa
 
