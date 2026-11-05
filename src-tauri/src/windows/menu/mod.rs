@@ -156,7 +156,7 @@ fn monitor_at(at: POINT) -> (Area, f64) {
 pub fn show_hovering(
     owner: Option<HWND>,
     at: Option<POINT>,
-    up: bool,
+    opening: model::Opening,
     lines: Vec<Line>,
     keyboard: bool,
     on_hot: impl Fn(usize) + 'static,
@@ -169,11 +169,11 @@ pub fn show_hovering(
     }
     ON_HOT.with(|slot| *slot.borrow_mut() = Some(Box::new(on_hot)));
     let _forget = Forget;
-    show_from(owner, at, up, lines, keyboard)
+    show_from(owner, at, opening, lines, keyboard)
 }
 
-/// Opens a menu of `lines` at `at` (the pointer when `None`), above it when
-/// `up` (a dock at the bottom of the screen) and below it otherwise, and
+/// Opens a menu of `lines` at `at` (the pointer when `None`), on the side
+/// `opening` says (away from the dock's screen edge), and
 /// returns the index of the line chosen; `None` when it was let go. For a
 /// menu of the window `owner` (the launcher's, spec 0012 L6; the dock's by
 /// the keyboard, M14), it stays above it, and the owner takes the keyboard
@@ -182,7 +182,7 @@ pub fn show_hovering(
 pub fn show_from(
     owner: Option<HWND>,
     at: Option<POINT>,
-    up: bool,
+    opening: model::Opening,
     lines: Vec<Line>,
     keyboard: bool,
 ) -> Option<usize> {
@@ -255,7 +255,7 @@ pub fn show_from(
     let height = model::height(&lines);
     let hot = if keyboard { model::first(&lines) } else { None };
     let px = |logical: f64| (logical * scale).round() as i32;
-    let area = model::place(at.x, at.y, px(width), px(height), up, work);
+    let area = model::place(at.x, at.y, px(width), px(height), opening, work);
     unsafe {
         let _ = SetWindowPos(
             hwnd,

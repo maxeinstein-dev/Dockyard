@@ -33,6 +33,18 @@ pub enum KeyAction {
     Nothing,
 }
 
+/// `key` as the dock's list reads it on `edge`: the right's column reads
+/// from the bottom up (spec 0028 Q2), so there ↑ goes on along the list and
+/// ↓ back, as they look; every other key as it is.
+pub fn along(key: u16, edge: crate::domain::settings::DockEdge) -> u16 {
+    use crate::domain::settings::DockEdge;
+    match (edge, key) {
+        (DockEdge::Right, VK_UP) => VK_DOWN,
+        (DockEdge::Right, VK_DOWN) => VK_UP,
+        _ => key,
+    }
+}
+
 /// What `key` (a virtual-key code), with Shift down or not, does among `len`
 /// items with `current` chosen. The arrows go one item along (left and up
 /// back, right and down on), without wrapping round at the ends; Home and
@@ -158,6 +170,19 @@ mod tests {
     fn other_keys_are_not_the_docks() {
         for key in [0x41, 0x09, 0x70, 0x2E] {
             assert_eq!(key_action(4, Some(1), key, false), Nothing, "{key:#x}");
+        }
+    }
+
+    #[test]
+    fn on_the_right_up_goes_on_along_the_column_read_from_the_bottom() {
+        use crate::domain::settings::DockEdge;
+        assert_eq!(along(VK_UP, DockEdge::Right), VK_DOWN);
+        assert_eq!(along(VK_DOWN, DockEdge::Right), VK_UP);
+        assert_eq!(along(VK_LEFT, DockEdge::Right), VK_LEFT);
+        for edge in [DockEdge::Bottom, DockEdge::Top, DockEdge::Left] {
+            for key in [VK_UP, VK_DOWN, VK_LEFT, VK_RIGHT, VK_HOME] {
+                assert_eq!(along(key, edge), key);
+            }
         }
     }
 }

@@ -379,7 +379,13 @@ pub(super) fn show_dock_menu(
     let chosen = menu::show_hovering(
         owner,
         at,
-        edge == DockEdge::Bottom,
+        // Away from the dock's edge: beside a column (spec 0028).
+        match edge {
+            DockEdge::Bottom => crate::domain::menu::Opening::Up,
+            DockEdge::Top => crate::domain::menu::Opening::Down,
+            DockEdge::Left => crate::domain::menu::Opening::Right,
+            DockEdge::Right => crate::domain::menu::Opening::Left,
+        },
         lines,
         from_keys.is_some(),
         move |index| {
