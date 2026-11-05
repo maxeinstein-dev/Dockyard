@@ -249,6 +249,7 @@ function StyleGallery({
         );
       }}
       wide
+      rows={2}
     />
   );
 }

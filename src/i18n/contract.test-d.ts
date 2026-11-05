@@ -85,6 +85,8 @@ export const otherText: Messages = {
       },
       bands: { dock: "Dock", content: "Content", more: "More" },
       contents: "In this section",
+      showAll: "Show all ({count})",
+      showFewer: "Show fewer",
       brand: "Settings",
       search: {
         label: "Search settings",
