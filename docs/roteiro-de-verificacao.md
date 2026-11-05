@@ -261,4 +261,13 @@ O que os testes ao vivo das funcionalidades não cobriram. Cada passo diz de ond
 
 ## Depois da rodada
 
+**A barra do Windows, no fim de toda rodada ao vivo** (roteiro manual ou script):
+1. Troque a janela da frente para uma que não esteja em tela cheia. Enquanto o Explorer acha que há um programa em tela cheia, ele tira a barra de cima de propósito; foi o que se viu em 2026-11-05, depois de uma janela maximizada com a barra oculta.
+2. Confira, contra o que era antes da rodada:
+   - o estado de ocultar automaticamente (`ABM_GETSTATE`);
+   - se a `Shell_TrayWnd` está visível;
+   - o estilo estendido inteiro de cada barra, incluindo o "sempre por cima" (`WS_EX_TOPMOST`, 0x8), e sem `WS_EX_LAYERED|WS_EX_TRANSPARENT` (0x80020).
+3. Se algo ficou diferente, a rodada falha e diz o quê. Não force o "sempre por cima" à mão numa barra cujo estilo de antes não foi lido. Depois de fechar, o vigia do Dockyard ainda põe a barra de volta em cima por 10 segundos, então confira depois disso.
+
+
 Cada passo que falhar vira um item com o defeito descrito; os que passarem ficam marcados aqui, com a data. O roadmap aponta para este arquivo.
