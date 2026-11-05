@@ -228,9 +228,14 @@ O que os testes ao vivo das funcionalidades não cobriram. Cada passo diz de ond
 - [ ] O Narrador lendo "…, N notificações" no item.
 
 **F12 Dock lateral** (spec 0028): o que falta do §8 deste roteiro (a nota no topo dele diz o que já foi visto), e mais:
-- [ ] escala de 150%;
-- [ ] um app em tela cheia;
-- [ ] o Narrador nas duas laterais.
+- [ ] Uma skin embutida (a Medieval, por exemplo) na lateral, girando com a coluna, e uma skin da pasta Skins com `vertical` no `skin.json`, usando a arte em pé (spec 0020, PR #187).
+- [ ] "Dock em todos os monitores" com a borda numa lateral: a coluna na borda de fora de cada monitor.
+- [ ] Os widgets em pé na coluna, de perto:
+  - Atividade, Uso do Claude, Atividade de rede, Calendário e Clima;
+  - Tocando agora, com os botões numa coluna embaixo;
+  - Relógio mundial, com uma cidade por ícone;
+  - Lista de tarefas e Contagem regressiva, com o texto girado.
+- [ ] Escala de 150%, um app em tela cheia e o Narrador nas duas laterais.
 
 **F13 Monitores** (spec 0030 §5)
 - [ ] Desligar e religar um monitor: o espaço dele volta.
@@ -246,6 +251,13 @@ O que os testes ao vivo das funcionalidades não cobriram. Cada passo diz de ond
 - [ ] As dicas enxutas e a etiqueta "Padrão".
 - [ ] Comportamento e Lançador como seções, e o lançador achando as seções novas.
 - [ ] O Narrador na barra lateral e no índice.
+- [ ] "Dock em todos os monitores" em Geral › Dock (PR #192, spec 0029 §7).
+- [ ] "Trocar de espaço em todos os monitores" no alto de Espaços › Monitores, e nenhum switch de monitor em Comportamento (PR #192, Q13).
+- [ ] Espaços: a linha "Como trocar de espaço", com a dica "Ctrl+Alt+1 a 9, a roda do mouse no dock ou as bolinhas", no lugar do parágrafo longo, e a nota "Editar aqui não muda o que o dock mostra." no cartão do espaço (PR #192, Q14).
+
+**Barra do Windows** (PR #195)
+- [ ] Ao fechar o Dockyard, troque a janela da frente e espere uns 10 s: a barra continua por cima das janelas.
+- [ ] Com dois monitores, a barra do outro monitor também.
 
 ## Depois da rodada
 
