@@ -947,7 +947,7 @@ pub fn set_active(conn: &mut Connection, monitor: &str, id: &str) -> Result<(), 
 }
 
 /// Prefix in `meta` of a monitor held on the workspace it shows (spec
-/// 0028 C): `workspace-fixed:` and the monitor's key.
+/// 0030 C): `workspace-fixed:` and the monitor's key.
 const FIXED_PREFIX: &str = "workspace-fixed:";
 
 /// Whether the monitor `monitor` is held on the workspace it shows: it does
@@ -980,7 +980,7 @@ pub fn set_fixed(conn: &mut Connection, monitor: &str, fixed: bool) -> Result<()
     Ok(())
 }
 
-/// A monitor known by a new key (spec 0028 A: its device's path instead of
+/// A monitor known by a new key (spec 0030 A: its device's path instead of
 /// its name, `\\.\DISPLAY1`): what was kept under `old` goes under `new`,
 /// unless `new` has its own already.
 pub fn adopt_monitor_key(

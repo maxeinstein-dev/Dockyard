@@ -128,6 +128,7 @@ Decisão do autor (2026-11-03): **pasta + aviso**. Barras de terceiros entram po
   - `dark` (`true` ou `false`): se a barra é escura, para os ícones escuros de um pacote. Sem o campo, a barra conta como escura.
   - `ink` (`#rrggbb`): a tinta do relógio. Os separadores ficam nela, a 35%.
   - `indicator` (`#rrggbb`): a cor da marca embaixo de um app aberto.
+  - `vertical` (spec 0028, Q4): uma arte em pé para o dock na lateral, `{"image": "skin-vertical.png", "width", "height", "top", "bottom"}`. A imagem `skin-vertical.png` fica na mesma pasta e tem a largura da coluna. As pontas (`top` e `bottom`, em pixels) ficam em cima e embaixo, e o meio entre elas repete ou estica como o `middle` da imagem deitada. Ela é desenhada como está nos dois lados. Sem o campo, a imagem deitada gira junto com a barra, como nas skins embutidas.
   
   Uma cor ausente ou que não seja `#rrggbb` fica a do dock.
 - **Validação** (`domain::skin::read_folder`), só nas subpastas diretas:
@@ -136,6 +137,7 @@ Decisão do autor (2026-11-03): **pasta + aviso**. Barras de terceiros entram po
   - `image` é exatamente `skin.png`;
   - largura e altura vão de 1 a 4096 px, e as pontas (`left` + `right`) são mais estreitas que a imagem;
   - o `skin.png` existe dentro da pasta (um atalho que leve para fora não vale), tem até 2 MB, é um PNG, e o cabeçalho dele tem o tamanho que o `skin.json` diz.
+  - com `vertical`: `image` é exatamente `skin-vertical.png`, largura e altura vão de 1 a 4096 px, as pontas (`top` + `bottom`) são mais baixas que a imagem, e o `skin-vertical.png` passa pelas mesmas regras do `skin.png`.
   
   Uma pasta que falha em alguma regra não vira cartão: um aviso embaixo da galeria diz qual pasta e por quê. Uma pasta `Skins` que não existe é só vazia.
 - **Na galeria:** cada skin válida é um cartão depois dos estilos embutidos, em ordem de nome da pasta, com a miniatura e o `name` do `skin.json`. A pasta é lida quando Configurações (ou a Aparência no painel) abre. Escolher uma skin grava `style: "custom"` e `customSkin` com o nome da pasta. Uma skin escolhida que sumiu continua como cartão "Indisponível".

@@ -48,6 +48,8 @@ function IconPacksField({
   appIds,
   disabled,
   onSelect,
+  withActions = true,
+  reloads = 0,
 }: {
   selected: string | null;
   /** The dock's settings, for the style of the miniatures. */
@@ -56,6 +58,13 @@ function IconPacksField({
   appIds: readonly string[];
   disabled?: boolean;
   onSelect: (id: string | null) => void;
+  /** Shows the folder's buttons under the cards; off in the Configurações
+   * app, which puts them in Aparência › Avançado (`PacksFolderRow`, spec
+   * 0029 §4). */
+  withActions?: boolean;
+  /** Counts the reloads asked from outside (`PacksFolderRow`): each new
+   * count reads the packs again. */
+  reloads?: number;
 }) {
   const text = useT().settings.look;
   const [packs, setPacks] = useState<IconPackInfo[] | null>(null);
@@ -81,6 +90,9 @@ function IconPacksField({
   }, []);
 
   useEffect(() => load(listIconPacks), [load]);
+  useEffect(() => {
+    if (reloads > 0) return load(reloadIconPacks);
+  }, [load, reloads]);
 
   const usable = (packs ?? []).filter((pack) => pack.error === null);
   const broken = (packs ?? []).filter((pack) => pack.error !== null);
@@ -141,26 +153,45 @@ function IconPacksField({
           ))}
         </ul>
       ) : null}
-      <div className="pack-actions">
-        <button
-          type="button"
-          className="secondary-button"
-          onClick={() => {
-            void openIconPacksFolder().catch(() => {});
-          }}
-        >
-          {text.openPacksFolder}
-        </button>
-        <button
-          type="button"
-          className="secondary-button"
-          onClick={() => {
-            load(reloadIconPacks);
-          }}
-        >
-          {text.reloadPacks}
-        </button>
+      {withActions ? (
+        <PacksFolderActions onReload={() => load(reloadIconPacks)} />
+      ) : null}
+    </div>
+  );
+}
+
+/** The buttons of the packs folder: open it, read it again. */
+function PacksFolderActions({ onReload }: { onReload: () => void }) {
+  const text = useT().settings.look;
+  return (
+    <div className="pack-actions">
+      <button
+        type="button"
+        className="secondary-button"
+        onClick={() => {
+          void openIconPacksFolder().catch(() => {});
+        }}
+      >
+        {text.openPacksFolder}
+      </button>
+      <button type="button" className="secondary-button" onClick={onReload}>
+        {text.reloadPacks}
+      </button>
+    </div>
+  );
+}
+
+/** The packs folder as a row of Aparência › Avançado (spec 0029 §4): its
+ * name, what to do with it, and its buttons. */
+export function PacksFolderRow({ onReload }: { onReload: () => void }) {
+  const text = useT().settings.look;
+  return (
+    <div className="toggle-row folder-row">
+      <div className="toggle-text">
+        <span className="toggle-label">{text.packsFolder}</span>
+        <span className="toggle-hint">{text.packsFolderHint}</span>
       </div>
+      <PacksFolderActions onReload={onReload} />
     </div>
   );
 }

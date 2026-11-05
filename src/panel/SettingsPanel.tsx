@@ -21,16 +21,18 @@ import PanelFooter from "./PanelFooter";
 import NavRow from "./parts/NavRow";
 import RangeField from "./parts/RangeField";
 import ChoiceCards from "./parts/ChoiceCards";
-import SettingsGroup from "./parts/SettingsGroup";
+import SettingsGroup, { AdvancedGroup } from "./parts/SettingsGroup";
 import { ScreenThumb } from "./ChoiceThumbs";
 import ToggleField from "./parts/ToggleField";
 import HotkeyField from "./HotkeyField";
-import LauncherField from "./LauncherField";
+import LauncherField, { LauncherHistoryField } from "./LauncherField";
 import TrayInDockField from "./TrayInDockField";
 import WebKeywordsField from "./WebKeywordsField";
 import { useSettingsEditor } from "./useSettingsEditor";
 
 const THEMES: readonly Theme[] = ["system", "light", "dark"];
+/** The edges offered: the sides (spec 0028) come with step 8, once the
+ * column is whole. */
 const EDGES: readonly DockEdge[] = ["bottom", "top"];
 const SIZES: readonly SizePreset[] = ["small", "medium", "large"];
 const OPACITIES: readonly DockOpacity[] = ["translucent", "solid"];
@@ -109,10 +111,15 @@ type SettingsPanelProps = {
   /** Shows the launcher's switch and history (`LauncherField`): the
    * Configurações app's, which may ask about the launcher. */
   withLauncher?: boolean;
-  /** The rows in titled cards, in the order of the Configurações app (spec
-   * 0014 R1): Dock, Barra de tarefas, Comportamento, Lançador, Inicialização. */
+  /** The rows in titled cards, as the Configurações app shows them (spec
+   * 0014 R1), split among its sections (spec 0029 §2.1): `part` says which
+   * section's. */
   grouped?: boolean;
+  part?: SettingsPart;
 };
+
+/** The sections of the Configurações app made of these rows (spec 0029). */
+export type SettingsPart = "general" | "behavior" | "launcher";
 
 /**
  * The Settings panel: one option group per setting, applied and saved on
@@ -133,6 +140,7 @@ function SettingsPanel({
   withTrayInDock = false,
   withLauncher = false,
   grouped = false,
+  part = "general",
 }: SettingsPanelProps) {
   const t = useT();
   const { shown, change, error } = useSettingsEditor(settings);
@@ -295,7 +303,6 @@ function SettingsPanel({
         <>
           <RangeField
             label={t.settings.previewDelay}
-            hint={t.settings.previewDelayHint}
             value={shown.dock.previewDelay}
             min={0}
             max={MAX_PREVIEW_DELAY}
@@ -307,7 +314,6 @@ function SettingsPanel({
           />
           <ToggleField
             label={t.settings.previewsOnlySeveral}
-            hint={t.settings.previewsOnlySeveralHint}
             checked={shown.dock.previewsOnlySeveral}
             onChange={(previewsOnlySeveral) =>
               change((s) => ({
@@ -374,7 +380,6 @@ function SettingsPanel({
   const launchAtLoginField = (
     <ToggleField
       label={t.settings.launchAtLogin}
-      hint={t.settings.launchAtLoginHint}
       checked={shown?.launchAtLogin ?? false}
       disabled={shown === null}
       onChange={(launchAtLogin) => change((s) => ({ ...s, launchAtLogin }))}
@@ -423,6 +428,76 @@ function SettingsPanel({
     </>
   );
 
+  if (grouped && part === "behavior") {
+    return (
+      <>
+        <SettingsGroup title={groups.showHide} grouped>
+          {autoHideFields}
+        </SettingsGroup>
+        <SettingsGroup title={groups.previews} grouped>
+          {previewFields}
+        </SettingsGroup>
+        <SettingsGroup title={groups.appsInDock} grouped>
+          {showOpenAppsField}
+          {showBadgesField}
+        </SettingsGroup>
+        <SettingsGroup title={groups.energy} grouped>
+          {powerSaverField}
+        </SettingsGroup>
+        {/* Until the Monitores section (F13) takes them. */}
+        <SettingsGroup title={groups.monitors} grouped>
+          {dockToggle(
+            "everyMonitor",
+            t.settings.everyMonitor,
+            t.settings.everyMonitorHint,
+            true,
+          )}
+          {dockToggle(
+            "switchEveryMonitor",
+            t.settings.switchEveryMonitor,
+            t.settings.switchEveryMonitorHint,
+            false,
+          )}
+        </SettingsGroup>
+        <AdvancedGroup
+          id="behavior"
+          title={groups.advanced}
+          summary={t.settings.app.advancedSummary.behavior}
+        >
+          {middleClickField}
+          {dockHotkeyField}
+        </AdvancedGroup>
+        {ending}
+      </>
+    );
+  }
+
+  if (grouped && part === "launcher") {
+    return (
+      <>
+        <SettingsGroup title={groups.launcher} grouped>
+          <LauncherField
+            on={shown?.launcher ?? null}
+            hotkey={shown?.launcherHotkey ?? null}
+            onChange={(launcher) => change((s) => ({ ...s, launcher }))}
+            withHistory={false}
+          />
+        </SettingsGroup>
+        <SettingsGroup title={t.settings.launcher.keywords.label} grouped>
+          {webKeywordsField}
+        </SettingsGroup>
+        <AdvancedGroup
+          id="launcher"
+          title={groups.advanced}
+          summary={t.settings.app.advancedSummary.launcher}
+        >
+          <LauncherHistoryField />
+        </AdvancedGroup>
+        {ending}
+      </>
+    );
+  }
+
   if (grouped) {
     return (
       <>
@@ -456,26 +531,8 @@ function SettingsPanel({
           />
           {trayInDockField}
         </SettingsGroup>
-        <SettingsGroup title={groups.behavior} grouped>
-          {monitorFields}
-          {autoHideFields}
-          {previewFields}
-          {showOpenAppsField}
-          {showBadgesField}
-          {middleClickField}
-          {powerSaverField}
-          {dockHotkeyField}
-        </SettingsGroup>
-        {withLauncher ? (
-          <SettingsGroup title={groups.launcher} grouped>
-            {launcherField}
-            {webKeywordsField}
-          </SettingsGroup>
-        ) : null}
-        <SettingsGroup title={t.settings.groups.language} grouped>
-          {languageField}
-        </SettingsGroup>
         <SettingsGroup title={groups.startup} grouped>
+          {languageField}
           {launchAtLoginField}
         </SettingsGroup>
         {ending}

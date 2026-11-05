@@ -64,12 +64,12 @@ pub fn drop_over(hwnd: isize, at: Option<(i32, i32)>) -> Option<String> {
     found
 }
 
-/// Files dropped on the dock `hwnd` at the screen x `x` that get pinned:
-/// the key of the pinned program or widget they go before, `None` at the
-/// end.
-pub fn dropped_before(hwnd: isize, x: i32) -> Option<String> {
+/// Files dropped on the dock `hwnd` at the screen point (`x`, `y`) that get
+/// pinned: the key of the pinned program or widget they go before, `None`
+/// at the end.
+pub fn dropped_before(hwnd: isize, x: i32, y: i32) -> Option<String> {
     let mut found = None;
-    with_dock(HWND(hwnd as _), |dock| found = dock.dropped_before(x));
+    with_dock(HWND(hwnd as _), |dock| found = dock.dropped_before(x, y));
     found
 }
 

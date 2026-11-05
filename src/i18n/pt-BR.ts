@@ -116,21 +116,31 @@ const messages = {
       onBattery: "Na bateria",
       always: "Sempre",
     } satisfies Record<PowerSaver, string>,
-    powerSaverHint:
-      "Para o letreiro e o pulo ao abrir e lê o sistema com menos frequência",
+    powerSaverHint: "Menos animação e menos leituras do sistema",
     /** The Configurações app (spec 0011 H1): its sections, in the side
      * bar. */
     app: {
       nav: "Seções das configurações",
       sections: {
         general: "Geral",
-        workspaces: "Espaços de trabalho",
-        look: "Aparência do dock",
-        apps: "Apps do dock",
+        look: "Aparência",
+        behavior: "Comportamento",
+        workspaces: "Espaços",
+        apps: "Apps",
         items: "Widgets",
+        launcher: "Lançador",
         accounts: "Contas",
         about: "Sobre",
       },
+      /** The titles of the bands of the side bar (spec 0029 §2). */
+      bands: {
+        dock: "Dock",
+        content: "Conteúdo",
+        more: "Mais",
+      },
+      /** The name of the index of the groups, under the lead (spec 0029
+       * §3). */
+      contents: "Nesta seção",
       /** The top of the side bar (spec 0014 R1). */
       brand: "Configurações",
       /** The search at the top of the side bar (estudo 0002 F6). */
@@ -141,28 +151,42 @@ const messages = {
       },
       /** The line under each section's title. */
       leads: {
-        general: "Como o Dockyard se encaixa no Windows.",
-        workspaces: "Um dock para cada coisa que você faz.",
+        general: "Onde o dock fica e como ele convive com o Windows.",
         look: "Deixe o dock com a sua cara.",
+        behavior: "Quando o dock aparece e o que ele mostra.",
+        workspaces: "Um dock para cada coisa que você faz.",
         apps: "Os programas fixados no dock de cada espaço.",
         items: "Escolha no catálogo e arrume os do dock de cada espaço.",
+        launcher: "Abra apps e busque na web pelo teclado.",
         accounts: "As agendas e as tarefas que os widgets mostram.",
         about: "Versão, licença e onde ficam os seus dados.",
       },
-      /** The titles of the groups of Geral and Aparência. */
+      /** The titles of the groups of Geral, Aparência, Comportamento and
+       * Lançador. */
       groups: {
         dock: "Dock",
         taskbar: "Windows",
-        behavior: "Comportamento",
+        startup: "Idioma e inicialização",
+        showHide: "Mostrar e ocultar",
+        previews: "Prévias",
+        appsInDock: "Apps no dock",
+        energy: "Energia",
+        /** Comportamento's switches of the monitors, until the Monitores
+         * section (F13) takes them (spec 0029 §2.1). */
+        monitors: "Monitores",
+        advanced: "Avançado",
         launcher: "Lançador",
-        startup: "Inicialização",
         themes: "Temas",
         style: "Estilo da barra",
-        tweaks: "Personalizar este estilo",
         hover: "Ao passar o mouse",
         indicator: "Indicador",
         icons: "Ícones",
-        openAnimation: "Animação de abertura",
+      },
+      /** What each Avançado holds, under its title (spec 0029 §4). */
+      advancedSummary: {
+        behavior: "Botão do meio, atalho do dock",
+        look: "Personalizar o estilo, animação de abertura, pastas",
+        launcher: "Histórico do lançador",
       },
     },
     /** The switch that opens the Dockyard when the user signs in. */
@@ -171,14 +195,11 @@ const messages = {
     showBadges: "Mostrar selos de notificação",
     showBadgesHint: "O número de não lidas que o app põe na barra do Windows",
     autoHide: "Ocultar automaticamente",
-    autoHideHint:
-      "O dock desce quando o ponteiro sai e sobe ao encostar na borda da tela",
+    autoHideHint: "Desce quando o ponteiro sai e sobe ao encostar na borda",
     autoHideReveal: "Atraso para mostrar",
-    autoHideRevealHint:
-      "Quanto tempo o ponteiro fica na borda antes de o dock subir",
+    autoHideRevealHint: "Com o ponteiro na borda",
     autoHideDelay: "Atraso para ocultar",
-    autoHideDelayHint:
-      "Quanto tempo o ponteiro fica fora antes de o dock descer",
+    autoHideDelayHint: "Com o ponteiro fora do dock",
     everyMonitor: "Dock em todos os monitores",
     everyMonitorHint:
       "Cada monitor com o seu dock, no lugar da barra de tarefas",
@@ -190,16 +211,13 @@ const messages = {
     previews: "Prévia ao passar o mouse",
     previewsHint: "Pare o ponteiro sobre um app aberto para ver as janelas",
     previewDelay: "Atraso da prévia",
-    previewDelayHint: "Quanto tempo parado antes de a prévia aparecer",
     previewsOnlySeveral: "Só com 2 ou mais janelas",
-    previewsOnlySeveralHint: "Um app com uma janela só não mostra a prévia",
     launchAtLogin: "Iniciar com o Windows",
-    launchAtLoginHint: "Abre o Dockyard ao entrar no Windows",
     /** The dock's hotkey (M14), which takes the keyboard to the dock: as
      * the launcher's; `{hotkey}` is replaced. */
     dockHotkey: {
       label: "Atalho do dock",
-      hint: "Leva o teclado ao dock: as setas andam pelos itens, Enter abre, Shift+F10 abre o menu e Esc volta ao programa de antes",
+      hint: "Leva o teclado ao dock; Esc volta ao programa de antes",
       change: "Alterar o atalho do dock, hoje {hotkey}",
       press: "Pressione a combinação… (Esc cancela)",
       saving: "Salvando…",
@@ -223,7 +241,7 @@ const messages = {
      * replaced. */
     launcher: {
       label: "Lançador ({hotkey})",
-      hint: "Busca e abre apps de qualquer lugar; também em Buscar apps…, no menu do dock",
+      hint: "Busca e abre apps de qualquer lugar",
       taken: "{hotkey} está em uso por outro programa.",
       takenDetail: "Abra o lançador por Buscar apps…, no menu do dock.",
       history: "Histórico do lançador",
@@ -232,7 +250,6 @@ const messages = {
       cleared: "Histórico limpo",
       hotkey: {
         label: "Atalho do lançador",
-        hint: "Clique no botão e pressione a nova combinação",
         change: "Alterar o atalho, hoje {hotkey}",
         press: "Pressione a combinação… (Esc cancela)",
         saving: "Salvando…",
@@ -253,7 +270,7 @@ const messages = {
       },
       keywords: {
         label: "Busca na web",
-        hint: "No lançador, digite a palavra-chave, um espaço e o que buscar: g dockyard. A primeira da lista é a busca padrão, usada quando nada mais é encontrado.",
+        hint: "Digite a palavra-chave e o que buscar: g dockyard",
         list: "Palavras-chave da busca na web",
         add: "Adicionar palavra-chave",
         edit: "Editar",
@@ -297,6 +314,8 @@ const messages = {
     edge: {
       bottom: "Embaixo",
       top: "Em cima",
+      left: "Esquerda",
+      right: "Direita",
     } satisfies Record<DockEdge, string>,
     size: {
       small: "Pequeno",
@@ -405,7 +424,6 @@ const messages = {
       tweaks: "Personalizar este estilo",
       border: "Borda",
       corners: "Cantos",
-      cornersHint: "O quanto a barra é arredondada",
       reflections: "Reflexos",
       reflectionsHint: "Uma imagem espelhada embaixo de cada ícone",
       restore: "Restaurar",
@@ -432,8 +450,7 @@ const messages = {
        * line under it. `{covers}`, `{total}` and `{count}` are filled in by
        * the panel. */
       iconPack: "Ícones dos apps",
-      iconPackHint:
-        "Troque os ícones de todos os apps por um pacote da pasta de pacotes",
+      iconPackHint: "Troca os ícones de todos os apps de uma vez",
       iconPackOriginal: "Original",
       iconPackCovers: "Veste {covers} de {total} apps",
       iconPackCount: "{count} ícones",
@@ -441,6 +458,9 @@ const messages = {
       iconPackLoading: "Lendo os pacotes…",
       iconPackFailed: "Não foi possível ler os pacotes",
       openPacksFolder: "Abrir pasta de pacotes",
+      skinsFolder: "Pasta Skins",
+      packsFolder: "Pasta de pacotes",
+      packsFolderHint: "Ponha um pacote na pasta e recarregue",
       reloadPacks: "Recarregar pacotes",
       packProblem: "Pacote {id}: {reason}",
       packErrors: {
@@ -603,7 +623,7 @@ const messages = {
    * pair through `plural`. */
   /** Configurações › Apps do dock (spec 0006). */
   workspaces: {
-    /** Spec 0028: each monitor's workspace, held on it or not. */
+    /** Spec 0030: each monitor's workspace, held on it or not. */
     monitors: {
       title: "Monitores",
       loading: "Lendo os monitores…",
@@ -1166,7 +1186,7 @@ const messages = {
      * so this panel shows only if it is opened some other way. */
     launcher: {
       settingsTitle: "Ajustes do Lançador",
-      hint: "Clique no Lançador, no dock, para abrir ou fechar a busca de apps. O atalho do teclado fica em Configurações › Geral.",
+      hint: "Clique no Lançador, no dock, para abrir ou fechar a busca de apps. O atalho do teclado fica em Configurações › Lançador.",
     },
     /** The Layout do teclado (F9 of estudo 0002): a click on the dock
      * switches the layout, so this panel shows only if it is opened some

@@ -283,14 +283,14 @@ pub fn show(request: Request) {
     let start = if slides {
         slide_offset(request.edge, request.scale, 0.0)
     } else {
-        0.0
+        (0.0, 0.0)
     };
     unsafe {
         let _ = SetWindowPos(
             hwnd,
             Some(HWND_TOPMOST),
-            area.x as i32,
-            (area.y + start) as i32,
+            (area.x + start.0) as i32,
+            (area.y + start.1) as i32,
             area.width as i32,
             area.height as i32,
             SWP_NOACTIVATE | SWP_SHOWWINDOW,
@@ -371,14 +371,18 @@ pub fn show(request: Request) {
     }
 }
 
-/// How far from its place the card is drawn, `done` (0 to 1) of the way in:
-/// toward the dock (down over a dock at the bottom), easing out.
-fn slide_offset(edge: DockEdge, scale: f64, done: f64) -> f64 {
+/// How far from its place the card is drawn, `done` (0 to 1) of the way in,
+/// across and down: toward the dock (down over a dock at the bottom, left
+/// beside one on the left), easing out.
+fn slide_offset(edge: DockEdge, scale: f64, done: f64) -> (f64, f64) {
     let left = 1.0 - (1.0 - (1.0 - done.clamp(0.0, 1.0)).powi(3));
     let distance = SLIDE * scale * left;
     match edge {
-        DockEdge::Bottom => distance,
-        DockEdge::Top => -distance,
+        DockEdge::Bottom => (0.0, distance),
+        DockEdge::Top => (0.0, -distance),
+        // Beside a column it slides in across (spec 0028).
+        DockEdge::Left => (-distance, 0.0),
+        DockEdge::Right => (distance, 0.0),
     }
 }
 
@@ -402,8 +406,8 @@ fn slide(hwnd: HWND) {
         let _ = SetWindowPos(
             hwnd,
             None,
-            area.x as i32,
-            (area.y + offset).round() as i32,
+            (area.x + offset.0).round() as i32,
+            (area.y + offset.1).round() as i32,
             0,
             0,
             SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
@@ -1303,12 +1307,16 @@ mod tests {
 
     #[test]
     fn a_new_card_slides_in_from_the_docks_side() {
-        assert_eq!(slide_offset(DockEdge::Bottom, 1.5, 0.0), SLIDE * 1.5);
-        assert_eq!(slide_offset(DockEdge::Top, 1.0, 0.0), -SLIDE);
-        assert_eq!(slide_offset(DockEdge::Bottom, 1.0, 1.0), 0.0);
+        assert_eq!(slide_offset(DockEdge::Bottom, 1.5, 0.0), (0.0, SLIDE * 1.5));
+        assert_eq!(slide_offset(DockEdge::Top, 1.0, 0.0), (0.0, -SLIDE));
+        // Beside a column, across toward it (spec 0028).
+        assert_eq!(slide_offset(DockEdge::Left, 1.0, 0.0), (-SLIDE, 0.0));
+        assert_eq!(slide_offset(DockEdge::Right, 1.0, 0.0), (SLIDE, 0.0));
+        assert_eq!(slide_offset(DockEdge::Bottom, 1.0, 1.0), (0.0, 0.0));
+        assert_eq!(slide_offset(DockEdge::Right, 1.0, 1.0), (0.0, 0.0));
         // Easing out: most of the way is done in the first half.
-        assert!(slide_offset(DockEdge::Bottom, 1.0, 0.5) < SLIDE / 4.0);
-        assert_eq!(slide_offset(DockEdge::Bottom, 1.0, 3.0), 0.0);
+        assert!(slide_offset(DockEdge::Bottom, 1.0, 0.5).1 < SLIDE / 4.0);
+        assert_eq!(slide_offset(DockEdge::Bottom, 1.0, 3.0), (0.0, 0.0));
     }
 
     #[test]

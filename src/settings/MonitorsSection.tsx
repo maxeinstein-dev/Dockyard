@@ -13,7 +13,7 @@ import ToggleField from "../panel/parts/ToggleField";
 import "./MonitorsSection.css";
 
 /**
- * Configurações › Espaços › Monitores (spec 0028 E): each monitor with the
+ * Configurações › Espaços › Monitores (spec 0030 E): each monitor with the
  * workspace it shows and whether it is held on it. Read again whenever the
  * workspaces change (`snapshot`), a switch from the dock included.
  */

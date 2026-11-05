@@ -64,6 +64,31 @@
   animation-name: panel-pop-down;
 }
 
+/* Beside a column (spec 0028): from the side facing it. */
+.panel-frame[data-edge="left"] .panel {
+  transform-origin: 0 50%;
+  animation-name: panel-pop-right;
+}
+
+.panel-frame[data-edge="right"] .panel {
+  transform-origin: 100% 50%;
+  animation-name: panel-pop-left;
+}
+
+@keyframes panel-pop-right {
+  from {
+    opacity: 0;
+    transform: translateX(-6px) scale(0.98);
+  }
+}
+
+@keyframes panel-pop-left {
+  from {
+    opacity: 0;
+    transform: translateX(6px) scale(0.98);
+  }
+}
+
 @keyframes panel-pop {
   from {
     opacity: 0;

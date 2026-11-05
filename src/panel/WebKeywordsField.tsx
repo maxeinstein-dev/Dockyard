@@ -24,7 +24,7 @@ const EMPTY: WebKeyword = { keyword: "", name: "", template: "" };
 
 /**
  * The keywords of the launcher's web search (spec 0012 L2), in
- * Configurações › Geral: one row per keyword with Editar, Remover and, past
+ * Configurações › Lançador: one row per keyword with Editar, Remover and, past
  * the first, Tornar padrão; a small form adds or edits one. The form says
  * what is wrong field by field and saves only what Rust would keep.
  */

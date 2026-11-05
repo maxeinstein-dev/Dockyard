@@ -18,7 +18,8 @@ use std::thread;
 use ::windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, RECT, WPARAM};
 use ::windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use ::windows::Win32::UI::Shell::{
-    ABE_BOTTOM, ABE_TOP, ABM_NEW, ABM_QUERYPOS, ABM_REMOVE, ABM_SETPOS, APPBARDATA, SHAppBarMessage,
+    ABE_BOTTOM, ABE_LEFT, ABE_RIGHT, ABE_TOP, ABM_NEW, ABM_QUERYPOS, ABM_REMOVE, ABM_SETPOS,
+    APPBARDATA, SHAppBarMessage,
 };
 use ::windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetMessageW, MSG,
@@ -208,6 +209,8 @@ fn place(hwnd: HWND, request: Request, granted: Option<Rect>) -> Rect {
     let edge = match request.edge {
         Edge::Bottom => ABE_BOTTOM,
         Edge::Top => ABE_TOP,
+        Edge::Left => ABE_LEFT,
+        Edge::Right => ABE_RIGHT,
     };
     let monitor = wide(request.monitor);
     let thickness = i32::try_from(request.thickness).unwrap_or(i32::MAX);
@@ -224,6 +227,8 @@ fn place(hwnd: HWND, request: Request, granted: Option<Rect>) -> Rect {
     match request.edge {
         Edge::Bottom => data.rc.top = data.rc.bottom - thickness,
         Edge::Top => data.rc.bottom = data.rc.top + thickness,
+        Edge::Left => data.rc.right = data.rc.left + thickness,
+        Edge::Right => data.rc.left = data.rc.right - thickness,
     }
     if granted == Some(narrow(data.rc)) {
         return narrow(data.rc);

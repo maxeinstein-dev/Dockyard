@@ -48,7 +48,7 @@ beforeEach(() => {
   );
 });
 
-describe("MonitorsSection (spec 0028 E)", () => {
+describe("MonitorsSection (spec 0030 E)", () => {
   it("lists each monitor with its workspace and its hold", async () => {
     render(<MonitorsSection snapshot={SNAPSHOT} />);
     await flush();

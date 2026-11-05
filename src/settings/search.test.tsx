@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_LOOK, type Settings } from "../core/settings";
 import { en } from "../i18n/en";
 import { ptBR } from "../i18n/pt-BR";
+import { forgetAdvanced } from "../panel/parts/advanced";
 import SettingsApp from "./SettingsApp";
 import {
   ROW_LABELS,
@@ -54,6 +55,11 @@ const SETTINGS: Settings = {
     iconSize: 48,
     opacity: "translucent",
     ...DEFAULT_LOOK,
+    // Every switch that shows more rows on, so the guard sees them too
+    // (spec 0029 §8.2).
+    autoHide: true,
+    previews: true,
+    hover: "scale",
   },
 };
 
@@ -83,6 +89,7 @@ const searchBox = () =>
 
 beforeEach(() => {
   delete window.__DOCKYARD_SECTION__;
+  forgetAdvanced();
   close.mockClear();
   invoke.mockReset();
   invoke.mockImplementation((command: string) => {
@@ -94,6 +101,10 @@ beforeEach(() => {
       return Promise.resolve({ storage: { state: "ok" }, apps: [] });
     }
     if (command === "list_workspaces") return Promise.resolve(WORKSPACES);
+    // Contas with no client: its fields show.
+    if (command === "google_status") {
+      return Promise.resolve({ clientId: null, accounts: [] });
+    }
     return new Promise(() => {});
   });
   Element.prototype.scrollIntoView = vi.fn();
@@ -121,8 +132,8 @@ describe("the index of the search", () => {
     for (const entry of indexed) {
       expect(findRow(main!, entry.label), entry.label).not.toBeNull();
     }
-    // Rows that appear only with their switch on aren't on the screen
-    // here; the rest must be indexed.
+    // Every section shows something to find.
+    expect(indexed.length, section).toBeGreaterThan(0);
     for (const name of shown) {
       const covered = indexed.some((entry) => {
         const label = normalize(entry.label);
@@ -164,8 +175,8 @@ describe("searchSettings", () => {
   it("needs every word, in any field", () => {
     const labels = find("indicador cor").entries.map((entry) => entry.label);
     expect(labels).toEqual([
-      ptBR.settings.indicatorFollowsWorkspace,
       ptBR.settings.look.indicatorColor,
+      ptBR.settings.indicatorFollowsWorkspace,
     ]);
   });
 
@@ -190,7 +201,7 @@ describe("the search of Configurações", () => {
     });
     expect(
       within(results).getByRole("button", {
-        name: `${ptBR.settings.groups.powerSaver} ${text.sections.general} › ${text.groups.behavior}`,
+        name: `${ptBR.settings.groups.powerSaver} ${text.sections.behavior} › ${text.groups.energy}`,
       }),
     ).toBeTruthy();
     expect(
@@ -209,6 +220,27 @@ describe("the search of Configurações", () => {
     expect(screen.getByRole("status").textContent).toBe(
       "Nenhum ajuste com “xyzzy”.",
     );
+  });
+
+  it("opens Avançado for a row inside it (spec 0029 §8.1)", async () => {
+    await renderApp();
+    fireEvent.change(searchBox(), { target: { value: "botao do meio" } });
+    fireEvent.click(
+      within(nav()).getByRole("button", {
+        name: new RegExp(`^${ptBR.settings.groups.middleClick}`),
+      }),
+    );
+    await act(async () => {});
+
+    expect(
+      screen.getByRole("button", {
+        name: text.groups.advanced,
+        expanded: true,
+      }),
+    ).toBeInTheDocument();
+    const row = document.querySelector(".search-hit");
+    expect(row?.textContent).toContain(ptBR.settings.groups.middleClick);
+    expect(row?.contains(document.activeElement)).toBe(true);
   });
 
   it("goes to the option's section, marks the row and focuses it", async () => {

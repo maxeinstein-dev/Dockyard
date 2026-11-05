@@ -245,7 +245,7 @@ describe("the interface in English", () => {
       const sections = [
         ...document.querySelectorAll<HTMLButtonElement>(".settings-nav-item"),
       ];
-      expect(sections).toHaveLength(7);
+      expect(sections).toHaveLength(9);
       for (const button of sections) {
         fireEvent.click(button);
         await settle();

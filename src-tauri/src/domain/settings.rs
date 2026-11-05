@@ -594,6 +594,10 @@ pub enum DockEdge {
     #[default]
     Bottom,
     Top,
+    /// The sides (spec 0028): a column. Reached only by hand in the file
+    /// until step 8 offers them in Configurações.
+    Left,
+    Right,
 }
 
 /// Dock background: simulated glass or opaque. Panels are always opaque.
@@ -1184,7 +1188,17 @@ mod tests {
         assert_eq!(settings.dock.opacity, DockOpacity::Solid);
         assert_eq!(serde_json::to_string(&Theme::Light).unwrap(), "\"light\"");
         assert!(serde_json::from_str::<Theme>("\"Dark\"").is_err());
-        assert!(serde_json::from_str::<DockEdge>("\"left\"").is_err());
+        // The sides (spec 0028), lower case as the others.
+        assert_eq!(
+            serde_json::from_str::<DockEdge>("\"left\"").unwrap(),
+            DockEdge::Left
+        );
+        assert_eq!(
+            serde_json::to_string(&DockEdge::Right).unwrap(),
+            "\"right\""
+        );
+        assert!(serde_json::from_str::<DockEdge>("\"Left\"").is_err());
+        assert!(serde_json::from_str::<DockEdge>("\"diagonal\"").is_err());
     }
 
     #[test]

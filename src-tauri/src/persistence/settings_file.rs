@@ -263,7 +263,7 @@ mod tests {
             r#"{"version":1,"dock":{"iconSize":70000}}"#,
             r#"{"version":1,"dock":{"iconSize":"48"}}"#,
             r#"{"version":1,"theme":"blue"}"#,
-            r#"{"version":1,"dock":{"edge":"left"}}"#,
+            r#"{"version":1,"dock":{"edge":"diagonal"}}"#,
             r#"{"version":1,"dock":{"opacity":"clear"}}"#,
             r#"{"version":1,"dock":null}"#,
             "[]",

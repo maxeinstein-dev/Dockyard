@@ -1,4 +1,4 @@
-# Spec 0028: Itens e espaço por monitor
+# Spec 0030: Itens e espaço por monitor
 
 F13 do [estudo 0002](../estudos/0002-melhorias-e-funcionalidades.md), que vem da ideia 5 da [referência](../reference/primodock/comportamentos.md). Decisão do autor para a F13: **spec primeiro**. Este texto para nas decisões dele, em §3. Nenhum código entra antes das respostas.
 

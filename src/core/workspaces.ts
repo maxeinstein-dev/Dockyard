@@ -122,7 +122,7 @@ export const WORKSPACE_COMMANDS = {
   setMonitorFixed: "set_monitor_fixed",
 } as const;
 
-/** A monitor as Configurações › Espaços lists it (spec 0028 E):
+/** A monitor as Configurações › Espaços lists it (spec 0030 E):
  * `MonitorView` in `src-tauri/src/commands/workspaces.rs`. */
 export interface MonitorView {
   key: string;
@@ -148,7 +148,7 @@ function run<T>(command: string, args: Record<string, unknown>): Promise<T> {
   });
 }
 
-/** The monitors, the primary first (spec 0028). */
+/** The monitors, the primary first (spec 0030). */
 export function listMonitors(): Promise<MonitorView[]> {
   return run(WORKSPACE_COMMANDS.listMonitors, {});
 }

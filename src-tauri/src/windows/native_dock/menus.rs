@@ -40,7 +40,7 @@ pub(super) enum MenuChoice {
     /// menu opened on (spec 0025).
     PinDownloads,
     PinRecycleBin,
-    /// Hold this monitor on the workspace it shows, or let it go (spec 0028
+    /// Hold this monitor on the workspace it shows, or let it go (spec 0030
     /// C).
     HoldMonitor,
     ReleaseMonitor,
@@ -180,7 +180,7 @@ pub(super) fn dock_menu_items(
 }
 
 /// "Fixar este monitor neste espaço" or, held, "Soltar este monitor" (spec
-/// 0028 C), then a separator.
+/// 0030 C), then a separator.
 pub(super) fn hold_items(fixed: bool) -> Vec<MenuEntry> {
     let text = &crate::i18n::messages().tray;
     let entry = if fixed {
@@ -403,7 +403,13 @@ pub(super) fn show_dock_menu(
     let chosen = menu::show_hovering(
         owner,
         at,
-        edge == DockEdge::Bottom,
+        // Away from the dock's edge: beside a column (spec 0028).
+        match edge {
+            DockEdge::Bottom => crate::domain::menu::Opening::Up,
+            DockEdge::Top => crate::domain::menu::Opening::Down,
+            DockEdge::Left => crate::domain::menu::Opening::Right,
+            DockEdge::Right => crate::domain::menu::Opening::Left,
+        },
         lines,
         from_keys.is_some(),
         move |index| {

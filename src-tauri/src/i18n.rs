@@ -225,6 +225,10 @@ pub struct DockMessages {
     /// An item's name while it carries the attention badge; `{name}` is
     /// replaced.
     pub with_notice: &'static str,
+    /// An item with a badge, for assistive technology (F11 of estudo 0002).
+    pub with_badges: &'static str,
+    pub with_badge: &'static str,
+    pub with_dot: &'static str,
     /// A workspace dot, for assistive technology (spec 0013 C3), and the one
     /// shown; `{name}` is replaced.
     pub workspace: &'static str,
@@ -295,7 +299,7 @@ pub struct TrayMessages {
     /// The dock's menu: the Downloads and the Recycle Bin (spec 0025).
     pub add_downloads: &'static str,
     pub add_recycle_bin: &'static str,
-    /// The dock's menu: a monitor held on its workspace (spec 0028 C).
+    /// The dock's menu: a monitor held on its workspace (spec 0030 C).
     pub hold_monitor: &'static str,
     pub release_monitor: &'static str,
     pub remove_spacer: &'static str,
@@ -433,6 +437,9 @@ const PT_BR: Messages = Messages {
         calendar_untitled: "(sem título)",
         periods: ["Dia", "Semana", "Mês", "Ano", "Expediente"],
         with_notice: "{name} (com aviso)",
+        with_badges: "{name}, {count} notificações",
+        with_badge: "{name}, 1 notificação",
+        with_dot: "{name}, com novidade",
         workspace: "Espaço {name}",
         workspace_shown: "Espaço {name} (mostrado)",
         previews: "Janelas de {name}",
@@ -669,6 +676,9 @@ const EN: Messages = Messages {
         calendar_untitled: "(no title)",
         periods: ["Day", "Week", "Month", "Year", "Workday"],
         with_notice: "{name} (with notice)",
+        with_badges: "{name}, {count} notifications",
+        with_badge: "{name}, 1 notification",
+        with_dot: "{name}, with news",
         workspace: "Workspace {name}",
         workspace_shown: "Workspace {name} (shown)",
         previews: "{name} windows",

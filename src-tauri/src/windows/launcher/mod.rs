@@ -595,7 +595,7 @@ fn open_action_menu() {
     let chosen = super::menu::show_from(
         Some(plan.owner),
         Some(plan.at),
-        false,
+        crate::domain::menu::Opening::Down,
         plan.lines,
         plan.keyboard,
     );

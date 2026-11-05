@@ -263,7 +263,7 @@ impl Storage {
     }
 
     /// Whether the monitor `monitor` is held on the workspace it shows
-    /// (spec 0028 C).
+    /// (spec 0030 C).
     pub fn monitor_fixed(&mut self, monitor: &str) -> Result<bool, WorkspaceError> {
         workspaces_repo::fixed(self.connection()?, monitor)
     }
@@ -273,7 +273,7 @@ impl Storage {
         workspaces_repo::set_fixed(self.connection()?, monitor, fixed)
     }
 
-    /// A monitor now known by `new` (spec 0028 A) keeps what `old` had.
+    /// A monitor now known by `new` (spec 0030 A) keeps what `old` had.
     pub fn adopt_monitor_key(&mut self, old: &str, new: &str) -> Result<(), WorkspaceError> {
         workspaces_repo::adopt_monitor_key(self.connection()?, old, new)
     }

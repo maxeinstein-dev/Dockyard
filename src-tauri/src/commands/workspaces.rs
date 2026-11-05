@@ -188,7 +188,7 @@ pub fn delete_workspace(
 
 /// The monitors a switch on `monitor` reaches: every one with "Trocar em
 /// todos os monitores" (spec 0013 C3), `monitor` first; else `monitor`. A
-/// monitor held on its workspace (spec 0028 C) is never reached: none, when
+/// monitor held on its workspace (spec 0030 C) is never reached: none, when
 /// it is `monitor`.
 fn reached(app: &AppHandle, monitor: &str) -> Vec<String> {
     let state = app.state::<Mutex<Storage>>();
@@ -268,7 +268,7 @@ fn switch_these(app: &AppHandle, monitors: &[String], id: &str) {
     let _ = (switched, from);
 }
 
-/// A monitor as Configurações › Espaços lists it (spec 0028 E).
+/// A monitor as Configurações › Espaços lists it (spec 0030 E).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MonitorView {
@@ -362,7 +362,7 @@ pub fn hold_from_dock(app: &AppHandle, monitor: &str, fixed: bool) {
     let _ = set_monitor_fixed(app.clone(), state, monitor.to_owned(), fixed);
 }
 
-/// A monitor known by a new key (spec 0028 A) keeps the workspace and the
+/// A monitor known by a new key (spec 0030 A) keeps the workspace and the
 /// hold kept under its device's name; at start, once per monitor.
 pub fn adopt_monitor_keys(app: &AppHandle) {
     #[cfg(windows)]

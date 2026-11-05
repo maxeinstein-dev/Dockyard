@@ -16,12 +16,12 @@ const PRIMARY: u32 = 1;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Monitor {
     /// What names it across changes of the layout and across starts (spec
-    /// 0028 A): the path of the monitor's device, from its EDID, which a new
+    /// 0030 A): the path of the monitor's device, from its EDID, which a new
     /// `\\.\DISPLAYn` number does not change; the device's name when
     /// Windows gives no path.
     pub key: String,
     /// The device's name (`\\.\DISPLAY1`): what the workspaces were kept
-    /// by before spec 0028, adopted once.
+    /// by before spec 0030, adopted once.
     pub device: String,
     /// The name Windows shows for the monitor ("DELL U2419H"); the device's
     /// name when there is none.

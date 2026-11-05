@@ -169,12 +169,18 @@ fn make_window() -> windows::core::Result<HWND> {
 pub fn place(tile: Area, screen: Area, edge: DockEdge, scale: f64, height: f64) -> Area {
     let width = agenda::WIDTH * scale;
     let height = height * scale;
-    let x = (tile.x + tile.width / 2.0 - width / 2.0)
-        .clamp(screen.x, (screen.x + screen.width - width).max(screen.x));
-    let y = match edge {
-        DockEdge::Bottom => tile.y - GAP * scale - height,
-        DockEdge::Top => tile.y + tile.height + GAP * scale,
+    let centred_x = tile.x + tile.width / 2.0 - width / 2.0;
+    let centred_y = (tile.y + tile.height / 2.0 - height / 2.0)
+        .clamp(screen.y, (screen.y + screen.height - height).max(screen.y));
+    // Over a dock at the bottom, under one at the top, beside one on a side
+    // (spec 0028).
+    let (x, y) = match edge {
+        DockEdge::Bottom => (centred_x, tile.y - GAP * scale - height),
+        DockEdge::Top => (centred_x, tile.y + tile.height + GAP * scale),
+        DockEdge::Left => (tile.x + tile.width + GAP * scale, centred_y),
+        DockEdge::Right => (tile.x - GAP * scale - width, centred_y),
     };
+    let x = x.clamp(screen.x, (screen.x + screen.width - width).max(screen.x));
     Area {
         x: x.round(),
         y: y.round(),

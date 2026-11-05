@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  Fragment,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
+import { flushSync } from "react-dom";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useApps } from "../core/apps";
@@ -20,8 +27,10 @@ import WorkspacePicker from "../panel/WorkspacePicker";
 import WorkspacesPanel from "../panel/WorkspacesPanel";
 import Icon from "../panel/parts/Icon";
 import { NamedBySection } from "../panel/parts/focus";
+import { openAdvanced } from "../panel/parts/advanced";
 import { inWorkspace } from "../core/workspaces";
 import {
+  BANDS,
   SECTIONS,
   SECTION_EVENT,
   isSection,
@@ -33,6 +42,7 @@ import {
   firstControl,
   searchIndex,
   searchSettings,
+  sectionGroups,
   type SearchEntry,
 } from "./search";
 import "./SettingsApp.css";
@@ -42,10 +52,12 @@ import "./SettingsSections.css";
  * the static .t-* classes of tokens.css). */
 const PLATES: Readonly<Record<Section, string>> = {
   general: "t-settings",
-  workspaces: "t-clock",
   look: "t-music",
+  behavior: "t-activity",
+  workspaces: "t-clock",
   apps: "t-files",
   items: "t-notes",
+  launcher: "t-launcher",
   accounts: "t-calendar",
   about: "t-about",
 };
@@ -66,6 +78,71 @@ function Plate({
       <Icon name={section} />
     </span>
   );
+}
+
+/** The index of a section's groups, under its lead (spec 0029 §3): one
+ * button per group, which scrolls to it and focuses its title. Shown only
+ * with 3 groups or more, Avançado aside. */
+function SectionIndex({
+  label,
+  groups,
+  advanced,
+  onJump,
+}: {
+  label: string;
+  groups: readonly string[];
+  advanced: string;
+  onJump: (group: string) => void;
+}) {
+  if (groups.filter((group) => group !== advanced).length < 3) return null;
+  return (
+    <nav className="section-index" aria-label={label}>
+      {groups.map((group, at) => (
+        <Fragment key={group}>
+          {at > 0 ? (
+            <span className="section-index-dot" aria-hidden="true">
+              ·
+            </span>
+          ) : null}
+          <button
+            type="button"
+            className="section-index-item"
+            onClick={() => onJump(group)}
+          >
+            {group}
+          </button>
+        </Fragment>
+      ))}
+    </nav>
+  );
+}
+
+/** Where the arrows, Home and End take the focus among `count` sections
+ * of the side bar from `at` (spec 0029 §8.4); null for any other key. */
+function navStep(key: string, at: number, count: number): number | null {
+  const last = count - 1;
+  if (key === "ArrowDown") return at === last ? 0 : at + 1;
+  if (key === "ArrowUp") return at === 0 ? last : at - 1;
+  if (key === "Home") return 0;
+  if (key === "End") return last;
+  return null;
+}
+
+/** The keys of the side bar: the focus moves; Enter or Space opens. */
+function moveInNav(event: ReactKeyboardEvent<HTMLButtonElement>) {
+  const nav = event.currentTarget.closest("nav");
+  if (!nav) return;
+  const items = Array.from(
+    nav.querySelectorAll<HTMLButtonElement>("[data-nav-section]"),
+  );
+  const to = navStep(
+    event.key,
+    items.indexOf(event.currentTarget),
+    items.length,
+  );
+  if (to === null) return;
+  event.preventDefault();
+  items[to]?.focus();
 }
 
 function closeWindow() {
@@ -103,9 +180,14 @@ function SettingsApp() {
   const [jumps, setJumps] = useState(0);
   const searchField = useRef<HTMLInputElement>(null);
   const main = useRef<HTMLElement>(null);
+  /** Counts the sections opened by the keyboard: each one takes the focus
+   * to the title, for the screen reader to say where it is (spec 0029
+   * §8.5). */
+  const [arrivals, setArrivals] = useState(0);
+  const index = searchIndex(t);
   const found = searchSettings(
     query,
-    searchIndex(t),
+    index,
     text.sections,
     text.leads,
     SECTIONS,
@@ -144,6 +226,12 @@ function SettingsApp() {
     target.current = null;
     const row = main.current ? findRow(main.current, wanted.label) : null;
     if (row === null) return;
+    // A row of a closed Avançado: open it, then come back once it shows.
+    if (row.closest("[hidden]") !== null && openAdvanced(row)) {
+      target.current = wanted;
+      setJumps((count) => count + 1);
+      return;
+    }
     row.scrollIntoView({ block: "center" });
     row.classList.add("search-hit");
     const control = firstControl(row);
@@ -159,6 +247,36 @@ function SettingsApp() {
     );
     return () => window.clearTimeout(timer);
   }, [jumps, section]);
+
+  // A section opened by the keyboard: its title takes the focus.
+  useEffect(() => {
+    if (arrivals === 0) return;
+    document.getElementById("panel-title")?.focus();
+  }, [arrivals]);
+
+  /** Opens `each`; by the keyboard (a click with no pointer), the focus goes
+   * to its title. */
+  function open(each: Section, byKeyboard: boolean) {
+    setSection(each);
+    if (byKeyboard) setArrivals((count) => count + 1);
+  }
+
+  /** A group of the index: scrolled to, its title focused; Avançado opens,
+   * its button taking the focus. */
+  function jump(group: string) {
+    const card = main.current ? findRow(main.current, group) : null;
+    if (card === null) return;
+    flushSync(() => openAdvanced(card));
+    card.scrollIntoView({ block: "start" });
+    const toggle = card.querySelector<HTMLElement>(".settings-advanced-toggle");
+    const title = card.querySelector<HTMLElement>(".settings-group-title");
+    if (toggle) {
+      toggle.focus({ preventScroll: true });
+    } else if (title) {
+      title.tabIndex = -1;
+      title.focus({ preventScroll: true });
+    }
+  }
 
   function go(entry: SearchEntry) {
     target.current = entry;
@@ -217,7 +335,7 @@ function SettingsApp() {
                 type="button"
                 className="settings-nav-item"
                 aria-current={each === section ? "page" : undefined}
-                onClick={() => setSection(each)}
+                onClick={(event) => open(each, event.detail === 0)}
               >
                 <Plate section={each} />
                 {text.sections[each]}
@@ -246,17 +364,38 @@ function SettingsApp() {
             </p>
           </div>
         ) : (
-          SECTIONS.map((each) => (
-            <button
-              key={each}
-              type="button"
-              className="settings-nav-item"
-              aria-current={each === section ? "page" : undefined}
-              onClick={() => setSection(each)}
+          // The bands (spec 0029 §2), each a group named by its title. The
+          // sections are one stop of Tab, the one shown; the arrows move
+          // among them.
+          BANDS.map(({ band, sections }) => (
+            <div
+              key={band}
+              className="settings-band"
+              role="group"
+              aria-labelledby={`settings-band-${band}`}
             >
-              <Plate section={each} />
-              {text.sections[each]}
-            </button>
+              <span
+                id={`settings-band-${band}`}
+                className="settings-band-title"
+              >
+                {text.bands[band]}
+              </span>
+              {sections.map((each) => (
+                <button
+                  key={each}
+                  type="button"
+                  className="settings-nav-item"
+                  data-nav-section={each}
+                  tabIndex={each === section ? 0 : -1}
+                  aria-current={each === section ? "page" : undefined}
+                  onKeyDown={moveInNav}
+                  onClick={(event) => open(each, event.detail === 0)}
+                >
+                  <Plate section={each} />
+                  {text.sections[each]}
+                </button>
+              ))}
+            </div>
           ))
         )}
       </nav>
@@ -270,10 +409,18 @@ function SettingsApp() {
           <header className="section-header">
             <Plate section={section} large />
             <div className="section-header-text">
-              <h1 id="panel-title">{text.sections[section]}</h1>
+              <h1 id="panel-title" tabIndex={-1}>
+                {text.sections[section]}
+              </h1>
               <p className="section-lead">{text.leads[section]}</p>
             </div>
           </header>
+          <SectionIndex
+            label={text.contents}
+            groups={sectionGroups(index, section)}
+            advanced={text.groups.advanced}
+            onJump={jump}
+          />
           <NamedBySection.Provider value={true}>
             {section === "general" ? (
               <SettingsPanel
@@ -283,6 +430,14 @@ function SettingsApp() {
                 withTrayInDock
                 withLauncher
                 grouped
+              />
+            ) : null}
+            {section === "behavior" || section === "launcher" ? (
+              <SettingsPanel
+                settings={settings}
+                withLauncher
+                grouped
+                part={section}
               />
             ) : null}
             {section === "workspaces" ? (

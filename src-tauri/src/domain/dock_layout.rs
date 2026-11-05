@@ -36,6 +36,122 @@ impl Area {
     pub fn center_x(&self) -> f64 {
         self.x + self.width / 2.0
     }
+
+    pub fn center_y(&self) -> f64 {
+        self.y + self.height / 2.0
+    }
+
+    /// The same rectangle with x and y swapped: how a lying bar's area
+    /// becomes a standing one's (spec 0028 §5, step 1).
+    pub fn transposed(self) -> Area {
+        Area {
+            x: self.y,
+            y: self.x,
+            width: self.height,
+            height: self.width,
+        }
+    }
+
+    /// The same rectangle flipped along y in a window `height` tall.
+    fn flipped(self, height: f64) -> Area {
+        Area {
+            y: height - self.y - self.height,
+            ..self
+        }
+    }
+}
+
+/// The screen edge the dock sits on, in the layout's terms (spec 0028): the
+/// two of the settings today, and the two sides to come.
+///
+/// The sides are not laid out on their own. The bar is laid out lying, as
+/// on the bottom or the top, in the viewport turned on its side, and every
+/// area is then turned back (`Area::transposed`): each rule of the
+/// magnification, the spacers, the stacks and the strip holds on the four
+/// edges without being written twice. On the left the bar reads from the
+/// top down, as the bottom reads from the left; on the right it is the
+/// left's turned mirror, as on the PrimoDock (spec 0028 Q2): the clock on
+/// top and the workspace dots at the foot.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Side {
+    Bottom,
+    Top,
+    Left,
+    Right,
+}
+
+impl Side {
+    /// Whether the bar stands (a column) instead of lying (a row).
+    pub fn standing(self) -> bool {
+        matches!(self, Side::Left | Side::Right)
+    }
+
+    /// Where the point (`x`, `y`) is along the bar, growing in the bar's
+    /// order: x on a row, y down the left's column, and up the right's (read
+    /// from the bottom up, Q2). What a drag follows and what is dropped
+    /// between (spec 0028, step 5).
+    pub fn along(self, x: f64, y: f64) -> f64 {
+        match self {
+            Side::Bottom | Side::Top => x,
+            Side::Left => y,
+            Side::Right => -y,
+        }
+    }
+
+    /// `area` as the bar sees it, lying and in its order: as it is on a
+    /// row, turned on a side, and turned and mirrored on the right (its x
+    /// is then `along` of its far end). Its x and width are where it starts
+    /// and how long it is along the bar.
+    pub fn along_area(self, area: Area) -> Area {
+        match self {
+            Side::Bottom | Side::Top => area,
+            Side::Left => area.transposed(),
+            Side::Right => Area {
+                x: -(area.y + area.height),
+                y: area.x,
+                width: area.height,
+                height: area.width,
+            },
+        }
+    }
+
+    /// `area` moved `offset` along the bar, in its order.
+    pub fn shifted(self, area: Area, offset: f64) -> Area {
+        match self {
+            Side::Bottom | Side::Top => Area {
+                x: area.x + offset,
+                ..area
+            },
+            Side::Left => Area {
+                y: area.y + offset,
+                ..area
+            },
+            Side::Right => Area {
+                y: area.y - offset,
+                ..area
+            },
+        }
+    }
+
+    /// The lying edge a side is laid out as before it is turned: the screen
+    /// edge nearest the origin (the top, the left) is the top.
+    fn lying(self) -> DockEdge {
+        match self {
+            Side::Bottom | Side::Right => DockEdge::Bottom,
+            Side::Top | Side::Left => DockEdge::Top,
+        }
+    }
+}
+
+impl From<DockEdge> for Side {
+    fn from(edge: DockEdge) -> Side {
+        match edge {
+            DockEdge::Bottom => Side::Bottom,
+            DockEdge::Top => Side::Top,
+            DockEdge::Left => Side::Left,
+            DockEdge::Right => Side::Right,
+        }
+    }
 }
 
 /// The size presets the dock draws (DESIGN.md "Layout"): every icon size of
@@ -113,29 +229,53 @@ pub const SWITCHER_WIDTH: f64 = 12.0;
 pub const DOT_RADIUS: f64 = 3.0;
 pub const ACTIVE_DOT_RADIUS: f64 = 4.0;
 
-/// The centres of `count` workspace dots in the column `area`, top first:
-/// spread over its height, at most 12 px apart.
+/// The centres of `count` workspace dots in `area`, the first first: a
+/// column spread over its height, at most 12 px apart; in an area wider
+/// than tall (the strip of a dock on a side, spec 0028), a row spread over
+/// its width.
 pub fn switcher_dots(area: Area, count: usize) -> Vec<(f64, f64)> {
     if count == 0 {
         return Vec::new();
     }
-    let pitch = (area.height / count as f64).min(12.0);
-    let first = area.y + area.height / 2.0 - pitch * (count as f64 - 1.0) / 2.0;
+    let row = area.width > area.height;
+    let length = if row { area.width } else { area.height };
+    let pitch = (length / count as f64).min(12.0);
+    let start = if row {
+        area.center_x()
+    } else {
+        area.center_y()
+    };
+    let first = start - pitch * (count as f64 - 1.0) / 2.0;
     (0..count)
-        .map(|index| (area.center_x(), first + pitch * index as f64))
+        .map(|index| {
+            let along = first + pitch * index as f64;
+            if row {
+                (along, area.center_y())
+            } else {
+                (area.center_x(), along)
+            }
+        })
         .collect()
 }
 
-/// The dot of the column `area` under the point, by its row: the one whose
-/// centre is nearest across, within the column.
+/// The dot of `area` under the point: the one whose centre is nearest along
+/// the dots, within the area.
 pub fn switcher_hit(area: Area, count: usize, x: f64, y: f64) -> Option<usize> {
     if !area.contains(x, y) {
         return None;
     }
+    let row = area.width > area.height;
+    let off = |centre: &(f64, f64)| {
+        if row {
+            (centre.0 - x).abs()
+        } else {
+            (centre.1 - y).abs()
+        }
+    };
     switcher_dots(area, count)
         .iter()
         .enumerate()
-        .min_by(|(_, a), (_, b)| (a.1 - y).abs().total_cmp(&(b.1 - y).abs()))
+        .min_by(|(_, a), (_, b)| off(a).total_cmp(&off(b)))
         .map(|(index, _)| index)
 }
 
@@ -153,9 +293,21 @@ pub fn tray_width(icon: f64, count: usize) -> f64 {
 }
 
 /// The cells of a tray strip in `area` (as tall as an item): column by
-/// column, the top one first.
-pub fn tray_cells(area: Area, count: usize, icon: f64) -> Vec<Area> {
+/// column, the top one first. `standing` (a dock on a side, spec 0028):
+/// two columns, row by row, the left one first.
+pub fn tray_cells(area: Area, count: usize, icon: f64, standing: bool) -> Vec<Area> {
     let cell = tray_cell(icon);
+    if standing {
+        let left = area.x + (area.width - 2.0 * cell) / 2.0;
+        return (0..count)
+            .map(|index| Area {
+                x: left + (index % 2) as f64 * cell,
+                y: area.y + (index / 2) as f64 * cell,
+                width: cell,
+                height: cell,
+            })
+            .collect();
+    }
     let top = area.y + (area.height - 2.0 * cell) / 2.0;
     (0..count)
         .map(|index| Area {
@@ -422,7 +574,36 @@ fn ceil(value: f64) -> f64 {
 /// items', its strip cells' and its workspace dots'. A pill sits over what
 /// it names and moves in to stay inside the window (`tip_center`), so the
 /// window never grows past the widest of them.
-pub fn window_size(shape: &Shape, motion: bool, label_widths: &[f64]) -> (f64, f64) {
+pub fn window_size(
+    shape: &Shape,
+    side: impl Into<Side>,
+    motion: bool,
+    label_widths: &[f64],
+) -> (f64, f64) {
+    let lying = lying_window(shape, motion, label_widths);
+    if !side.into().standing() {
+        return (lying.along, lying.across);
+    }
+    // On a side (spec 0028) a label stands beside its tile, so its width
+    // counts across the column and its height along it.
+    let across = lying.reach + TIP_GAP + lying.label + ROOM;
+    let along = lying.bar.max(TIP_HEIGHT) + 2.0 * ROOM;
+    (ceil(across), ceil(along))
+}
+
+/// What the window of a lying bar is made of: its size along and across,
+/// the bar's widest, the widest label, and how far a tile reaches from the
+/// screen edge.
+struct LyingWindow {
+    along: f64,
+    across: f64,
+    bar: f64,
+    label: f64,
+    reach: f64,
+}
+
+/// The window of a lying bar: along it, then across.
+fn lying_window(shape: &Shape, motion: bool, label_widths: &[f64]) -> LyingWindow {
     let SizeGeometry { icon, pad, .. } = shape.size.geometry();
     let peak = shape.hover.peak();
     let grows = motion && peak.scale != 1.0;
@@ -439,7 +620,13 @@ pub fn window_size(shape: &Shape, motion: bool, label_widths: &[f64]) -> (f64, f
         .map(|state| row(shape, &|index| shape.hover.of_item(index, state)).width)
         .fold(0.0, f64::max);
     let label = label_widths.iter().copied().fold(0.0, f64::max);
-    (ceil(bar.max(label) + 2.0 * ROOM), ceil(height))
+    LyingWindow {
+        along: ceil(bar.max(label) + 2.0 * ROOM),
+        across: ceil(height),
+        bar,
+        label,
+        reach: pad + icon * scale + lift,
+    }
 }
 
 /// Where everything sits in a window of `viewport`.
@@ -461,11 +648,37 @@ pub struct Placement {
     pub tray: Option<Area>,
     /// The clock's box, when it ends the bar.
     pub status: Option<Area>,
+    /// The edge it was laid out for: on a side, `separators` are the lines'
+    /// y, and `column_at` reads the bar along y.
+    pub side: Side,
 }
 
 /// Where the bar, the items and the tiles are when each item has grown as
-/// `growth` says.
+/// `growth` says, on any of the four edges (spec 0028): on the bottom and
+/// the top laid out lying; on a side, laid out lying in the viewport turned
+/// on its side and turned back, the right read from the bottom up.
 pub fn place_with(
+    shape: &Shape,
+    side: impl Into<Side>,
+    viewport: (f64, f64),
+    growth: &dyn Fn(usize) -> Magnification,
+) -> Placement {
+    let side = side.into();
+    if !side.standing() {
+        return lying(shape, side.lying(), viewport, growth);
+    }
+    let turned = Placement {
+        side,
+        ..lying(shape, side.lying(), (viewport.1, viewport.0), growth).transposed()
+    };
+    match side {
+        Side::Right => turned.flipped(viewport.1),
+        _ => turned,
+    }
+}
+
+/// The bar laid out lying, on the bottom or the top of `viewport`.
+fn lying(
     shape: &Shape,
     edge: DockEdge,
     viewport: (f64, f64),
@@ -476,9 +689,11 @@ pub fn place_with(
     let height = icon + 2.0 * pad;
     let bar = Area {
         x: (viewport.0 - row.width) / 2.0,
-        y: match edge {
-            DockEdge::Bottom => viewport.1 - height,
-            DockEdge::Top => 0.0,
+        // Only the lying edges reach here (`Side::lying`).
+        y: if edge == DockEdge::Bottom {
+            viewport.1 - height
+        } else {
+            0.0
         },
         width: row.width,
         height,
@@ -504,9 +719,10 @@ pub fn place_with(
                 let tall = icon * item.magnification.scale;
                 Area {
                     x: bar.x + item.x,
-                    y: match edge {
-                        DockEdge::Bottom => top + icon - item.magnification.lift - tall,
-                        DockEdge::Top => top + item.magnification.lift,
+                    y: if edge == DockEdge::Bottom {
+                        top + icon - item.magnification.lift - tall
+                    } else {
+                        top + item.magnification.lift
                     },
                     width: item.width,
                     height: tall,
@@ -537,31 +753,69 @@ pub fn place_with(
             width: STATUS_WIDTH,
             height: icon,
         }),
+        side: edge.into(),
+    }
+}
+
+impl Placement {
+    /// Every area with x and y swapped; the separators are positions along
+    /// the bar, so they stay as they are.
+    fn transposed(self) -> Placement {
+        Placement {
+            bar: self.bar.transposed(),
+            items: self.items.into_iter().map(Area::transposed).collect(),
+            tiles: self.tiles.into_iter().map(Area::transposed).collect(),
+            scales: self.scales,
+            separators: self.separators,
+            switcher: self.switcher.map(Area::transposed),
+            tray: self.tray.map(Area::transposed),
+            status: self.status.map(Area::transposed),
+            side: self.side,
+        }
+    }
+
+    /// Everything flipped along y in a window `height` tall: the order of
+    /// the bar read from the bottom up.
+    fn flipped(self, height: f64) -> Placement {
+        let flip = |area: Area| area.flipped(height);
+        Placement {
+            bar: flip(self.bar),
+            items: self.items.into_iter().map(flip).collect(),
+            tiles: self.tiles.into_iter().map(flip).collect(),
+            scales: self.scales,
+            separators: self.separators.iter().map(|y| height - y).collect(),
+            switcher: self.switcher.map(flip),
+            tray: self.tray.map(flip),
+            status: self.status.map(flip),
+            side: self.side,
+        }
     }
 }
 
 /// Where everything ends up once the magnification of `magnified` settles.
 pub fn place(
     shape: &Shape,
-    edge: DockEdge,
+    side: impl Into<Side>,
     viewport: (f64, f64),
     magnified: Option<usize>,
 ) -> Placement {
-    place_with(shape, edge, viewport, &|index| {
+    place_with(shape, side, viewport, &|index| {
         shape.hover.of_item(index, magnified)
     })
 }
 
 /// Where the label pill of `tile` is anchored: the middle of its edge nearest
 /// the tile, `TIP_GAP` beyond the tile on the far side.
-pub fn tip_anchor(tile: Area, edge: DockEdge) -> (f64, f64) {
-    (
-        tile.center_x(),
-        match edge {
-            DockEdge::Bottom => tile.y - TIP_GAP,
-            DockEdge::Top => tile.y + tile.height + TIP_GAP,
-        },
-    )
+///
+/// On a side (spec 0028), the middle of the tile's edge away from the screen
+/// edge, `TIP_GAP` beyond it.
+pub fn tip_anchor(tile: Area, side: impl Into<Side>) -> (f64, f64) {
+    match side.into() {
+        Side::Bottom => (tile.center_x(), tile.y - TIP_GAP),
+        Side::Top => (tile.center_x(), tile.y + tile.height + TIP_GAP),
+        Side::Left => (tile.x + tile.width + TIP_GAP, tile.center_y()),
+        Side::Right => (tile.x - TIP_GAP, tile.center_y()),
+    }
 }
 
 /// Where across a label pill `width` wide is centred, in a window `window`
@@ -592,10 +846,16 @@ pub fn column_at(shape: &Shape, placement: &Placement, x: f64, y: f64) -> Option
     if !placement.bar.contains(x, y) && !on_tile {
         return None;
     }
-    placement
-        .items
-        .iter()
-        .position(|item| x >= item.x - gap / 2.0 && x < item.x + item.width + gap / 2.0)
+    // On a side (spec 0028) the column is a row of the bar, along y.
+    let standing = placement.side.standing();
+    placement.items.iter().position(|item| {
+        let (at, start, length) = if standing {
+            (y, item.y, item.height)
+        } else {
+            (x, item.x, item.width)
+        };
+        at >= start - gap / 2.0 && at < start + length + gap / 2.0
+    })
 }
 
 /// The item under the point: what the pointer hovers, magnifies, labels
@@ -689,6 +949,20 @@ pub fn drag_offset(x: f64, start: f64, rest_left: f64, width: f64, min: f64, max
 /// column right of the cover, centered in it (the title and the artist are
 /// on the upper one); the dock draws them and takes their clicks.
 pub fn media_buttons(tile: Area) -> [Area; 3] {
+    // Standing (on a side, spec 0028 §2): a column in the last square.
+    if let Some(&last) = standing_squares(tile).last() {
+        let u = last.width;
+        let side = u * 0.26;
+        let step = u * 0.32;
+        let x = last.center_x() - side / 2.0;
+        let top = last.center_y() - step - side / 2.0;
+        return std::array::from_fn(|index| Area {
+            x,
+            y: top + index as f64 * step,
+            width: side,
+            height: side,
+        });
+    }
     let u = tile.height;
     let side = u * 0.3;
     let step = side * 1.7;
@@ -702,6 +976,27 @@ pub fn media_buttons(tile: Area) -> [Area; 3] {
         width: side,
         height: side,
     })
+}
+
+/// The squares of a standing tile, top first: a widget N icons wide stands
+/// N icons tall on a side (spec 0028 §2), and its face is drawn an icon at
+/// a time. Each is as wide as the tile, centered in its share of the
+/// height. Empty for a tile that does not stand (no taller than wide).
+pub fn standing_squares(tile: Area) -> Vec<Area> {
+    if tile.height <= tile.width * 1.05 || tile.width <= 0.0 {
+        return Vec::new();
+    }
+    let count = (tile.height / tile.width).round().max(1.0) as usize;
+    let step = tile.height / count as f64;
+    let side = tile.width.min(step);
+    (0..count)
+        .map(|index| Area {
+            x: tile.x + (tile.width - side) / 2.0,
+            y: tile.y + step * index as f64 + (step - side) / 2.0,
+            width: side,
+            height: side,
+        })
+        .collect()
 }
 
 /// Seconds a long text stands at its start, and at its end, before it moves.
@@ -951,7 +1246,10 @@ mod tests {
             (DockSize::Medium, (160.0, 123.0)),
             (DockSize::Large, (207.0, 147.0)),
         ] {
-            assert_eq!(window_size(&shape(size), true, &LABELS), expected);
+            assert_eq!(
+                window_size(&shape(size), DockEdge::Bottom, true, &LABELS),
+                expected
+            );
         }
     }
 
@@ -962,22 +1260,35 @@ mod tests {
             (DockSize::Medium, (133.0, 97.0)),
             (DockSize::Large, (171.0, 115.0)),
         ] {
-            assert_eq!(window_size(&shape(size), false, &LABELS), expected);
+            assert_eq!(
+                window_size(&shape(size), DockEdge::Bottom, false, &LABELS),
+                expected
+            );
         }
     }
 
     #[test]
     fn window_fits_the_widest_bar_when_the_labels_are_narrow() {
         assert_eq!(
-            window_size(&shape(DockSize::Medium), true, &[0.0, 0.0]),
+            window_size(
+                &shape(DockSize::Medium),
+                DockEdge::Bottom,
+                true,
+                &[0.0, 0.0]
+            ),
             (160.0, 123.0)
         );
     }
 
     #[test]
     fn window_grows_with_a_label_wider_than_the_bar() {
-        let narrow = window_size(&shape(DockSize::Medium), true, &LABELS);
-        let wide = window_size(&shape(DockSize::Medium), true, &[200.0, 60.0]);
+        let narrow = window_size(&shape(DockSize::Medium), DockEdge::Bottom, true, &LABELS);
+        let wide = window_size(
+            &shape(DockSize::Medium),
+            DockEdge::Bottom,
+            true,
+            &[200.0, 60.0],
+        );
 
         // As wide as the label and ROOM on each side, not more: the pill
         // moves in to stay inside.
@@ -1106,7 +1417,7 @@ mod tests {
         assert_eq!(tray_cell(48.0), 24.0);
         assert!((tray.width - 72.0).abs() < 1e-9);
         assert!((status.x - (tray.x + tray.width + 7.0)).abs() < 1e-9);
-        let cells = tray_cells(tray, 5, 48.0);
+        let cells = tray_cells(tray, 5, 48.0, false);
         assert_eq!(cells.len(), 5);
         assert!((cells[1].x - cells[0].x).abs() < 1e-9);
         assert!((cells[1].y - cells[0].y - 24.0).abs() < 1e-9);
@@ -1143,7 +1454,7 @@ mod tests {
             for edge in [DockEdge::Bottom, DockEdge::Top] {
                 for motion in [true, false] {
                     let shape = shape(size);
-                    let window = window_size(&shape, motion, &LABELS);
+                    let window = window_size(&shape, DockEdge::Bottom, motion, &LABELS);
                     let states: &[Option<usize>] = if motion {
                         &[None, Some(0), Some(1)]
                     } else {
@@ -1166,9 +1477,10 @@ mod tests {
                             let (x, y) = tip_anchor(*tile, edge);
                             let width = LABELS[index];
                             let x = tip_center(x, width, window.0);
-                            let pill_y = match edge {
-                                DockEdge::Bottom => y - TIP_HEIGHT - ROOM,
-                                DockEdge::Top => y,
+                            let pill_y = if edge == DockEdge::Bottom {
+                                y - TIP_HEIGHT - ROOM
+                            } else {
+                                y
                             };
                             assert!(
                                 within(area(
@@ -1191,9 +1503,10 @@ mod tests {
     fn pill_fits(named: Area, width: f64, edge: DockEdge, window: (f64, f64)) -> bool {
         let (x, y) = tip_anchor(named, edge);
         let x = tip_center(x, width, window.0);
-        let top = match edge {
-            DockEdge::Bottom => y - TIP_HEIGHT,
-            DockEdge::Top => y,
+        let top = if edge == DockEdge::Bottom {
+            y - TIP_HEIGHT
+        } else {
+            y
         };
         x - width / 2.0 >= ROOM - 1e-9
             && x + width / 2.0 <= window.0 - ROOM + 1e-9
@@ -1216,10 +1529,10 @@ mod tests {
         let labels = [60.0, 90.0, forticlient, 50.0, 70.0, 80.0];
         for edge in [DockEdge::Bottom, DockEdge::Top] {
             for motion in [true, false] {
-                let window = window_size(&shape, motion, &labels);
+                let window = window_size(&shape, DockEdge::Bottom, motion, &labels);
                 let placement = place(&shape, edge, window, None);
                 let icon = shape.size.geometry().icon;
-                let cells = tray_cells(placement.tray.unwrap(), shape.tray, icon);
+                let cells = tray_cells(placement.tray.unwrap(), shape.tray, icon, false);
                 for (index, cell) in cells.iter().enumerate() {
                     assert!(
                         pill_fits(*cell, labels[1 + index], edge, window),
@@ -1247,7 +1560,7 @@ mod tests {
         let labels: Vec<f64> = items.iter().chain(&strip).chain(&dots).copied().collect();
         for edge in [DockEdge::Bottom, DockEdge::Top] {
             for motion in [true, false] {
-                let window = window_size(&shape, motion, &labels);
+                let window = window_size(&shape, DockEdge::Bottom, motion, &labels);
                 let states: &[Option<usize>] = if motion {
                     &[None, Some(0), Some(1)]
                 } else {
@@ -1265,7 +1578,7 @@ mod tests {
                         );
                     }
                     let icon = shape.size.geometry().icon;
-                    let cells = tray_cells(placement.tray.unwrap(), shape.tray, icon);
+                    let cells = tray_cells(placement.tray.unwrap(), shape.tray, icon, false);
                     for (index, cell) in cells.iter().enumerate() {
                         assert!(pill_fits(*cell, strip[index], edge, window));
                     }
@@ -1405,5 +1718,307 @@ mod tests {
         assert_eq!(marquee(9.0 + 1.0, 44.0), (0.0, 2.0));
         // A text that fits never moves.
         assert_eq!(marquee(4.0, 0.0), (0.0, f64::INFINITY));
+    }
+
+    /// Configurações and Sobre plus a two-icon widget, a spacer, the
+    /// workspace dots, the tray and the clock: every kind of thing on the bar.
+    fn full_shape() -> Shape {
+        Shape {
+            groups: vec![2, 2],
+            status: true,
+            tray: 3,
+            switcher: 2,
+            spans: vec![1, 1, 2, 1],
+            spacers: vec![None, None, None, Some(SpacerSize::Small)],
+            ..shape(DockSize::Medium)
+        }
+    }
+
+    const SIDES: [Side; 4] = [Side::Bottom, Side::Top, Side::Left, Side::Right];
+
+    #[test]
+    fn the_bottom_and_the_top_are_laid_out_as_before() {
+        let shape = full_shape();
+        for edge in [DockEdge::Bottom, DockEdge::Top] {
+            let placed = place(&shape, edge, (900.0, 120.0), Some(1));
+            let lying = lying(&shape, edge, (900.0, 120.0), &|index| {
+                shape.hover.of_item(index, Some(1))
+            });
+            assert_eq!(placed, lying, "{edge:?}");
+            assert_eq!(placed.side, Side::from(edge));
+        }
+    }
+
+    #[test]
+    fn a_side_is_the_bottom_or_the_top_turned_on_its_side() {
+        let shape = full_shape();
+        let (wide, tall) = window_size(&shape, DockEdge::Bottom, true, &LABELS);
+        let viewport = (tall, wide);
+        let left = place(&shape, Side::Left, viewport, Some(1));
+        let top = place(&shape, DockEdge::Top, (wide, tall), Some(1));
+        close(left.bar, top.bar.transposed());
+        for (standing, lying) in left.tiles.iter().zip(&top.tiles) {
+            close(*standing, lying.transposed());
+        }
+        assert_eq!(left.separators, top.separators);
+    }
+
+    #[test]
+    fn a_column_holds_its_widest_label_beside_the_tiles() {
+        let shape = full_shape();
+        for motion in [false, true] {
+            let (across, along) = window_size(&shape, Side::Left, motion, &LABELS);
+            assert_eq!(
+                window_size(&shape, Side::Right, motion, &LABELS),
+                (across, along)
+            );
+            // Without motion nothing grows under the pointer.
+            let states: &[Option<usize>] = if motion { &[None, Some(1)] } else { &[None] };
+            for &magnified in states {
+                let placed = place(&shape, Side::Left, (across, along), magnified);
+                for tile in &placed.tiles {
+                    let (x, y) = tip_anchor(*tile, Side::Left);
+                    // The widest pill, beside the tile, inside the window.
+                    assert!(x + LABELS[0] <= across - ROOM + 1e-9, "{motion} {tile:?}");
+                    assert!(y >= 0.0 && y <= along);
+                }
+                // Along, the bar fits with `ROOM` at each end.
+                assert!(placed.bar.y >= ROOM - 1e-9);
+                assert!(placed.bar.y + placed.bar.height <= along - ROOM + 1e-9);
+            }
+        }
+    }
+
+    #[test]
+    fn the_bar_touches_its_screen_edge_and_is_centred_along_it() {
+        let shape = full_shape();
+        for side in SIDES {
+            let viewport = match side {
+                Side::Bottom | Side::Top => (900.0, 120.0),
+                Side::Left | Side::Right => (120.0, 900.0),
+            };
+            let placed = place(&shape, side, viewport, None);
+            let bar = placed.bar;
+            let touches = match side {
+                Side::Bottom => (bar.y + bar.height - viewport.1).abs() < 1e-6,
+                Side::Top => bar.y.abs() < 1e-6,
+                Side::Left => bar.x.abs() < 1e-6,
+                Side::Right => (bar.x + bar.width - viewport.0).abs() < 1e-6,
+            };
+            assert!(touches, "{side:?} {bar:?}");
+            let centred = if side.standing() {
+                (bar.center_y() - viewport.1 / 2.0).abs() < 1e-6
+            } else {
+                (bar.center_x() - viewport.0 / 2.0).abs() < 1e-6
+            };
+            assert!(centred, "{side:?} {bar:?}");
+            for item in &placed.items {
+                assert!(
+                    bar.contains(item.center_x(), item.center_y()),
+                    "{side:?} {item:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_left_reads_down_and_the_right_reads_up() {
+        let shape = full_shape();
+        let viewport = (120.0, 900.0);
+        let left = place(&shape, Side::Left, viewport, None);
+        let right = place(&shape, Side::Right, viewport, None);
+        let ys = |placed: &Placement| placed.items.iter().map(|item| item.y).collect::<Vec<_>>();
+        assert!(ys(&left).windows(2).all(|pair| pair[0] < pair[1]));
+        assert!(ys(&right).windows(2).all(|pair| pair[0] > pair[1]));
+        // The workspace dots start the bar, the clock ends it: on the left
+        // the dots are on top; on the right, the clock is.
+        let (dots, clock) = (left.switcher.unwrap(), left.status.unwrap());
+        assert!(dots.y < clock.y);
+        let (dots, clock) = (right.switcher.unwrap(), right.status.unwrap());
+        assert!(dots.y > clock.y);
+        // Each separator's line lies between the items it parts.
+        for placed in [&left, &right] {
+            for line in &placed.separators {
+                assert!(*line > placed.bar.y && *line < placed.bar.y + placed.bar.height);
+            }
+        }
+    }
+
+    #[test]
+    fn a_wide_widget_stands_tall_on_a_side() {
+        let shape = full_shape();
+        let left = place(&shape, Side::Left, (120.0, 900.0), None);
+        let square = left.items[0];
+        let wide = left.items[2];
+        assert!((wide.width - square.width).abs() < 1e-6);
+        assert!(wide.height > 1.9 * square.height);
+    }
+
+    #[test]
+    fn a_grown_tile_moves_away_from_its_screen_edge() {
+        let shape = full_shape();
+        for side in SIDES {
+            let viewport = if side.standing() {
+                (120.0, 900.0)
+            } else {
+                (900.0, 120.0)
+            };
+            let rest = place(&shape, side, viewport, None).tiles[1];
+            let grown = place(&shape, side, viewport, Some(1)).tiles[1];
+            let away = match side {
+                Side::Bottom => grown.y < rest.y,
+                Side::Top => grown.y + grown.height > rest.y + rest.height,
+                Side::Left => grown.x + grown.width > rest.x + rest.width,
+                Side::Right => grown.x < rest.x,
+            };
+            assert!(away, "{side:?}: {rest:?} -> {grown:?}");
+        }
+    }
+
+    #[test]
+    fn the_pointer_finds_the_same_item_on_every_edge() {
+        let shape = full_shape();
+        for side in SIDES {
+            let viewport = if side.standing() {
+                (120.0, 900.0)
+            } else {
+                (900.0, 120.0)
+            };
+            let placed = place(&shape, side, viewport, None);
+            for (index, item) in placed.items.iter().enumerate() {
+                let at = (item.center_x(), item.center_y());
+                assert_eq!(
+                    column_at(&shape, &placed, at.0, at.1),
+                    Some(index),
+                    "{side:?}"
+                );
+                let expected = shape.spacer(index).is_none().then_some(index);
+                assert_eq!(hit(&shape, &placed, at.0, at.1), expected, "{side:?}");
+            }
+            assert_eq!(column_at(&shape, &placed, -5.0, -5.0), None, "{side:?}");
+        }
+    }
+
+    #[test]
+    fn a_label_sits_beyond_the_tile_away_from_the_screen_edge() {
+        let tile = area(100.0, 200.0, 48.0, 48.0);
+        assert_eq!(tip_anchor(tile, Side::Bottom), (124.0, 200.0 - TIP_GAP));
+        assert_eq!(tip_anchor(tile, Side::Top), (124.0, 248.0 + TIP_GAP));
+        assert_eq!(tip_anchor(tile, Side::Left), (148.0 + TIP_GAP, 224.0));
+        assert_eq!(tip_anchor(tile, Side::Right), (100.0 - TIP_GAP, 224.0));
+    }
+
+    #[test]
+    fn on_a_side_the_dots_lie_in_a_row_and_the_tray_stands_in_two_columns() {
+        let shape = full_shape();
+        let placed = place(&shape, Side::Left, (300.0, 900.0), None);
+        let dots_area = placed.switcher.unwrap();
+        assert!(dots_area.width > dots_area.height);
+        let dots = switcher_dots(dots_area, 3);
+        assert!(
+            dots.windows(2)
+                .all(|pair| pair[0].0 < pair[1].0 && pair[0].1 == pair[1].1)
+        );
+        for (index, (x, y)) in dots.iter().enumerate() {
+            assert_eq!(switcher_hit(dots_area, 3, *x, *y), Some(index));
+        }
+
+        let tray = placed.tray.unwrap();
+        // Three icons in two columns: as tall as wide, or taller.
+        assert!(tray.height >= tray.width);
+        let icon = shape.size.geometry().icon;
+        let cells = tray_cells(tray, 3, icon, true);
+        // Two to a row, the left first, then down.
+        assert!(cells[0].x < cells[1].x && cells[0].y == cells[1].y);
+        assert_eq!(cells[2].x, cells[0].x);
+        assert!(cells[2].y > cells[0].y);
+        for cell in &cells {
+            assert!(cell.x >= tray.x - 1e-9 && cell.x + cell.width <= tray.x + tray.width + 1e-9);
+            assert!(cell.y >= tray.y - 1e-9 && cell.y + cell.height <= tray.y + tray.height + 1e-9);
+        }
+    }
+
+    #[test]
+    fn on_the_bottom_the_dots_stand_in_a_column_and_the_tray_lies_in_two_rows() {
+        let column = area(10.0, 0.0, SWITCHER_WIDTH, 48.0);
+        let dots = switcher_dots(column, 3);
+        assert!(
+            dots.windows(2)
+                .all(|pair| pair[0].1 < pair[1].1 && pair[0].0 == pair[1].0)
+        );
+        let strip = area(0.0, 0.0, tray_width(48.0, 3), 48.0);
+        let cells = tray_cells(strip, 3, 48.0, false);
+        assert!(cells[1].y > cells[0].y && cells[2].x > cells[0].x);
+    }
+
+    #[test]
+    fn a_standing_tile_is_drawn_an_icon_at_a_time() {
+        // Two icons and the gap between them, standing.
+        let tile = area(10.0, 100.0, 48.0, 104.0);
+        let squares = standing_squares(tile);
+        assert_eq!(squares.len(), 2);
+        for square in &squares {
+            assert_eq!((square.width, square.height), (48.0, 48.0));
+            assert_eq!(square.x, 10.0);
+            assert!(square.y >= tile.y && square.y + square.height <= tile.y + tile.height);
+        }
+        assert!(squares[0].y + 48.0 <= squares[1].y);
+        // Three icons; and a lying or square tile has none.
+        assert_eq!(standing_squares(area(0.0, 0.0, 48.0, 160.0)).len(), 3);
+        assert!(standing_squares(area(0.0, 0.0, 48.0, 48.0)).is_empty());
+        assert!(standing_squares(area(0.0, 0.0, 104.0, 48.0)).is_empty());
+    }
+
+    #[test]
+    fn standing_the_media_buttons_are_a_column_in_the_last_square() {
+        let tile = area(10.0, 100.0, 48.0, 160.0);
+        let last = *standing_squares(tile).last().unwrap();
+        let [previous, toggle, next] = media_buttons(tile);
+        for button in [previous, toggle, next] {
+            assert!(button.x >= last.x && button.x + button.width <= last.x + last.width);
+            assert!(button.y >= last.y && button.y + button.height <= last.y + last.height);
+            assert_eq!(button.x, previous.x);
+        }
+        assert!(previous.y + previous.height < toggle.y);
+        assert!(toggle.y + toggle.height < next.y);
+    }
+
+    #[test]
+    fn along_the_bar_a_drag_reads_the_bar_in_its_order_on_every_edge() {
+        let shape = full_shape();
+        for side in [Side::Bottom, Side::Top, Side::Left, Side::Right] {
+            let viewport = if side.standing() {
+                (300.0, 900.0)
+            } else {
+                (900.0, 300.0)
+            };
+            let placed = place(&shape, side, viewport, None);
+            let along: Vec<Area> = placed
+                .items
+                .iter()
+                .map(|&area| side.along_area(area))
+                .collect();
+            // In the bar's order, one after the other, as on a row.
+            assert!(
+                along
+                    .windows(2)
+                    .all(|pair| pair[0].x + pair[0].width <= pair[1].x + 1e-9),
+                "{side:?}"
+            );
+            for (area, seen) in placed.items.iter().zip(&along) {
+                // A point inside the item is inside it along the bar.
+                let at = side.along(area.center_x(), area.center_y());
+                assert!((at - seen.center_x()).abs() < 1e-9, "{side:?}");
+                // Moving it along the bar moves it on the screen.
+                let moved = side.shifted(*area, 10.0);
+                let seen_moved = side.along_area(moved);
+                assert!((seen_moved.x - seen.x - 10.0).abs() < 1e-9, "{side:?}");
+            }
+            // The drag rules hold as they are: past the second item's
+            // centre, the first lands after it.
+            let centers: Vec<f64> = along.iter().map(Area::center_x).collect();
+            assert_eq!(drop_index(&centers, 0, centers[1] + 1.0), 1, "{side:?}");
+            assert!(drag_pitch(&along, 0) > 0.0, "{side:?}");
+        }
     }
 }

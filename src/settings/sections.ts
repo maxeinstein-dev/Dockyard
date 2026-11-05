@@ -1,17 +1,31 @@
-/** The sections of the Configurações app, in the order of its side bar; must
- * match `Section` in `src-tauri/src/domain/launcher_pages.rs`. */
+/** The sections of the Configurações app; must match `Section` in
+ * `src-tauri/src/domain/launcher_pages.rs`. */
 export type Section =
-  "general" | "workspaces" | "look" | "apps" | "items" | "accounts" | "about";
+  | "general"
+  | "look"
+  | "behavior"
+  | "workspaces"
+  | "apps"
+  | "items"
+  | "launcher"
+  | "accounts"
+  | "about";
 
-export const SECTIONS: readonly Section[] = [
-  "general",
-  "workspaces",
-  "look",
-  "apps",
-  "items",
-  "accounts",
-  "about",
+/** The bands of the side bar (spec 0029 §2): a small title over the
+ * sections it holds. */
+export type Band = "dock" | "content" | "more";
+
+/** The side bar, top to bottom: each band and its sections (spec 0029 §2). */
+export const BANDS: readonly { band: Band; sections: readonly Section[] }[] = [
+  { band: "dock", sections: ["general", "look", "behavior"] },
+  { band: "content", sections: ["workspaces", "apps", "items"] },
+  { band: "more", sections: ["launcher", "accounts", "about"] },
 ];
+
+/** Every section, in the order of the side bar. */
+export const SECTIONS: readonly Section[] = BANDS.flatMap(
+  (each) => each.sections,
+);
 
 /** Event Rust sends to the open window to show a section (a page the
  * launcher found). */

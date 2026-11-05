@@ -17,6 +17,8 @@ use crate::domain::settings::{DockEdge, DockSettings};
 pub enum Edge {
     Bottom,
     Top,
+    Left,
+    Right,
 }
 
 impl From<DockEdge> for Edge {
@@ -24,6 +26,8 @@ impl From<DockEdge> for Edge {
         match edge {
             DockEdge::Bottom => Edge::Bottom,
             DockEdge::Top => Edge::Top,
+            DockEdge::Left => Edge::Left,
+            DockEdge::Right => Edge::Right,
         }
     }
 }
@@ -77,19 +81,55 @@ pub fn dock_rect_with_margin(
     edge: Edge,
     margin: f64,
 ) -> Rect {
+    on_edge(
+        work_area,
+        work_area,
+        scale_factor,
+        window_size,
+        edge,
+        margin,
+    )
+}
+
+/// The window `window_size` (logical) on `edge` of `along` (the work area,
+/// or the band), `margin` logical pixels in from that edge, centred along it
+/// within `centre`, capped by `centre` and, across, by `centre` less the
+/// margin. On a side (spec 0028) the same with x and y swapped.
+fn on_edge(
+    along: Rect,
+    centre: Rect,
+    scale_factor: f64,
+    window_size: (f64, f64),
+    edge: Edge,
+    margin: f64,
+) -> Rect {
     // Every term fits in i32/u32 (`as` saturates), so sums in i64 can't
     // overflow.
     let margin = i64::from((margin * scale_factor).round() as i32);
-    let max_height =
-        u32::try_from((i64::from(work_area.height) - margin).max(0)).unwrap_or(work_area.height);
-    let width = ((window_size.0 * scale_factor).round() as u32).min(work_area.width);
+    let cap = |size: u32| u32::try_from((i64::from(size) - margin).max(0)).unwrap_or(size);
+    let standing = matches!(edge, Edge::Left | Edge::Right);
+    let (max_width, max_height) = if standing {
+        (cap(centre.width), centre.height)
+    } else {
+        (centre.width, cap(centre.height))
+    };
+    let width = ((window_size.0 * scale_factor).round() as u32).min(max_width);
     let height = ((window_size.1 * scale_factor).round() as u32).min(max_height);
-    let x = i64::from(work_area.x) + (i64::from(work_area.width) - i64::from(width)).div_euclid(2);
-    let y = match edge {
-        Edge::Bottom => {
-            i64::from(work_area.y) + i64::from(work_area.height) - margin - i64::from(height)
-        }
-        Edge::Top => i64::from(work_area.y) + margin,
+    let centred_x =
+        i64::from(centre.x) + (i64::from(centre.width) - i64::from(width)).div_euclid(2);
+    let centred_y =
+        i64::from(centre.y) + (i64::from(centre.height) - i64::from(height)).div_euclid(2);
+    let (x, y) = match edge {
+        Edge::Bottom => (
+            centred_x,
+            i64::from(along.y) + i64::from(along.height) - margin - i64::from(height),
+        ),
+        Edge::Top => (centred_x, i64::from(along.y) + margin),
+        Edge::Left => (i64::from(along.x) + margin, centred_y),
+        Edge::Right => (
+            i64::from(along.x) + i64::from(along.width) - margin - i64::from(width),
+            centred_y,
+        ),
     };
     Rect {
         x: saturate(x),
@@ -113,22 +153,7 @@ pub fn docked_rect(
     edge: Edge,
     margin: f64,
 ) -> Rect {
-    let margin = i64::from((margin * scale_factor).round() as i32);
-    let max_height =
-        u32::try_from((i64::from(monitor.height) - margin).max(0)).unwrap_or(monitor.height);
-    let width = ((window_size.0 * scale_factor).round() as u32).min(monitor.width);
-    let height = ((window_size.1 * scale_factor).round() as u32).min(max_height);
-    let x = i64::from(monitor.x) + (i64::from(monitor.width) - i64::from(width)).div_euclid(2);
-    let y = match edge {
-        Edge::Bottom => i64::from(band.y) + i64::from(band.height) - margin - i64::from(height),
-        Edge::Top => i64::from(band.y) + margin,
-    };
-    Rect {
-        x: saturate(x),
-        y: saturate(y),
-        width,
-        height,
-    }
+    on_edge(band, monitor, scale_factor, window_size, edge, margin)
 }
 
 /// The edge the dock sits on, from the settings.
@@ -162,7 +187,7 @@ pub fn setup(app: &AppHandle) -> Result<(), Box<dyn Error>> {
             }
         }
         apply_taskbar(app, commands::settings::current(app).dock.taskbar);
-        // Before the docks read their workspace (spec 0028 A).
+        // Before the docks read their workspace (spec 0030 A).
         commands::workspaces::adopt_monitor_keys(app);
     }
     native_dock::start(app)?;
@@ -355,6 +380,40 @@ mod tests {
             width,
             height,
         }
+    }
+
+    #[test]
+    fn a_side_puts_the_window_8px_from_its_edge_centred_along_it() {
+        let work_area = rect(0, 0, 1920, 1032);
+        // A column: 104 across, 240 along.
+        let column = (104.0, 240.0);
+
+        let left = dock_rect(work_area, 1.0, column, Edge::Left);
+        assert_eq!(left, rect(8, (1032 - 240) / 2, 104, 240));
+        let right = dock_rect(work_area, 1.0, column, Edge::Right);
+        assert_eq!(right, rect(1920 - 8 - 104, (1032 - 240) / 2, 104, 240));
+        // At 150 % the size and the distance scale.
+        let left = dock_rect(work_area, 1.5, column, Edge::Left);
+        assert_eq!(left, rect(12, (1032 - 360) / 2, 156, 360));
+    }
+
+    #[test]
+    fn a_column_taller_than_the_work_area_is_capped_inside_it() {
+        let work_area = rect(0, 0, 1920, 600);
+        let left = dock_rect(work_area, 1.0, (104.0, 900.0), Edge::Left);
+        assert_eq!(left, rect(8, 0, 104, 600));
+    }
+
+    #[test]
+    fn a_docked_column_sits_in_its_band_centred_on_the_monitor() {
+        let monitor = rect(-1920, 6, 1920, 1200);
+        // The band on the left, 70 wide, and on the right.
+        let band = rect(-1920, 6, 70, 1200);
+        let left = docked_rect(band, monitor, 1.0, (104.0, 400.0), Edge::Left, 8.0);
+        assert_eq!(left, rect(-1912, 6 + 400, 104, 400));
+        let band = rect(-70, 6, 70, 1200);
+        let right = docked_rect(band, monitor, 1.0, (104.0, 400.0), Edge::Right, 8.0);
+        assert_eq!(right, rect(-8 - 104, 6 + 400, 104, 400));
     }
 
     #[test]

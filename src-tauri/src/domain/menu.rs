@@ -214,11 +214,53 @@ pub struct Area {
     pub height: i32,
 }
 
+/// The way a menu opens from its point: away from the screen edge the dock
+/// is on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Opening {
+    /// Above it: a dock at the bottom.
+    Up,
+    /// Below it: a dock at the top, and the launcher.
+    Down,
+    /// To its right: a dock on the left (spec 0028).
+    Right,
+    /// To its left: a dock on the right.
+    Left,
+}
+
+impl Area {
+    fn transposed(self) -> Area {
+        Area {
+            x: self.y,
+            y: self.x,
+            width: self.height,
+            height: self.width,
+        }
+    }
+}
+
 /// Where a menu of `width` × `height` (physical pixels) opens for a click
-/// at (`x`, `y`): centered on it across, above it when `up` (the dock at
-/// the bottom) and below it otherwise, flipped when it would leave `work`
-/// (the monitor's work area), and always inside it.
-pub fn place(x: i32, y: i32, width: i32, height: i32, up: bool, work: Area) -> Area {
+/// at (`x`, `y`): centered on it across, on the side `opening` says,
+/// flipped when it would leave `work` (the monitor's work area), and always
+/// inside it. Beside a column it is the same with x and y swapped.
+pub fn place(x: i32, y: i32, width: i32, height: i32, opening: Opening, work: Area) -> Area {
+    match opening {
+        Opening::Up => place_lying(x, y, width, height, true, work),
+        Opening::Down => place_lying(x, y, width, height, false, work),
+        Opening::Left | Opening::Right => place_lying(
+            y,
+            x,
+            height,
+            width,
+            opening == Opening::Left,
+            work.transposed(),
+        )
+        .transposed(),
+    }
+}
+
+/// `place` above (`up`) or below the click.
+fn place_lying(x: i32, y: i32, width: i32, height: i32, up: bool, work: Area) -> Area {
     let width = width.min(work.width);
     let height = height.min(work.height);
     let left = (x - width / 2).clamp(work.x, work.x + work.width - width);
@@ -338,23 +380,38 @@ mod tests {
 
     #[test]
     fn it_opens_above_a_dock_at_the_bottom_and_below_one_at_the_top() {
-        let up = place(900, 1000, 300, 400, true, WORK);
+        let up = place(900, 1000, 300, 400, Opening::Up, WORK);
         assert_eq!((up.x, up.y), (750, 600));
-        let down = place(900, 60, 300, 400, false, WORK);
+        let down = place(900, 60, 300, 400, Opening::Down, WORK);
         assert_eq!((down.x, down.y), (750, 60));
     }
 
     #[test]
     fn it_flips_and_stays_on_the_screen() {
         // No room above: below.
-        assert_eq!(place(900, 100, 300, 400, true, WORK).y, 100);
+        assert_eq!(place(900, 100, 300, 400, Opening::Up, WORK).y, 100);
         // No room below: above.
-        assert_eq!(place(900, 900, 300, 400, false, WORK).y, 500);
+        assert_eq!(place(900, 900, 300, 400, Opening::Down, WORK).y, 500);
         // At the screen's side: inside it.
-        assert_eq!(place(10, 1000, 300, 400, true, WORK).x, 0);
-        assert_eq!(place(1915, 1000, 300, 400, true, WORK).x, 1620);
+        assert_eq!(place(10, 1000, 300, 400, Opening::Up, WORK).x, 0);
+        assert_eq!(place(1915, 1000, 300, 400, Opening::Up, WORK).x, 1620);
         // Taller than the room on both sides: centered on the click, inside.
-        let tall = place(900, 500, 300, 900, true, WORK);
+        let tall = place(900, 500, 300, 900, Opening::Up, WORK);
         assert!(tall.y >= 0 && tall.y + tall.height <= 1032);
+    }
+
+    #[test]
+    fn beside_a_column_it_opens_toward_the_screen_middle_centered_along_it() {
+        // A dock on the left: to the right of the point, centered on it.
+        let right = place(80, 500, 300, 400, Opening::Right, WORK);
+        assert_eq!((right.x, right.y), (80, 300));
+        // On the right: to its left.
+        let left = place(1840, 500, 300, 400, Opening::Left, WORK);
+        assert_eq!((left.x, left.y), (1540, 300));
+        // Near the top or the bottom: inside the work area.
+        assert_eq!(place(80, 10, 300, 400, Opening::Right, WORK).y, 0);
+        assert_eq!(place(80, 1030, 300, 400, Opening::Right, WORK).y, 632);
+        // No room on its side: flipped.
+        assert_eq!(place(1800, 500, 300, 400, Opening::Right, WORK).x, 1500);
     }
 }

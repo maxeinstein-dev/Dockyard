@@ -75,7 +75,7 @@ use crate::domain::apps::AppsSnapshot;
 use crate::domain::badges::{self, Badge};
 use crate::domain::dock_items::{self, Item, Names, SystemItem};
 use crate::domain::dock_layout::{
-    self, Area, DRAG_GROW, DRAG_LIFT, DRAG_THRESHOLD, DockSize, Hover, Magnification, Shape,
+    self, Area, DRAG_GROW, DRAG_LIFT, DRAG_THRESHOLD, DockSize, Hover, Magnification, Shape, Side,
     drag_offset, drag_pitch, drop_index, make_room, slide_step,
 };
 use crate::domain::folders::{Place, place_of};
@@ -246,6 +246,7 @@ struct Press {
     index: usize,
     /// The item's group, where it can go: its first index and its size.
     group: (usize, usize),
+    /// Where it was pressed along the bar (`Side::along`).
     start_x: f64,
     dragging: bool,
     /// Off the dock: a program's tile on its way to a folder (spec 0018).
@@ -258,7 +259,7 @@ struct Press {
 #[derive(Debug, Clone, Copy)]
 struct Landing {
     press: Press,
-    /// The pointer's x when it was let go.
+    /// Where the pointer was along the bar when it was let go.
     x: f64,
     since: Instant,
 }
@@ -299,7 +300,7 @@ struct Data {
     /// for the switcher; `None` and empty when they can't be read.
     workspace: Option<Workspace>,
     workspaces: Vec<Workspace>,
-    /// The monitor is held on its workspace (spec 0028 C): no switcher.
+    /// The monitor is held on its workspace (spec 0030 C): no switcher.
     fixed: bool,
     /// The icons of the notification area (while the dock holds it).
     tray: Vec<crate::commands::tray::TrayIcon>,
@@ -813,6 +814,25 @@ fn panel_of(item: &Item) -> Option<PanelId> {
     }
 }
 
+/// An item's name for assistive technology with its badge, if it has one
+/// (F11 of estudo 0002): "Discord, 9 notificações".
+fn badged(name: &str, badge: Option<Badge>) -> String {
+    let text = &crate::i18n::messages().dock;
+    match badge {
+        None => name.to_owned(),
+        Some(Badge::Dot) => text.with_dot.replace("{name}", name),
+        Some(Badge::Count(1)) => text.with_badge.replace("{name}", name),
+        Some(Badge::Count(count)) => text
+            .with_badges
+            .replace("{name}", name)
+            .replace("{count}", &count.to_string()),
+        Some(Badge::AtLeast(count)) => text
+            .with_badges
+            .replace("{name}", name)
+            .replace("{count}", &format!("{count}+")),
+    }
+}
+
 /// What the dock keeps a program's picture by: where it comes from (the
 /// icon chosen for it, spec 0024, or the dock's pack; `None` for Windows'
 /// own), its id, and whether it is a pack's dark image (only a pack has
@@ -864,7 +884,7 @@ impl Dock {
             hover: Hover::of(dock.hover, dock.hover_scale),
             status: dock.taskbar != TaskbarMode::Visible,
             tray: self.strip.len(),
-            // A monitor held on its workspace has no switcher (spec 0028 C).
+            // A monitor held on its workspace has no switcher (spec 0030 C).
             switcher: if self.data.fixed {
                 0
             } else {
@@ -1136,7 +1156,42 @@ impl Dock {
                     _ => None,
                 }
             })
+            .chain(
+                self.strip
+                    .iter()
+                    .map(|cell| self.tray_notice(cell, &buttons)),
+            )
             .collect()
+    }
+
+    /// The badge of an icon of the notification area on the dock (F11 of
+    /// estudo 0002): its program's, from the taskbar, when no item of the
+    /// dock is that program (its badge is there already).
+    fn tray_notice(&self, cell: &Cell, buttons: &[badges::Button]) -> Option<Badge> {
+        let Cell::Tray(icon) = cell else {
+            return None;
+        };
+        // `path:<file>#<uid>`: the program's file, lowercased.
+        let exe = icon
+            .id
+            .as_deref()?
+            .strip_prefix("path:")?
+            .rsplit_once('#')?
+            .0;
+        let stem = exe
+            .rsplit(['\\', '/'])
+            .next()
+            .and_then(|file| file.rsplit_once('.').map(|(stem, _)| stem))
+            .unwrap_or_default();
+        let in_dock = self.items.iter().any(|item| match item {
+            Item::App(app) => app.name.eq_ignore_ascii_case(stem),
+            Item::Other(other) => other.name.eq_ignore_ascii_case(stem),
+            _ => false,
+        });
+        if in_dock {
+            return None;
+        }
+        badges::for_tray(buttons, exe)
     }
 
     /// The taskbar's badges changed: drawn again if this dock's did.
@@ -1145,6 +1200,8 @@ impl Dock {
         if notices != self.notices {
             self.notices = notices;
             self.paint();
+            // The names say the badges (F11 of estudo 0002).
+            self.publish();
         }
     }
 
@@ -1346,7 +1403,10 @@ impl Dock {
         let icon = self.shape().size.geometry().icon;
         self.placement_now()
             .tray
-            .map(|area| dock_layout::tray_cells(area, self.strip.len(), icon))
+            .map(|area| {
+                let standing = matches!(self.edge(), DockEdge::Left | DockEdge::Right);
+                dock_layout::tray_cells(area, self.strip.len(), icon, standing)
+            })
             .unwrap_or_default()
     }
 
@@ -1500,7 +1560,7 @@ impl Dock {
     /// Puts the window where the settings say, the size its content needs.
     fn place(&mut self) {
         let shape = self.shape();
-        let size = dock_layout::window_size(&shape, self.motion, &self.label_widths);
+        let size = dock_layout::window_size(&shape, self.edge(), self.motion, &self.label_widths);
         let bar_height = {
             let geometry = shape.size.geometry();
             geometry.icon + 2.0 * geometry.pad
@@ -1605,11 +1665,15 @@ impl Dock {
                         .iter()
                         .zip(&self.names)
                         .zip(&rest.items)
+                        .enumerate()
                         // A spacer is room, not a button: the Narrator
                         // goes from the item before it to the one after.
-                        .filter(|((item, _), _)| !matches!(item, Item::Spacer(_)))
-                        .map(|((item, name), area)| {
+                        .filter(|(_, ((item, _), _))| !matches!(item, Item::Spacer(_)))
+                        .map(|(index, ((item, name), area))| {
                             let on_screen = to_screen(*area);
+                            let named = |name: &str| {
+                                badged(name, self.notices.get(index).copied().flatten())
+                            };
                             access::Entry {
                                 key: item.key(),
                                 name: if attention
@@ -1624,7 +1688,7 @@ impl Dock {
                                         .replace("{n}", &(stack.top + 1).to_string())
                                         .replace("{count}", &stack.widgets.len().to_string())
                                 } else {
-                                    name.clone()
+                                    named(name)
                                 },
                                 rect: (
                                     f64::from(on_screen.x),
@@ -1634,24 +1698,26 @@ impl Dock {
                                 ),
                             }
                         })
-                        .chain(
-                            self.strip
-                                .iter()
-                                .zip(self.strip_cells())
-                                .map(|(cell, area)| {
-                                    let on_screen = to_screen(area);
-                                    access::Entry {
-                                        key: cell.key(),
-                                        name: cell.tip(),
-                                        rect: (
-                                            f64::from(on_screen.x),
-                                            f64::from(on_screen.y),
-                                            f64::from(on_screen.width),
-                                            f64::from(on_screen.height),
-                                        ),
-                                    }
-                                }),
-                        ),
+                        .chain(self.strip.iter().zip(self.strip_cells()).enumerate().map(
+                            |(index, (cell, area))| {
+                                let on_screen = to_screen(area);
+                                let notice = self
+                                    .notices
+                                    .get(self.items.len() + index)
+                                    .copied()
+                                    .flatten();
+                                access::Entry {
+                                    key: cell.key(),
+                                    name: badged(&cell.tip(), notice),
+                                    rect: (
+                                        f64::from(on_screen.x),
+                                        f64::from(on_screen.y),
+                                        f64::from(on_screen.width),
+                                        f64::from(on_screen.height),
+                                    ),
+                                }
+                            },
+                        )),
                 )
                 .collect(),
         );
@@ -1853,12 +1919,27 @@ impl Dock {
         }
         let scene = self.scene();
         // Hiding on its own: drawn that far past the screen edge.
-        let away = (self.tucked * f64::from(self.window.height)).round() as i32;
-        let origin = POINT {
-            x: self.window.x,
-            y: match self.edge() {
-                DockEdge::Bottom => self.window.y + away,
-                DockEdge::Top => self.window.y - away,
+        let across = match self.edge() {
+            DockEdge::Bottom | DockEdge::Top => self.window.height,
+            DockEdge::Left | DockEdge::Right => self.window.width,
+        };
+        let away = (self.tucked * f64::from(across)).round() as i32;
+        let origin = match self.edge() {
+            DockEdge::Bottom => POINT {
+                x: self.window.x,
+                y: self.window.y + away,
+            },
+            DockEdge::Top => POINT {
+                x: self.window.x,
+                y: self.window.y - away,
+            },
+            DockEdge::Left => POINT {
+                x: self.window.x - away,
+                y: self.window.y,
+            },
+            DockEdge::Right => POINT {
+                x: self.window.x + away,
+                y: self.window.y,
             },
         };
         if let Err(error) = self.painter.present(
@@ -1943,37 +2024,60 @@ impl Dock {
             if matches!(item, Item::Spacer(_)) && !dragging {
                 continue;
             }
-            let mut area = now_placement.tiles[index];
-            let mut box_area = now_placement.items[index];
-            area.x += offsets[index];
-            box_area.x += offsets[index];
+            // Moved along the bar: down or up a column (spec 0028).
+            let along = Side::from(edge);
+            let mut area = along.shifted(now_placement.tiles[index], offsets[index]);
+            let box_area = along.shifted(now_placement.items[index], offsets[index]);
             if dragging {
                 // Picked up: off the bar, a little bigger.
-                let lift = match edge {
-                    DockEdge::Bottom => -DRAG_LIFT,
-                    DockEdge::Top => DRAG_LIFT,
+                let (lift_x, lift_y) = match edge {
+                    DockEdge::Bottom => (0.0, -DRAG_LIFT),
+                    DockEdge::Top => (0.0, DRAG_LIFT),
+                    DockEdge::Left => (DRAG_LIFT, 0.0),
+                    DockEdge::Right => (-DRAG_LIFT, 0.0),
                 };
                 let (width, height) = (area.width * DRAG_GROW, area.height * DRAG_GROW);
                 area = Area {
-                    x: area.x - (width - area.width) / 2.0,
-                    y: area.y + lift - (height - area.height) / 2.0,
+                    x: area.x + lift_x - (width - area.width) / 2.0,
+                    y: area.y + lift_y - (height - area.height) / 2.0,
                     width,
                     height,
                 };
             }
             let risen = self.widen.get(index).copied().unwrap_or(0.0);
             if risen > 0.0 {
-                // A floor above the others: wider by an icon, and up.
-                let wide = area.width * (1.0 + 0.5 * risen);
+                // A floor above the others: longer by an icon along the bar,
+                // and off it toward the screen's middle (beside a column,
+                // spec 0028).
+                let grow = 1.0 + 0.5 * risen;
                 let up = geometry.icon * 0.38 * risen;
-                area = Area {
-                    x: area.x - (wide - area.width) / 2.0,
-                    y: match edge {
-                        DockEdge::Bottom => area.y - up,
-                        DockEdge::Top => area.y + up,
-                    },
-                    width: wide,
-                    ..area
+                area = match edge {
+                    DockEdge::Bottom | DockEdge::Top => {
+                        let wide = area.width * grow;
+                        Area {
+                            x: area.x - (wide - area.width) / 2.0,
+                            y: if edge == DockEdge::Bottom {
+                                area.y - up
+                            } else {
+                                area.y + up
+                            },
+                            width: wide,
+                            ..area
+                        }
+                    }
+                    DockEdge::Left | DockEdge::Right => {
+                        let tall = area.height * grow;
+                        Area {
+                            x: if edge == DockEdge::Left {
+                                area.x + up
+                            } else {
+                                area.x - up
+                            },
+                            y: area.y - (tall - area.height) / 2.0,
+                            height: tall,
+                            ..area
+                        }
+                    }
                 };
             }
             if let Some(started) = self.opening.get(&item.key()) {
@@ -2006,7 +2110,15 @@ impl Dock {
                 attention: attention && matches!(item, Item::System(SystemItem::Settings)),
                 dragging,
                 raised: risen > 0.0,
-                dot: Some((box_area.center_x(), dot)),
+                // The mark's place along the bar: x on a row, y on a column.
+                dot: Some((
+                    if matches!(edge, DockEdge::Left | DockEdge::Right) {
+                        box_area.center_y()
+                    } else {
+                        box_area.center_x()
+                    },
+                    dot,
+                )),
                 item: box_area,
                 notice: self.notices.get(index).copied().flatten(),
                 stack: item.stack().map(|stack| (stack.widgets.len(), stack.top)),
@@ -2048,6 +2160,12 @@ impl Dock {
                     _ => None,
                 },
                 hovered: self.strip_hovered == Some(index),
+                // After the items' notices, the strip's (`read_notices`).
+                notice: self
+                    .notices
+                    .get(self.items.len() + index)
+                    .copied()
+                    .flatten(),
             })
             .collect();
         // Over a cell of the strip, its label.
@@ -2098,11 +2216,29 @@ impl Dock {
                 text: self.data.workspaces.get(index)?.name.clone(),
             })
         });
+        // On a side (spec 0028 Q7) the clock stands in a column an icon
+        // wide: the time over the day and month; the whole date is in its
+        // label.
+        let standing = matches!(edge, DockEdge::Left | DockEdge::Right);
+        let whole_date = format!("{:02}/{:02}/{:04}", clock.wDay, clock.wMonth, clock.wYear);
         let status = now_placement.status.map(|area| Status {
             area,
             time: format!("{:02}:{:02}", clock.wHour, clock.wMinute),
-            date: format!("{:02}/{:02}/{:04}", clock.wDay, clock.wMonth, clock.wYear),
+            date: if standing {
+                format!("{:02}/{:02}", clock.wDay, clock.wMonth)
+            } else {
+                whole_date.clone()
+            },
             hovered: self.status_hovered,
+        });
+        let tip = tip.or_else(|| {
+            let area = now_placement
+                .status
+                .filter(|_| standing && self.status_hovered)?;
+            Some(Tip {
+                anchor: dock_layout::tip_anchor(area, edge),
+                text: whole_date,
+            })
         });
         let workspace_color = settings
             .indicator_follows_workspace
@@ -2227,15 +2363,22 @@ impl Dock {
         self.tracking = unsafe { TrackMouseEvent(&mut track) }.is_ok();
     }
 
+    /// Where the point (`x`, `y`) is along the bar (spec 0028): x on a row,
+    /// y on a column, read in the bar's order.
+    fn along(&self, x: f64, y: f64) -> f64 {
+        Side::from(self.edge()).along(x, y)
+    }
+
     fn mouse_move(&mut self, x: f64, y: f64) {
         self.track();
+        let along = self.along(x, y);
         let program = self
             .press
             .is_some_and(|press| self.program_id(press.index).is_some());
         // A program pulled straight off the dock is dragged too.
         let off = program && pointer_off(self.hwnd);
         if let Some(press) = self.press.as_mut() {
-            if !press.dragging && ((x - press.start_x).abs() >= DRAG_THRESHOLD || off) {
+            if !press.dragging && ((along - press.start_x).abs() >= DRAG_THRESHOLD || off) {
                 press.dragging = true;
                 self.hovered = None;
                 self.pressed = None;
@@ -2244,7 +2387,7 @@ impl Dock {
                 let index = press.index;
                 let out = off;
                 press.out = out;
-                self.drag_x = if out { press.start_x } else { x };
+                self.drag_x = if out { press.start_x } else { along };
                 self.show_drag_cursor(out.then_some(index));
                 self.animate();
                 return;
@@ -2387,14 +2530,15 @@ impl Dock {
         if let Some((index, group)) = index.and_then(|index| Some((index, group(index)?)))
             && self.open.is_none()
         {
+            let along = self.along(x, y);
             self.press = Some(Press {
                 index,
                 group,
-                start_x: x,
+                start_x: along,
                 dragging: false,
                 out: false,
             });
-            self.drag_x = x;
+            self.drag_x = along;
             unsafe { SetCapture(self.hwnd) };
         }
         self.paint();
@@ -2421,10 +2565,11 @@ impl Dock {
             return;
         }
         if let Some(press) = press.filter(|press| press.dragging) {
-            if self.drop_at(press, x) {
+            let along = self.along(x, y);
+            if self.drop_at(press, along) {
                 self.landing = Some(Landing {
                     press,
-                    x,
+                    x: along,
                     since: Instant::now(),
                 });
             }
@@ -2868,7 +3013,7 @@ impl Dock {
             let no_bin = !has(&|id: &str| place_of(id) == Place::RecycleBin);
             items.extend(place_items(no_downloads, no_bin));
         }
-        // Holding the monitor on its workspace (spec 0028 C), with two or
+        // Holding the monitor on its workspace (spec 0030 C), with two or
         // more; held, it lists no workspace to switch to.
         if shown.is_some() && self.data.workspaces.len() >= 2 {
             items.extend(hold_items(self.data.fixed));
@@ -2986,9 +3131,15 @@ fn opening_offset(
     icon: f64,
     edge: DockEdge,
 ) -> (f64, f64, f64) {
+    // The bounce leaves the screen edge, across the bar; the shake goes
+    // along it. On a side (spec 0028) across is x and along is y.
     let away = match edge {
-        DockEdge::Bottom => -1.0,
-        DockEdge::Top => 1.0,
+        DockEdge::Bottom | DockEdge::Right => -1.0,
+        DockEdge::Top | DockEdge::Left => 1.0,
+    };
+    let turn = |along: f64, across: f64| match edge {
+        DockEdge::Bottom | DockEdge::Top => (along, across),
+        DockEdge::Left | DockEdge::Right => (across, along),
     };
     let seconds = elapsed.as_secs_f64();
     // Linear between the keyframes of a cycle of `period`.
@@ -3018,7 +3169,8 @@ fn opening_offset(
                 2.0,
                 &[(0.0, 0.0), (0.3, 0.5), (0.6, 0.0), (0.8, 0.14), (1.0, 0.0)],
             );
-            (0.0, away * icon * lift, 1.0)
+            let (dx, dy) = turn(0.0, away * icon * lift);
+            (dx, dy, 1.0)
         }
         OpenAnimation::Pulse => {
             let grow = keyframes(0.5, 3.0, &[(0.0, 1.0), (0.5, 1.22), (1.0, 1.0)]);
@@ -3037,7 +3189,8 @@ fn opening_offset(
                     (1.0, 0.0),
                 ],
             );
-            (x, 0.0, 1.0)
+            let (dx, dy) = turn(x, 0.0);
+            (dx, dy, 1.0)
         }
     }
 }
@@ -3363,6 +3516,33 @@ mod tests {
         assert!(!at_screen_edge((100, 1205), MONITOR, DockEdge::Bottom));
         assert!(at_screen_edge((-900, 6), MONITOR, DockEdge::Top));
         assert!(!at_screen_edge((-900, 1205), MONITOR, DockEdge::Top));
+        // The sides (spec 0028): the first and the last 2 px across.
+        assert!(at_screen_edge((-1920, 600), MONITOR, DockEdge::Left));
+        assert!(at_screen_edge((-1919, 600), MONITOR, DockEdge::Left));
+        assert!(!at_screen_edge((-1918, 600), MONITOR, DockEdge::Left));
+        assert!(at_screen_edge((-1, 600), MONITOR, DockEdge::Right));
+        assert!(!at_screen_edge((-3, 600), MONITOR, DockEdge::Right));
+        // Off the monitor, above or below it, is not its edge.
+        assert!(!at_screen_edge((-1920, 1300), MONITOR, DockEdge::Left));
+        assert!(!at_screen_edge((5, 600), MONITOR, DockEdge::Right));
+    }
+
+    #[test]
+    fn the_column_stays_up_with_the_pointer_on_it_or_beside_it_toward_the_edge() {
+        let window = Rect {
+            x: -1912,
+            y: 400,
+            width: 104,
+            height: 400,
+        };
+        assert!(near_dock((-1880, 500), window, MONITOR, DockEdge::Left));
+        // Between the column and the screen edge.
+        assert!(near_dock((-1918, 500), window, MONITOR, DockEdge::Left));
+        assert!(!near_dock((-1700, 500), window, MONITOR, DockEdge::Left));
+        assert!(!near_dock((-1880, 300), window, MONITOR, DockEdge::Left));
+        let window = Rect { x: -112, ..window };
+        assert!(near_dock((-2, 500), window, MONITOR, DockEdge::Right));
+        assert!(!near_dock((-200, 500), window, MONITOR, DockEdge::Right));
     }
 
     #[test]
@@ -3683,5 +3863,22 @@ mod tests {
             ),
             (0.0, 0.0, 1.0)
         );
+    }
+
+    #[test]
+    fn on_a_side_the_bounce_leaves_the_edge_and_the_shake_goes_along() {
+        let at = Duration::from_millis(150);
+        let left = opening_offset(OpenAnimation::Bounce, at, 48.0, DockEdge::Left);
+        let right = opening_offset(OpenAnimation::Bounce, at, 48.0, DockEdge::Right);
+        assert!(left.0 > 0.0 && left.1 == 0.0, "{left:?}");
+        assert!(right.0 < 0.0 && right.1 == 0.0, "{right:?}");
+        let shake = opening_offset(
+            OpenAnimation::Shake,
+            Duration::from_millis(100),
+            48.0,
+            DockEdge::Left,
+        );
+        assert_eq!(shake.0, 0.0);
+        assert!((shake.1 + 4.0).abs() < 1e-6);
     }
 }
