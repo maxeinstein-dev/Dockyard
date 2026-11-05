@@ -251,7 +251,7 @@ O que os testes ao vivo das funcionalidades não cobriram. Cada passo diz de ond
 - [ ] As dicas enxutas e a etiqueta "Padrão".
 - [ ] Comportamento e Lançador como seções, e o lançador achando as seções novas.
 - [ ] O Narrador na barra lateral e no índice.
-- [ ] "Dock em todos os monitores" em Geral › Dock (PR #192, spec 0029 §7).
+- [ ] "Dock em todos os monitores" em Geral › Dock (PR #192, Q13).
 - [ ] "Trocar de espaço em todos os monitores" no alto de Espaços › Monitores, e nenhum switch de monitor em Comportamento (PR #192, Q13).
 - [ ] Espaços: a linha "Como trocar de espaço", com a dica "Ctrl+Alt+1 a 9, a roda do mouse no dock ou as bolinhas", no lugar do parágrafo longo, e a nota "Editar aqui não muda o que o dock mostra." no cartão do espaço (PR #192, Q14).
 
