@@ -89,6 +89,50 @@ pub fn bin_full() -> Option<bool> {
     None
 }
 
+/// Sends `paths` to the Recycle Bin, as Explorer does when they are dropped
+/// on it (achado do autor, 2026-11-05): they can be put back from there.
+/// Off the caller's thread; the dock's icon of the bin follows.
+#[cfg(windows)]
+pub fn recycle(paths: Vec<PathBuf>) {
+    let spawned = std::thread::Builder::new()
+        .name("recycle".into())
+        .spawn(move || {
+            use ::windows::Win32::UI::Shell::{
+                FO_DELETE, FOF_ALLOWUNDO, FOF_NOCONFIRMATION, SHFILEOPSTRUCTW, SHFileOperationW,
+            };
+            use std::os::windows::ffi::OsStrExt;
+            if paths.is_empty() {
+                return;
+            }
+            // The paths one after another, each ended by a 0, and one more.
+            let mut from: Vec<u16> = Vec::new();
+            for path in &paths {
+                from.extend(path.as_os_str().encode_wide());
+                from.push(0);
+            }
+            from.push(0);
+            let mut operation = SHFILEOPSTRUCTW {
+                wFunc: FO_DELETE,
+                pFrom: ::windows::core::PCWSTR(from.as_ptr()),
+                fFlags: (FOF_ALLOWUNDO.0 | FOF_NOCONFIRMATION.0) as u16,
+                ..Default::default()
+            };
+            let result = unsafe { SHFileOperationW(&mut operation) };
+            if result != 0 || operation.fAnyOperationsAborted.as_bool() {
+                log::warn!("folders: not everything went to the Recycle Bin ({result})");
+            } else {
+                log::info!("folders: {} item(s) went to the Recycle Bin", paths.len());
+            }
+            super::native_dock::refresh_bin();
+        });
+    if let Err(error) = spawned {
+        log::warn!("folders: nothing went to the Recycle Bin: {error}");
+    }
+}
+
+#[cfg(not(windows))]
+pub fn recycle(_paths: Vec<PathBuf>) {}
+
 /// Empties the Recycle Bin after Windows asks the user (its own question,
 /// with the count of items). Blocks until answered, on a thread of its own:
 /// the question is a window of the shell. `false` when nothing was emptied

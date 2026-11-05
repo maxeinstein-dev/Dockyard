@@ -51,9 +51,81 @@ pub fn short_name(abbreviation: &str) -> String {
     }
 }
 
+/// The longest the tile's text gets when it names the layout (`ABNT2`).
+const LAYOUT_LETTERS: usize = 5;
+
+/// The tile's text for a layout named `own` (as Windows lists it:
+/// `Português (Brasil ABNT2)`) when other layouts of its language are
+/// installed, named `others`: the first word of its name that none of
+/// theirs has, upper case, at most five letters, so two Portuguese
+/// keyboards read `ABNT` and `ABNT2`, whatever order they were added in
+/// (achado do autor, 2026-11-05). The language's `short` name when it is
+/// alone, or when no word sets it apart.
+pub fn distinguished(short: &str, own: &str, others: &[String]) -> String {
+    if others.is_empty() {
+        return short.to_owned();
+    }
+    let words = |name: &str| -> Vec<String> {
+        name.split(|c: char| !c.is_alphanumeric())
+            .filter(|word| !word.is_empty())
+            .map(str::to_lowercase)
+            .collect()
+    };
+    let theirs: Vec<Vec<String>> = others.iter().map(|other| words(other)).collect();
+    words(own)
+        .into_iter()
+        .find(|word| theirs.iter().all(|their| !their.contains(word)))
+        .map(|word| {
+            word.chars()
+                .take(LAYOUT_LETTERS)
+                .collect::<String>()
+                .to_uppercase()
+        })
+        .unwrap_or_else(|| short.to_owned())
+}
+
+/// The key of a layout under `Keyboard Layouts` in the registry (its KLID)
+/// from the high word of its handle: the layout's own language
+/// (`0x0416` gives `00000416`), or `None` for a variant (`0xF0nn`), whose
+/// key is found by its `Layout Id`.
+pub fn klid_of(device: u16) -> Option<String> {
+    (device & 0xF000 != 0xF000).then(|| format!("0000{device:04X}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn two_layouts_of_one_language_are_told_apart_by_their_names() {
+        let abnt = "Português (Brasil ABNT)".to_owned();
+        let abnt2 = "Português (Brasil ABNT2)".to_owned();
+        assert_eq!(
+            distinguished("PTB", &abnt, std::slice::from_ref(&abnt2)),
+            "ABNT"
+        );
+        assert_eq!(
+            distinguished("PTB", &abnt2, std::slice::from_ref(&abnt)),
+            "ABNT2"
+        );
+        // Alone, the language's short name.
+        assert_eq!(distinguished("PTB", &abnt, &[]), "PTB");
+        // No word of its own: the short name; a long word, cut.
+        let us = "Estados Unidos".to_owned();
+        let intl = "Estados Unidos-Internacional".to_owned();
+        assert_eq!(
+            distinguished("ENU", &us, std::slice::from_ref(&intl)),
+            "ENU"
+        );
+        assert_eq!(distinguished("ENU", &intl, &[us]), "INTER");
+    }
+
+    #[test]
+    fn the_registry_key_of_a_layout_comes_from_its_handle() {
+        assert_eq!(klid_of(0x0416).as_deref(), Some("00000416"));
+        assert_eq!(klid_of(0x0409).as_deref(), Some("00000409"));
+        assert_eq!(klid_of(0xF0B0), None);
+    }
 
     #[test]
     fn the_config_is_empty_and_reads_from_anything_older() {

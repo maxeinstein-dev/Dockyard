@@ -39,6 +39,12 @@ const SHELVES: readonly { category: Category; kinds: CreatableKind[] }[] = [
   { category: "personal", kinds: ["cycle"] },
 ];
 
+/** Every kind of the catalog, in the order of its shelves: the search of
+ * Configurações finds each one by its name ("Claude" finds Uso do Claude). */
+export const CATALOG_KINDS: readonly CreatableKind[] = SHELVES.flatMap(
+  (shelf) => shelf.kinds,
+);
+
 /** How many icons wide a new instance of each kind is (its default). */
 const WIDTHS: Readonly<Record<CreatableKind, number>> = {
   clock: 1,

@@ -484,6 +484,13 @@ const PKEY_ACTIVATION_CONTEXT: PROPERTYKEY = PROPERTYKEY {
 /// A string a program wrote as a resource (`@{package?ms-resource:///...}`)
 /// as the text it stands for; a resource that does not load, nothing; any
 /// other string, a name starting with `@` among them, as it is.
+/// [`resolved`] for the other modules: an indirect string (`@file,-id`)
+/// as the text it stands for.
+#[cfg(windows)]
+pub(crate) fn resolved_text(text: &str) -> String {
+    resolved(text)
+}
+
 #[cfg(windows)]
 fn resolved(text: &str) -> String {
     if !is_indirect(text) {

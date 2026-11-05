@@ -1327,6 +1327,10 @@ impl Dock {
     fn read_system(&mut self) {
         self.check_power();
         self.check_keyboard();
+        // The Recycle Bin's icon at the status's pace (3 s), not every
+        // minute: a file deleted elsewhere shows in it soon (achado do
+        // autor, 2026-11-05).
+        self.check_bin();
         let now = Some(super::system_status::read_shared());
         if now != self.system {
             self.system = now;
@@ -2711,7 +2715,7 @@ impl Dock {
         self.paint();
     }
 
-    /// The Beber água's reminder (spec 0017 F3-2), looked at every minute.
+    /// The Recycle Bin looked at again, when a dock shows it.
     fn check_bin(&self) {
         let shows = self.items.iter().any(
             |item| matches!(item, Item::App(app) if place_of(&app.app_id) == Place::RecycleBin),
@@ -3341,7 +3345,6 @@ fn handle(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
                 dock.paint();
                 dock.arm_clock();
                 dock.check_water();
-                dock.check_bin();
             }),
             STATUS_TIMER => with_dock(hwnd, Dock::read_system),
             LAYOUT_TIMER => with_dock(hwnd, |dock| {
