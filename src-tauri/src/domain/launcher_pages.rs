@@ -8,10 +8,12 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Section {
     General,
-    Workspaces,
     Look,
+    Behavior,
+    Workspaces,
     Apps,
     Items,
+    Launcher,
     Accounts,
     About,
 }
@@ -23,8 +25,10 @@ impl Section {
             Section::General => "general",
             Section::Workspaces => "workspaces",
             Section::Look => "look",
+            Section::Behavior => "behavior",
             Section::Apps => "apps",
             Section::Items => "items",
+            Section::Launcher => "launcher",
             Section::Accounts => "accounts",
             Section::About => "about",
         }
@@ -268,8 +272,25 @@ pub const PAGES: &[Page] = &[
     dockyard(
         "dockmax-general",
         "Configurações do Dockyard",
-        &["dockyard", "dockmax", "dock", "lancador", "modo de cor"],
+        &[
+            "dockyard",
+            "dockmax",
+            "dock",
+            "modo de cor",
+            "posicao do dock",
+        ],
         Section::General,
+    ),
+    dockyard(
+        "dockmax-behavior",
+        "Comportamento do dock",
+        &[
+            "ocultar automaticamente",
+            "previa das janelas",
+            "selos de notificacao",
+            "economia de bateria",
+        ],
+        Section::Behavior,
     ),
     dockyard(
         "dockmax-workspaces",
@@ -307,6 +328,17 @@ pub const PAGES: &[Page] = &[
             "rede",
         ],
         Section::Items,
+    ),
+    dockyard(
+        "dockmax-launcher",
+        "Lançador do Dockyard",
+        &[
+            "lancador",
+            "atalho do lancador",
+            "busca na web",
+            "palavra chave",
+        ],
+        Section::Launcher,
     ),
     dockyard(
         "dockmax-accounts",
@@ -382,10 +414,12 @@ mod tests {
     fn every_section_of_configuracoes_is_listed() {
         for section in [
             Section::General,
-            Section::Workspaces,
             Section::Look,
+            Section::Behavior,
+            Section::Workspaces,
             Section::Apps,
             Section::Items,
+            Section::Launcher,
             Section::Accounts,
             Section::About,
         ] {

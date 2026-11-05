@@ -54,6 +54,11 @@ const SETTINGS: Settings = {
     iconSize: 48,
     opacity: "translucent",
     ...DEFAULT_LOOK,
+    // Every switch that shows more rows on, so the guard sees them too
+    // (spec 0029 §8.2).
+    autoHide: true,
+    previews: true,
+    hover: "scale",
   },
 };
 
@@ -94,6 +99,10 @@ beforeEach(() => {
       return Promise.resolve({ storage: { state: "ok" }, apps: [] });
     }
     if (command === "list_workspaces") return Promise.resolve(WORKSPACES);
+    // Contas with no client: its fields show.
+    if (command === "google_status") {
+      return Promise.resolve({ clientId: null, accounts: [] });
+    }
     return new Promise(() => {});
   });
   Element.prototype.scrollIntoView = vi.fn();
@@ -121,8 +130,8 @@ describe("the index of the search", () => {
     for (const entry of indexed) {
       expect(findRow(main!, entry.label), entry.label).not.toBeNull();
     }
-    // Rows that appear only with their switch on aren't on the screen
-    // here; the rest must be indexed.
+    // Every section shows something to find.
+    expect(indexed.length, section).toBeGreaterThan(0);
     for (const name of shown) {
       const covered = indexed.some((entry) => {
         const label = normalize(entry.label);
@@ -164,8 +173,8 @@ describe("searchSettings", () => {
   it("needs every word, in any field", () => {
     const labels = find("indicador cor").entries.map((entry) => entry.label);
     expect(labels).toEqual([
-      ptBR.settings.indicatorFollowsWorkspace,
       ptBR.settings.look.indicatorColor,
+      ptBR.settings.indicatorFollowsWorkspace,
     ]);
   });
 
@@ -190,7 +199,7 @@ describe("the search of Configurações", () => {
     });
     expect(
       within(results).getByRole("button", {
-        name: `${ptBR.settings.groups.powerSaver} ${text.sections.general} › ${text.groups.behavior}`,
+        name: `${ptBR.settings.groups.powerSaver} ${text.sections.behavior} › ${text.groups.energy}`,
       }),
     ).toBeTruthy();
     expect(

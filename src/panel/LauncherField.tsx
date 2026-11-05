@@ -19,20 +19,51 @@ type LauncherFieldProps = {
    * load. */
   hotkey?: string | null;
   onChange: (on: boolean) => void;
+  /** Shows the history's row under the hotkey; off in the Configurações
+   * app, which puts it in Lançador › Avançado (spec 0029 §2.1). */
+  withHistory?: boolean;
 };
 
+/** Forgetting what the launcher opened: a row with its button. */
+export function LauncherHistoryField() {
+  const text = useT().settings.launcher;
+  const [cleared, setCleared] = useState(false);
+  return (
+    <div className="toggle-row">
+      <div className="toggle-text">
+        <span className="toggle-label">{text.history}</span>
+        <span className="toggle-hint">{text.historyHint}</span>
+      </div>
+      <button
+        type="button"
+        className="secondary-button"
+        disabled={cleared}
+        onClick={() => {
+          void clearLauncherHistory().then(setCleared);
+        }}
+      >
+        {cleared ? text.cleared : text.clear}
+      </button>
+    </div>
+  );
+}
+
 /**
- * The launcher's place in Configurações › Geral (spec 0012): the switch of
+ * The launcher's place in Configurações › Lançador (spec 0012; spec 0029): the switch of
  * its hotkey, a notice when another program holds it (the launcher then
  * opens from the dock's menu), the hotkey itself (L3), and forgetting what
  * it opened.
  */
-function LauncherField({ on, onChange, hotkey = null }: LauncherFieldProps) {
+function LauncherField({
+  on,
+  onChange,
+  hotkey = null,
+  withHistory = true,
+}: LauncherFieldProps) {
   const t = useT();
   const text = t.settings.launcher;
   const status = useLauncherStatus();
   const shown = hotkeyLabel(hotkey ?? DEFAULT_HOTKEY, text.hotkey.space);
-  const [cleared, setCleared] = useState(false);
   return (
     <>
       <ToggleField
@@ -49,22 +80,7 @@ function LauncherField({ on, onChange, hotkey = null }: LauncherFieldProps) {
         />
       ) : null}
       {on && hotkey !== null ? <HotkeyField hotkey={hotkey} /> : null}
-      <div className="toggle-row">
-        <div className="toggle-text">
-          <span className="toggle-label">{text.history}</span>
-          <span className="toggle-hint">{text.historyHint}</span>
-        </div>
-        <button
-          type="button"
-          className="secondary-button"
-          disabled={cleared}
-          onClick={() => {
-            void clearLauncherHistory().then(setCleared);
-          }}
-        >
-          {cleared ? text.cleared : text.clear}
-        </button>
-      </div>
+      {withHistory ? <LauncherHistoryField /> : null}
     </>
   );
 }

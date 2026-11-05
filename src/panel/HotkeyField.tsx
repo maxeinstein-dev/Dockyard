@@ -45,7 +45,7 @@ type State =
   | { kind: "refused"; code: HotkeyErrorCode };
 
 /**
- * The launcher's hotkey in Configurações › Geral (spec 0012 L3): a button
+ * The launcher's hotkey in Configurações › Lançador (spec 0012 L3; spec 0029): a button
  * that shows it and, pressed, captures the next combination. While it
  * captures, Rust lets go of the current hotkey (or pressing it would open
  * the launcher); Esc or leaving the button cancels. Rust tries the new one

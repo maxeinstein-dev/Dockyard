@@ -124,13 +124,24 @@ const messages = {
       nav: "Seções das configurações",
       sections: {
         general: "Geral",
-        workspaces: "Espaços de trabalho",
-        look: "Aparência do dock",
-        apps: "Apps do dock",
+        look: "Aparência",
+        behavior: "Comportamento",
+        workspaces: "Espaços",
+        apps: "Apps",
         items: "Widgets",
+        launcher: "Lançador",
         accounts: "Contas",
         about: "Sobre",
       },
+      /** The titles of the bands of the side bar (spec 0029 §2). */
+      bands: {
+        dock: "Dock",
+        content: "Conteúdo",
+        more: "Mais",
+      },
+      /** The name of the index of the groups, under the lead (spec 0029
+       * §3). */
+      contents: "Nesta seção",
       /** The top of the side bar (spec 0014 R1). */
       brand: "Configurações",
       /** The search at the top of the side bar (estudo 0002 F6). */
@@ -141,21 +152,31 @@ const messages = {
       },
       /** The line under each section's title. */
       leads: {
-        general: "Como o Dockyard se encaixa no Windows.",
-        workspaces: "Um dock para cada coisa que você faz.",
+        general: "Onde o dock fica e como ele convive com o Windows.",
         look: "Deixe o dock com a sua cara.",
+        behavior: "Quando o dock aparece e o que ele mostra.",
+        workspaces: "Um dock para cada coisa que você faz.",
         apps: "Os programas fixados no dock de cada espaço.",
         items: "Escolha no catálogo e arrume os do dock de cada espaço.",
+        launcher: "Abra apps e busque na web pelo teclado.",
         accounts: "As agendas e as tarefas que os widgets mostram.",
         about: "Versão, licença e onde ficam os seus dados.",
       },
-      /** The titles of the groups of Geral and Aparência. */
+      /** The titles of the groups of Geral, Aparência, Comportamento and
+       * Lançador. */
       groups: {
         dock: "Dock",
         taskbar: "Windows",
-        behavior: "Comportamento",
+        startup: "Idioma e inicialização",
+        showHide: "Mostrar e ocultar",
+        previews: "Prévias",
+        appsInDock: "Apps no dock",
+        energy: "Energia",
+        /** Comportamento's switches of the monitors, until the Monitores
+         * section (F13) takes them (spec 0029 §2.1). */
+        monitors: "Monitores",
+        advanced: "Avançado",
         launcher: "Lançador",
-        startup: "Inicialização",
         themes: "Temas",
         style: "Estilo da barra",
         tweaks: "Personalizar este estilo",
@@ -1158,7 +1179,7 @@ const messages = {
      * so this panel shows only if it is opened some other way. */
     launcher: {
       settingsTitle: "Ajustes do Lançador",
-      hint: "Clique no Lançador, no dock, para abrir ou fechar a busca de apps. O atalho do teclado fica em Configurações › Geral.",
+      hint: "Clique no Lançador, no dock, para abrir ou fechar a busca de apps. O atalho do teclado fica em Configurações › Lançador.",
     },
     /** The Layout do teclado (F9 of estudo 0002): a click on the dock
      * switches the layout, so this panel shows only if it is opened some
