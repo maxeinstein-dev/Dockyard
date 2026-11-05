@@ -113,6 +113,14 @@ O autor atualizou da 0.9.1 para a 0.9.2 pelo aviso do próprio app.
 
 ## 8. Dock na lateral (uns 20 minutos, spec 0028)
 
+> **Já visto ao vivo em 2026-11-05** ([spec 0028](specs/0028-dock-lateral.md), PR #194), na esquerda e na direita:
+> - a coluna e a ordem, a dica e o menu do lado de dentro, e o arrasto de apps;
+> - a faixa reservada ao lado da coluna, e a janela maximizada fora dela;
+> - ↑ e ↓ pelo atalho, e a prévia e o painel do lado de dentro;
+> - o ocultar automaticamente sem faixa, e a barra do Windows devolvida.
+>
+> A bandeja, o relógio e os widgets em pé foram vistos em fotos fora da tela. Daqui, falta sobretudo o 9 (skins ao vivo), o 11 (todos os monitores com a borda na lateral), a bandeja, o relógio e os widgets em pé na tela de verdade.
+
 Em Configurações › Geral › Dock › Posição, passe por **Esquerda** e **Direita**, e no fim volte para a posição de antes. Em cada lateral:
 
 1. **A coluna:**
@@ -219,7 +227,7 @@ O que os testes ao vivo das funcionalidades não cobriram. Cada passo diz de ond
 - [ ] Um selo mudando com a barra do Windows recolhida: atualiza em até 10 s.
 - [ ] O Narrador lendo "…, N notificações" no item.
 
-**F12 Dock lateral** (spec 0028 §7): o §8 deste roteiro, e mais:
+**F12 Dock lateral** (spec 0028): o que falta do §8 deste roteiro (a nota no topo dele diz o que já foi visto), e mais:
 - [ ] escala de 150%;
 - [ ] um app em tela cheia;
 - [ ] o Narrador nas duas laterais.
