@@ -28,7 +28,8 @@ Levantamento de 2026-10-30, depois da primeira leva da [spec 0020](../specs/0020
   - F12 Dock vertical: o Dockyard não tem dock na lateral, então a F12 virou o dock lateral inteiro, de tamanho G ([spec 0028](../specs/0028-dock-lateral.md)). O autor aprovou as propostas em 2026-11-04; o passo 1 (layout nas quatro bordas) está em andamento.
   - F13 Itens e espaço por monitor: na main ([spec 0030](../specs/0030-itens-e-espaco-por-monitor.md), PR #190). Entraram a chave estável, o monitor fixo e o grupo Monitores em Configurações.
   - F14 Extensões do lançador: **retirada do roadmap** (decisão do autor, 2026-11-05). A spec e o ADR chegaram a ser escritos e decididos, mas não entraram.
-  - F15 Temas sazonais: a fazer, por último.
+  - F15 Temas sazonais: **fora da 1.0**, uma tarefa à parte para depois (decisão do autor, 2026-11-05).
+- **Versão 1.0:** a leva das funcionalidades fecha na F13 (decisão do autor, 2026-11-05). Da F1 à F13, fica só a F14, retirada; a F15 vem depois da 1.0.
 - **Itens adiados da spec 0020:** os quatro entraram (ver "Como ler"). Os pacotes de pixel ganharam os launchers de jogos (PR #167).
 
 ## Resumo
@@ -333,6 +334,8 @@ Entram depois dos quatro itens adiados da spec 0020. A ordem pesa o valor no uso
 - **Como verificar:** spec e ADR antes; testes do isolamento.
 
 ### F15. Temas sazonais
+
+> **Depois da 1.0** (decisão do autor, 2026-11-05): uma tarefa à parte, para mais à frente.
 
 - **O que é:** os enfeites de Halloween e de Natal do PrimoDock (luzes, guirlanda, abóboras) sobre qualquer tema, saídos "por enquanto" na 0004 (l. 156). Com as skins de 9 fatias e a galeria de Temas, viram uma camada por cima da barra.
 - **Por que vale:** charme de baixo custo, agora que a infraestrutura existe. Fica por último porque o autor tirou da fila; precisa de uma decisão dele.
