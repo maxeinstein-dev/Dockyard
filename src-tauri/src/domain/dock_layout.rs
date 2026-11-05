@@ -949,6 +949,20 @@ pub fn drag_offset(x: f64, start: f64, rest_left: f64, width: f64, min: f64, max
 /// column right of the cover, centered in it (the title and the artist are
 /// on the upper one); the dock draws them and takes their clicks.
 pub fn media_buttons(tile: Area) -> [Area; 3] {
+    // Standing (on a side, spec 0028 §2): a column in the last square.
+    if let Some(&last) = standing_squares(tile).last() {
+        let u = last.width;
+        let side = u * 0.26;
+        let step = u * 0.32;
+        let x = last.center_x() - side / 2.0;
+        let top = last.center_y() - step - side / 2.0;
+        return std::array::from_fn(|index| Area {
+            x,
+            y: top + index as f64 * step,
+            width: side,
+            height: side,
+        });
+    }
     let u = tile.height;
     let side = u * 0.3;
     let step = side * 1.7;
@@ -962,6 +976,27 @@ pub fn media_buttons(tile: Area) -> [Area; 3] {
         width: side,
         height: side,
     })
+}
+
+/// The squares of a standing tile, top first: a widget N icons wide stands
+/// N icons tall on a side (spec 0028 §2), and its face is drawn an icon at
+/// a time. Each is as wide as the tile, centered in its share of the
+/// height. Empty for a tile that does not stand (no taller than wide).
+pub fn standing_squares(tile: Area) -> Vec<Area> {
+    if tile.height <= tile.width * 1.05 || tile.width <= 0.0 {
+        return Vec::new();
+    }
+    let count = (tile.height / tile.width).round().max(1.0) as usize;
+    let step = tile.height / count as f64;
+    let side = tile.width.min(step);
+    (0..count)
+        .map(|index| Area {
+            x: tile.x + (tile.width - side) / 2.0,
+            y: tile.y + step * index as f64 + (step - side) / 2.0,
+            width: side,
+            height: side,
+        })
+        .collect()
 }
 
 /// Seconds a long text stands at its start, and at its end, before it moves.
@@ -1914,6 +1949,38 @@ mod tests {
         let strip = area(0.0, 0.0, tray_width(48.0, 3), 48.0);
         let cells = tray_cells(strip, 3, 48.0, false);
         assert!(cells[1].y > cells[0].y && cells[2].x > cells[0].x);
+    }
+
+    #[test]
+    fn a_standing_tile_is_drawn_an_icon_at_a_time() {
+        // Two icons and the gap between them, standing.
+        let tile = area(10.0, 100.0, 48.0, 104.0);
+        let squares = standing_squares(tile);
+        assert_eq!(squares.len(), 2);
+        for square in &squares {
+            assert_eq!((square.width, square.height), (48.0, 48.0));
+            assert_eq!(square.x, 10.0);
+            assert!(square.y >= tile.y && square.y + square.height <= tile.y + tile.height);
+        }
+        assert!(squares[0].y + 48.0 <= squares[1].y);
+        // Three icons; and a lying or square tile has none.
+        assert_eq!(standing_squares(area(0.0, 0.0, 48.0, 160.0)).len(), 3);
+        assert!(standing_squares(area(0.0, 0.0, 48.0, 48.0)).is_empty());
+        assert!(standing_squares(area(0.0, 0.0, 104.0, 48.0)).is_empty());
+    }
+
+    #[test]
+    fn standing_the_media_buttons_are_a_column_in_the_last_square() {
+        let tile = area(10.0, 100.0, 48.0, 160.0);
+        let last = *standing_squares(tile).last().unwrap();
+        let [previous, toggle, next] = media_buttons(tile);
+        for button in [previous, toggle, next] {
+            assert!(button.x >= last.x && button.x + button.width <= last.x + last.width);
+            assert!(button.y >= last.y && button.y + button.height <= last.y + last.height);
+            assert_eq!(button.x, previous.x);
+        }
+        assert!(previous.y + previous.height < toggle.y);
+        assert!(toggle.y + toggle.height < next.y);
     }
 
     #[test]

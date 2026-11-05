@@ -250,6 +250,10 @@ pub struct AgendaLine {
     pub size: f64,
     /// White and bold; the others are fainter.
     pub strong: bool,
+    /// The line in two, a name over its value, for a tile standing on a
+    /// side (spec 0028 §2): the Relógio mundial's city over its time. A
+    /// line without it is drawn turned there.
+    pub stacked: Option<(String, String)>,
 }
 
 /// A meeting on the Calendário's tile: when and what, in a block of its
@@ -418,6 +422,14 @@ fn then(a: &Matrix3x2, b: &Matrix3x2) -> Matrix3x2 {
         M31: a.M31 * b.M11 + a.M32 * b.M21 + b.M31,
         M32: a.M31 * b.M12 + a.M32 * b.M22 + b.M32,
     }
+}
+
+/// A Calendário block's fill and the ink on it, from its calendar's color
+/// (`None`: the theme's `accent`).
+fn block_colors(block: &AgendaBlock, accent: (u8, u8, u8)) -> (Color, Color) {
+    let block = calendar::Block::of(block.color.as_deref(), accent);
+    let ((r, g, b), (ir, ig, ib)) = (block.fill, block.ink());
+    (Color::rgb(r, g, b), Color::rgb(ir, ig, ib))
 }
 
 /// x and y swapped: a lying bar painted as a standing one (spec 0028).
@@ -1184,6 +1196,29 @@ impl Painter {
     /// they are and the middle in tiles, at the bar's height, without
     /// smoothing for pixel art.
     fn skin_bar(&mut self, scene: &Scene, bar: Area) {
+        // On a side, a folder skin's own upright image, drawn standing
+        // (spec 0028 Q4); the others turn with the bar.
+        if standing(scene.edge)
+            && scene.look.style == DockStyle::Custom
+            && let Some(custom) = &scene.custom_skin
+            && let (Some(vertical), Some(png)) =
+                (&custom.skin.meta.vertical, &custom.skin.vertical_png)
+        {
+            let key = format!("{}/vertical", custom.key);
+            let standing_bar = bar.transposed();
+            let area = crate::domain::skin::Rect {
+                x: standing_bar.x,
+                y: standing_bar.y,
+                width: standing_bar.width,
+                height: standing_bar.height,
+            };
+            let pieces = crate::domain::skin::standing_pieces(&custom.skin.meta, vertical, area);
+            // Undo the bar's turn for it, and turn again after.
+            self.transform(&IDENTITY);
+            self.skin_pieces(&key, png, custom.skin.meta.pixelated, &pieces);
+            self.transform(&TRANSPOSE);
+            return;
+        }
         let (key, png, meta) = match (scene.look.style, &scene.custom_skin) {
             (DockStyle::Custom, Some(custom)) => (
                 custom.key.as_str(),
@@ -1197,6 +1232,24 @@ impl Painter {
                 (skin.id, skin.png, skin.meta())
             }
         };
+        let area = crate::domain::skin::Rect {
+            x: bar.x,
+            y: bar.y,
+            width: bar.width,
+            height: bar.height,
+        };
+        let pieces = crate::domain::skin::pieces(meta, area);
+        self.skin_pieces(key, png, meta.pixelated, &pieces);
+    }
+
+    /// The skin image `png` (kept as a bitmap by `key`) drawn in `pieces`.
+    fn skin_pieces(
+        &mut self,
+        key: &str,
+        png: &[u8],
+        pixelated: bool,
+        pieces: &[crate::domain::skin::Piece],
+    ) {
         if !self.skins.contains_key(key) {
             let Some(bitmap) = self.bitmap(png) else {
                 return;
@@ -1211,7 +1264,7 @@ impl Painter {
         let Some(bitmap) = self.skins.get(key) else {
             return;
         };
-        let mode = if meta.pixelated {
+        let mode = if pixelated {
             D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR
         } else {
             D2D1_BITMAP_INTERPOLATION_MODE_LINEAR
@@ -1222,16 +1275,10 @@ impl Painter {
             right: (r.x + r.width) as f32,
             bottom: (r.y + r.height) as f32,
         };
-        let area = crate::domain::skin::Rect {
-            x: bar.x,
-            y: bar.y,
-            width: bar.width,
-            height: bar.height,
-        };
         // Hard edges: tiles side by side must not show a seam where one
         // ends on a fraction of a pixel.
         unsafe { self.target.SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED) };
-        for piece in crate::domain::skin::pieces(meta, area) {
+        for piece in pieces {
             unsafe {
                 self.target.DrawBitmap(
                     bitmap,
@@ -1314,7 +1361,8 @@ impl Painter {
     /// The tile's shadow and glaze, cut to the superellipse.
     fn glaze(&mut self, area: Area, glaze: Glaze, pressed: bool) {
         self.mark = glaze.mark(self.style_mark);
-        if area.width > area.height * 1.05 {
+        // Wide, or tall on a side (spec 0028): rounded as a pill.
+        if area.width > area.height * 1.05 || area.height > area.width * 1.05 {
             self.wide_glaze(area, glaze, pressed);
             return;
         }
@@ -1620,6 +1668,9 @@ impl Painter {
         // Whatever the tile draws without a transform of its own goes through
         // the base too.
         self.transform(&IDENTITY);
+        if self.standing_face(scene, tile) {
+            return;
+        }
         match &tile.face {
             Face::Glyph { glaze, paths } => {
                 self.glaze(area, *glaze, tile.pressed);
@@ -2285,11 +2336,7 @@ impl Painter {
         let byte = |v: f32| (v * 255.0).round() as u8;
         let accent = scene.palette.accent;
         let accent = (byte(accent.r), byte(accent.g), byte(accent.b));
-        let colors = |block: &AgendaBlock| {
-            let block = calendar::Block::of(block.color.as_deref(), accent);
-            let ((r, g, b), (ir, ig, ib)) = (block.fill, block.ink());
-            (Color::rgb(r, g, b), Color::rgb(ir, ig, ib))
-        };
+        let colors = |block: &AgendaBlock| block_colors(block, accent);
         let inset = u * 0.13;
         let room = Area {
             x: area.x + inset,
@@ -2351,6 +2398,284 @@ impl Painter {
                 self.rolling(&[run], whole.x, cy, whole.width, since);
             }
         }
+    }
+
+    /// A widget standing on a side (spec 0028 §2), drawn an icon at a time
+    /// (`dock_layout::standing_squares`): the meters, the network's graph
+    /// over its rates, the Calendário's blocks, the Tocando agora's cover
+    /// over its title and buttons, the Clima's sky over its range, the
+    /// Relógio mundial's cities. The Lista de tarefas and the Contagem
+    /// regressiva, all text, are turned (Q3). Whether it drew the tile: no
+    /// for one that does not stand.
+    fn standing_face(&mut self, scene: &Scene, tile: &Tile) -> bool {
+        let area = tile.area;
+        let squares = dock_layout::standing_squares(area);
+        let (Some(&first), Some(&last)) = (squares.first(), squares.last()) else {
+            return false;
+        };
+        let u = first.width;
+        let middle = Area {
+            y: area.center_y() - u / 2.0,
+            height: u,
+            ..area
+        };
+        let faint = Color::WHITE.with_alpha(0.78);
+        match &tile.face {
+            Face::Meters {
+                glaze,
+                style,
+                meters,
+                graph,
+            } => {
+                self.glaze(area, *glaze, tile.pressed);
+                let room = squares.len() - usize::from(graph.is_some());
+                if meters.len() > room {
+                    // More meters than icons: the lying face, turned.
+                    self.turned(area, |painter, lying| {
+                        painter.meters(lying, *style, meters);
+                    });
+                    return true;
+                }
+                for (square, meter) in squares.iter().zip(meters) {
+                    self.meters(*square, *style, std::slice::from_ref(meter));
+                }
+                if let Some(graph) = graph {
+                    let plot = Area {
+                        x: last.x + u * 0.14,
+                        y: last.y + u * 0.2,
+                        width: u * 0.72,
+                        height: u * 0.6,
+                    };
+                    self.graph_line(plot, graph, true);
+                    self.graph_line(plot, graph, false);
+                }
+            }
+            Face::Rates {
+                glaze,
+                down,
+                up,
+                graph,
+            } => {
+                self.glaze(area, *glaze, tile.pressed);
+                // The graph standing over the rates.
+                if let Some(graph) = graph
+                    && squares.len() > 1
+                {
+                    let above = squares[squares.len() - 2];
+                    let plot = Area {
+                        x: first.x + u * 0.14,
+                        y: first.y + u * 0.14,
+                        width: u * 0.72,
+                        height: above.y + above.height - first.y - u * 0.2,
+                    };
+                    self.graph_line(plot, &graph.down, true);
+                    self.graph_line(plot, &graph.up, false);
+                    self.rates(last, down, up, None);
+                } else {
+                    self.rates(middle, down, up, None);
+                }
+            }
+            Face::Calendar {
+                blocks,
+                note,
+                since,
+            } => {
+                let ground = if scene.palette.dark {
+                    Glaze::NEUTRAL_DARK
+                } else {
+                    Glaze::NEUTRAL_LIGHT
+                };
+                self.glaze(area, ground, tile.pressed);
+                let ink = scene.palette.ink;
+                if blocks.is_empty() {
+                    match note.as_deref().filter(|note| !note.is_empty()) {
+                        Some(note) => {
+                            let size = u * 0.2;
+                            let text = self.fit(note, u * 0.86, size, 600);
+                            self.text(&text, middle, size, 600, true, ink.with_alpha(0.72));
+                        }
+                        None => {
+                            self.strokes(middle, 0.5, CALENDAR_GLYPH, ink.with_alpha(0.8), 1.75);
+                        }
+                    }
+                    return true;
+                }
+                let byte = |v: f32| (v * 255.0).round() as u8;
+                let accent = scene.palette.accent;
+                let accent = (byte(accent.r), byte(accent.g), byte(accent.b));
+                // A block an icon tall each: when over the title, rolling.
+                for (square, block) in squares.iter().zip(blocks) {
+                    let (fill, text_ink) = block_colors(block, accent);
+                    let inset = u * 0.08;
+                    let place = Area {
+                        x: square.x + inset,
+                        y: square.y + inset,
+                        width: square.width - 2.0 * inset,
+                        height: square.height - 2.0 * inset,
+                    };
+                    self.fill_round(place, u * 0.14, fill);
+                    let pad = u * 0.08;
+                    let room = place.width - 2.0 * pad;
+                    let size = u * 0.2;
+                    let when = self.fit(&block.when, room, size, 650);
+                    let line = Area {
+                        y: place.y + place.height * 0.32 - size * 0.65,
+                        height: size * 1.3,
+                        ..place
+                    };
+                    self.text(&when, line, size, 650, true, text_ink);
+                    let run = (block.title.clone(), u * 0.19, 500, text_ink);
+                    let cy = place.y + place.height * 0.7;
+                    self.rolling(&[run], place.x + pad, cy, room, *since);
+                }
+            }
+            Face::Media {
+                glaze,
+                art,
+                playing,
+                title,
+                artist,
+                idle,
+                badge,
+                controls,
+                since,
+            } => {
+                self.glaze(area, *glaze, tile.pressed);
+                if *idle {
+                    self.strokes(middle, 0.5, NOTE, Color::WHITE, 1.75);
+                    return true;
+                }
+                // The cover in the first icon, the title and the artist in
+                // the second, the buttons in a column in the third.
+                self.media(
+                    scene,
+                    first,
+                    art.as_ref(),
+                    badge.as_ref(),
+                    false,
+                    *since,
+                    *playing,
+                    None,
+                    None,
+                );
+                if let (Some(title), Some(&second)) = (title, squares.get(1)) {
+                    let pad = u * 0.1;
+                    let room = u - 2.0 * pad;
+                    let artist = artist.as_deref().filter(|artist| !artist.is_empty());
+                    let (title_y, artist_y) = if artist.is_some() {
+                        (0.36, 0.68)
+                    } else {
+                        (0.5, 0.0)
+                    };
+                    let run = (title.clone(), u * 0.2, 600, Color::WHITE);
+                    let x = second.x + pad;
+                    self.rolling(&[run], x, second.y + u * title_y, room, *since);
+                    if let Some(artist) = artist {
+                        let run = (artist.to_owned(), u * 0.17, 500, faint);
+                        self.rolling(&[run], x, second.y + u * artist_y, room, *since);
+                    }
+                }
+                if *controls && title.is_some() {
+                    let toggle = if *playing { PAUSE } else { PLAY };
+                    for (button, paths) in dock_layout::media_buttons(area)
+                        .into_iter()
+                        .zip([PREVIOUS, toggle, NEXT])
+                    {
+                        self.strokes(button, 1.0, paths, Color::WHITE, 1.6);
+                    }
+                }
+            }
+            Face::Weather {
+                glaze,
+                sky,
+                temperature,
+                range,
+            } => {
+                self.glaze(area, *glaze, tile.pressed);
+                let Some(temperature) = temperature else {
+                    self.strokes(middle, 0.54, sky, Color::WHITE, 1.75);
+                    return true;
+                };
+                // The square face in the first icon, the day's highest
+                // over its lowest in the second.
+                self.weather(first, sky, Some(temperature), None);
+                if let (Some(range), Some(&second)) = (range, squares.get(1)) {
+                    let size = u * 0.2;
+                    for (index, part) in range.split(' ').take(2).enumerate() {
+                        let cy = second.y + u * (0.34 + 0.32 * index as f64);
+                        let line = Area {
+                            y: cy - size * 0.65,
+                            height: size * 1.3,
+                            ..second
+                        };
+                        self.text(part, line, size, 600, true, faint);
+                    }
+                }
+            }
+            Face::Agenda { glaze, lines } => {
+                self.glaze(area, *glaze, tile.pressed);
+                let stacked: Option<Vec<&(String, String)>> =
+                    lines.iter().map(|line| line.stacked.as_ref()).collect();
+                match stacked.filter(|stacked| !stacked.is_empty()) {
+                    // A line an icon tall: the name over its value.
+                    Some(stacked) => {
+                        let room = u * 0.88;
+                        for (square, (name, value)) in squares.iter().zip(stacked) {
+                            let size = u * 0.17;
+                            let name = self.fit(name, room, size, 500);
+                            let line = Area {
+                                y: square.y + u * 0.34 - size * 0.65,
+                                height: size * 1.3,
+                                ..*square
+                            };
+                            self.text(&name, line, size, 500, true, faint);
+                            let size = u * 0.24;
+                            let value = self.fit(value, room, size, 600);
+                            let line = Area {
+                                y: square.y + u * 0.66 - size * 0.65,
+                                height: size * 1.3,
+                                ..*square
+                            };
+                            self.text(&value, line, size, 600, true, Color::WHITE);
+                        }
+                    }
+                    // All text: the lying face, turned (Q3).
+                    None => self.turned(area, |painter, lying| painter.agenda(lying, lines)),
+                }
+            }
+            // A square face on a tile that stands (not one there is today):
+            // in the middle of it.
+            _ => return false,
+        }
+        true
+    }
+
+    /// `draw` with the lying area it is given, turned a quarter to stand in
+    /// `area`: its text reads from the bottom up, as a book's spine (spec
+    /// 0028 Q3).
+    fn turned(&mut self, area: Area, draw: impl FnOnce(&mut Self, Area)) {
+        let before = self.base;
+        let turn = Matrix3x2 {
+            M11: 0.0,
+            M12: -1.0,
+            M21: 1.0,
+            M22: 0.0,
+            M31: area.x as f32,
+            M32: (area.y + area.height) as f32,
+        };
+        self.base = then(&turn, &before);
+        self.transform(&IDENTITY);
+        draw(
+            self,
+            Area {
+                x: 0.0,
+                y: 0.0,
+                width: area.height,
+                height: area.width,
+            },
+        );
+        self.base = before;
+        self.transform(&IDENTITY);
     }
 
     /// The Clima: the sky alone until the weather is read; on a square
@@ -2509,7 +2834,8 @@ impl Painter {
     /// rectangle with corners about as round as the squircle's, the same
     /// fill, sheen and rim stretched across it.
     fn wide_glaze(&mut self, area: Area, glaze: Glaze, pressed: bool) {
-        let radius = area.height * 0.3;
+        let short = area.height.min(area.width);
+        let radius = short * 0.3;
         // Drawn in a 100 × 100 box stretched over the tile, so the brushes
         // made for that box fit; the corners are set back to round.
         let shape = |width: f64, height: f64| D2D1_ROUNDED_RECT {
@@ -2551,7 +2877,7 @@ impl Painter {
             self.target.DrawRoundedRectangle(
                 &tile,
                 &self.rim,
-                (100.0 / area.height) as f32,
+                (100.0 / short) as f32,
                 None::<&ID2D1StrokeStyle>,
             );
         }

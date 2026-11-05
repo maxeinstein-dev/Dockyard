@@ -149,11 +149,13 @@ mod tests {
             dark: None,
             ink: None,
             indicator: None,
+            vertical: None,
         };
         let info = info_of(FolderSkin {
             id: "Minha".into(),
             meta,
             png: vec![1, 2, 3],
+            vertical_png: None,
         });
         assert_eq!(
             info,

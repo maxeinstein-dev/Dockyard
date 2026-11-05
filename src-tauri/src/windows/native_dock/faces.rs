@@ -243,7 +243,12 @@ pub fn countdown(config: &crate::domain::widgets::CountdownConfig, size: DockSiz
         crate::windows::calendar::now(),
         crate::windows::calendar::offset(),
     );
-    let line = |text: String, size: f64, strong: bool| AgendaLine { text, size, strong };
+    let line = |text: String, size: f64, strong: bool| AgendaLine {
+        text,
+        size,
+        strong,
+        stacked: None,
+    };
     let small = size == DockSize::Small;
     let lines = match countdown::days_left(config, today) {
         None => vec![line(text.no_value.into(), 0.3, true)],
@@ -292,7 +297,12 @@ pub fn pomodoro(
 /// the number.
 pub fn todo(config: &crate::domain::widgets::TodoConfig, size: DockSize) -> Face {
     let text = &crate::i18n::messages().dock;
-    let line = |text: String, size: f64, strong: bool| AgendaLine { text, size, strong };
+    let line = |text: String, size: f64, strong: bool| AgendaLine {
+        text,
+        size,
+        strong,
+        stacked: None,
+    };
     let open = config.open();
     let lines = if open == 0 {
         vec![line(text.todo_none.into(), 0.34, true)]
@@ -338,6 +348,7 @@ pub fn world_clock(config: &crate::domain::widgets::WorldClockConfig) -> Face {
                 text: format!("{} {time}", city(zone)),
                 size,
                 strong: true,
+                stacked: Some((city(zone).to_string(), time)),
             }
         })
         .collect();
