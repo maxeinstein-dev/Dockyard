@@ -10,7 +10,7 @@ Levantamento de 2026-10-30, depois da primeira leva da [spec 0020](../specs/0020
 - **Risco:** o que pode dar errado e o quanto mexe no que já funciona.
 - A prioridade pesa, nesta ordem: memória e CPU em repouso (o dock fica aberto o dia todo), robustez (o dock substitui a barra do Windows), acessibilidade e o resto.
 
-## Andamento (2026-11-04)
+## Andamento (2026-11-05)
 
 - **Melhorias:** M1 a M15 estão na main. A M11 deixou passos ao vivo em aberto, listados no [roteiro de verificação](../roteiro-de-verificacao.md).
 - **Funcionalidades:**
@@ -25,7 +25,7 @@ Levantamento de 2026-10-30, depois da primeira leva da [spec 0020](../specs/0020
   - F9 Widgets que faltam: na main. Layout do teclado (PR #169), Relógio mundial (PR #171), Capturas de tela (PR #173) e Arquivos (PR #175). O Arquivos virou **Arquivos recentes** (decisão do autor, 2026-11-04): a lista de uma pasta, como a spec 0003 o previa, já é a pasta fixada da F5.
   - F10 Prévias pelo teclado e Espiar: na main ([spec 0027](../specs/0027-previas-pelo-teclado.md), PR #174).
   - F11 Selos: na main ([spec 0016](../specs/0016-selos-de-notificacao.md) §8, PR #178). Entraram a descrição do ícone sobreposto, o "9+" do Discord, a bandeja e o leitor de tela.
-  - F12 Dock vertical: o Dockyard não tem dock na lateral, então a F12 virou o dock lateral inteiro, de tamanho G ([spec 0028](../specs/0028-dock-lateral.md)). O autor aprovou as propostas em 2026-11-04; o passo 1 (layout nas quatro bordas) está em andamento.
+  - F12 Dock vertical: o Dockyard não tem dock na lateral, então a F12 virou o dock lateral inteiro, de tamanho G ([spec 0028](../specs/0028-dock-lateral.md)). Na main: os oito passos entraram entre 2026-11-04 e 2026-11-05 (PRs #177, #179, #180, #182, #183, #185, #187 e #189) e foram testados ao vivo nas duas laterais (PR #194). O teste mostrou a barra do Windows sem o "sempre por cima" por alguns minutos depois de devolvida, e o vigia passou a segurá-la por cima (PR #195). As conferências que faltam estão no roteiro da 1.0.
   - F13 Itens e espaço por monitor: na main ([spec 0030](../specs/0030-itens-e-espaco-por-monitor.md), PR #190). Entraram a chave estável, o monitor fixo e o grupo Monitores em Configurações.
   - F14 Extensões do lançador: **retirada do roadmap** (decisão do autor, 2026-11-05). A spec e o ADR chegaram a ser escritos e decididos, mas não entraram.
   - F15 Temas sazonais: **fora da 1.0**, uma tarefa à parte para depois (decisão do autor, 2026-11-05).
