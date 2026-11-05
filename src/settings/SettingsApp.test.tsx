@@ -217,7 +217,6 @@ describe("SettingsApp", () => {
       text.groups.previews,
       text.groups.appsInDock,
       text.groups.energy,
-      text.groups.monitors,
       text.groups.advanced,
     ]);
     // The dock's hotkey (M14), in Avançado.
@@ -330,6 +329,57 @@ describe("SettingsApp", () => {
     ).toBeInTheDocument();
   });
 
+  it("puts each switch of the monitors where it belongs (spec 0029 §2.1)", async () => {
+    invoke.mockImplementation((command: string) => {
+      if (command === "get_settings") return Promise.resolve(SETTINGS);
+      if (command === "list_workspaces") {
+        return Promise.resolve({
+          inUse: "a",
+          workspaces: [
+            {
+              id: "a",
+              name: "Principal",
+              color: "#0A84FF",
+              items: [],
+              spacers: [],
+              stacks: [],
+            },
+          ],
+        });
+      }
+      if (command === "list_monitors") return Promise.resolve([]);
+      return new Promise(() => {});
+    });
+    await renderApp();
+
+    expect(
+      within(screen.getByRole("region", { name: text.groups.dock })).getByRole(
+        "switch",
+        { name: ptBR.settings.everyMonitor },
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(sectionButton("Espaços"));
+    await act(async () => {});
+    expect(
+      within(
+        screen.getByRole("region", { name: ptBR.workspaces.monitors.title }),
+      ).getByRole("switch", { name: ptBR.settings.switchEveryMonitor }),
+    ).toBeInTheDocument();
+    // How to switch, a row of its own, in place of the long lead (§7).
+    expect(screen.getByText(ptBR.workspaces.howTo)).toBeInTheDocument();
+    expect(screen.getByText(ptBR.workspaces.howToHint)).toBeInTheDocument();
+
+    fireEvent.click(sectionButton("Comportamento"));
+    await act(async () => {});
+    expect(
+      screen.queryByRole("switch", { name: ptBR.settings.everyMonitor }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("switch", { name: ptBR.settings.switchEveryMonitor }),
+    ).toBeNull();
+  });
+
   it("puts the indicator in the workspace color beside its color", async () => {
     await renderApp();
     fireEvent.click(sectionButton("Aparência"));
@@ -411,7 +461,6 @@ describe("SettingsApp", () => {
       text.groups.previews,
       text.groups.appsInDock,
       text.groups.energy,
-      text.groups.monitors,
       text.groups.advanced,
     ]);
     fireEvent.click(
