@@ -595,6 +595,10 @@ export const en: Messages = {
       open: "Open",
       reveal: "Show in File Explorer",
       remove: "Remove from dock",
+      addSpacer: {
+        small: "Add small spacer",
+        large: "Add large spacer",
+      },
       newWindow: "New window",
       closeWindow: "Close window",
       closeWindows: "Close all windows",

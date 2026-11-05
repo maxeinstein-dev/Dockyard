@@ -166,11 +166,14 @@ O que os testes ao vivo das funcionalidades não cobriram. Cada passo diz de ond
 - [ ] Com "Na bateria" e o Tocando agora de título longo, tire o carregador: o letreiro para, e um app fixado abre sem pulo. Ponha o carregador de volta: o letreiro volta.
 - [ ] Com "Sempre", na tomada: o letreiro fica parado e o clique abre sem pulo.
 - [ ] No log aparecem `dock: battery saver on/off`.
+- [ ] Ao tirar e pôr o carregador, o ícone da bateria na ponta do dock troca na hora, sem esperar 30 s.
+- [ ] Com "Na bateria", na tomada, ligue a economia de energia do Windows: o letreiro para e o ícone da bateria fica laranja, com "(economia de energia)" na dica. Desligue: tudo volta.
 
 **F2 Espaçadores** (spec 0022 §7)
 - [ ] O espaçador pequeno, pelo menu do dock, abre um vão de ¼ de ícone. Até hoje só o grande foi visto.
 - [ ] O mouse sobre o vão: nada amplia, sem dica.
 - [ ] Arrastar o vão entre dois apps. Ele fica só no espaço dele.
+- [ ] No menu de um app fixado, "Adicionar espaçador pequeno" e "… grande": o vão entra logo depois do app.
 - [ ] Configurações › Itens: os espaçadores sobem, descem e saem.
 - [ ] Narrador: as setas pulam o vão.
 - [ ] Nas bordas de cima e de baixo, nos três tamanhos.
@@ -179,7 +182,8 @@ O que os testes ao vivo das funcionalidades não cobriram. Cada passo diz de ond
 **F3 Pilhas de widgets** (spec 0023 §6)
 - [ ] Configurações › Itens: a linha "Pilha: …" sobe, desce e se desfaz.
 - [ ] O Mídia por baixo de uma pilha não lê nada até ficar por cima.
-- [ ] A roda sem Ctrl em cima da pilha troca de espaço, como antes.
+- [ ] A roda em cima da pilha, sem Ctrl, troca o widget de cima; o espaço não muda.
+- [ ] A roda em cima das bolinhas troca de espaço; em cima de um app ou de um widget solto, nada acontece.
 - [ ] Os pontinhos: o de cima, maior, se distingue dos outros.
 - [ ] O log, sem WARN.
 

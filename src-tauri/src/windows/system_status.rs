@@ -16,11 +16,13 @@ use windows::Win32::NetworkManagement::Ndis::IfOperStatusUp;
 use windows::Win32::System::Com::{CLSCTX_ALL, CLSCTX_INPROC_SERVER, CoCreateInstance};
 use windows::Win32::System::Power::{GetSystemPowerStatus, SYSTEM_POWER_STATUS};
 
-/// The battery: how full, and whether it is charging.
+/// The battery: how full, whether it is charging, and whether Windows'
+/// energy saver is on (its icon then turns orange, as the taskbar's).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Battery {
     pub percent: u8,
     pub charging: bool,
+    pub saver: bool,
 }
 
 /// How the computer is online.
@@ -78,6 +80,13 @@ pub fn read_shared() -> Status {
     status
 }
 
+/// Drops the shared reading: the next [`read_shared`] reads again. The power
+/// line changed (`WM_POWERBROADCAST`): the battery's icon follows at once,
+/// not at the next tick (30 s while the dock saves).
+pub fn forget_shared() {
+    *LAST.lock().unwrap_or_else(PoisonError::into_inner) = None;
+}
+
 /// Whether a reading made `at` still serves `now`.
 fn still_fresh(at: Instant, now: Instant) -> bool {
     now.saturating_duration_since(at) < SHARED_FOR
@@ -88,6 +97,18 @@ fn still_fresh(at: Instant, now: Instant) -> bool {
 pub fn on_battery() -> bool {
     let mut status = SYSTEM_POWER_STATUS::default();
     unsafe { GetSystemPowerStatus(&mut status) }.is_ok() && unplugged(&status)
+}
+
+/// Whether Windows' energy saver (battery saver) is on now: the dock saves
+/// with it too, under "Na bateria".
+pub fn energy_saver() -> bool {
+    let mut status = SYSTEM_POWER_STATUS::default();
+    unsafe { GetSystemPowerStatus(&mut status) }.is_ok() && saver_on(&status)
+}
+
+/// `SystemStatusFlag`: 1 while the energy saver is on.
+fn saver_on(status: &SYSTEM_POWER_STATUS) -> bool {
+    status.SystemStatusFlag == 1
 }
 
 /// `ACLineStatus`: 0 offline, 1 online, 255 unknown.
@@ -116,6 +137,7 @@ fn battery_of(status: &SYSTEM_POWER_STATUS) -> Option<Battery> {
         percent: status.BatteryLifePercent.min(100),
         // 8: charging; or on the charger.
         charging: status.BatteryFlag & 8 != 0 || status.ACLineStatus == 1,
+        saver: saver_on(status),
     })
 }
 
@@ -219,15 +241,28 @@ mod tests {
             battery_of(&power(1, 80, 0)),
             Some(Battery {
                 percent: 80,
-                charging: false
+                charging: false,
+                saver: false
             })
         );
         assert_eq!(
             battery_of(&power(8, 40, 1)),
             Some(Battery {
                 percent: 40,
-                charging: true
+                charging: true,
+                saver: false
             })
         );
+    }
+
+    #[test]
+    fn the_energy_saver_comes_with_the_battery() {
+        let on = SYSTEM_POWER_STATUS {
+            SystemStatusFlag: 1,
+            ..power(1, 30, 0)
+        };
+        assert!(saver_on(&on));
+        assert!(battery_of(&on).is_some_and(|battery| battery.saver));
+        assert!(!saver_on(&power(1, 30, 0)));
     }
 }

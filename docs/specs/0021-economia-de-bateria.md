@@ -9,12 +9,14 @@ Item F1 do [estudo 0002](../estudos/0002-melhorias-e-funcionalidades.md). O Prim
 | Valor | Rótulo | Quando economiza |
 |---|---|---|
 | `off` | Desligada | nunca |
-| `onBattery` | Na bateria | enquanto o computador está fora da tomada |
+| `onBattery` | Na bateria | enquanto o computador está fora da tomada ou a economia de energia do Windows está ligada |
 | `always` | Sempre | sempre |
 
 - **O padrão é Na bateria** (decisão do autor, 2026-11-03). Um `settings.json` de antes desta spec, sem o campo, lê como `onBattery`.
 - "Fora da tomada" é `ACLineStatus == 0` em `GetSystemPowerStatus`. Um desktop (sem bateria) ou uma linha que o Windows não sabe dizer (255) nunca conta como bateria.
-- A regra é uma função pura, `domain::power::saving(modo, na_bateria)`, com testes.
+- **A economia de energia do Windows conta como bateria** (pedido do autor, 2026-11-05): com ela ligada (`SystemStatusFlag == 1`), "Na bateria" economiza mesmo na tomada. "Desligada" continua sem economizar.
+- A regra é uma função pura, `domain::power::saving(modo, na_bateria)`, com testes; `windows::power::decide` passa "fora da tomada ou economia do Windows" como `na_bateria`.
+- **O ícone da bateria** na ponta do dock fica laranja enquanto a economia do Windows está ligada, como o da barra do Windows, e a dica ganha "(economia de energia)".
 
 ## 2. O que para
 
@@ -43,7 +45,7 @@ Cada consulta fica de 3 a 10 vezes mais rara, e nenhuma para. O que o usuário p
 ## 4. Mudanças ao vivo
 
 - **Na troca da configuração**, o `settings-changed` já faz cada dock ler os dados de novo (`Dock::reload`); ali o dock decide de novo.
-- **Na troca da tomada**, o dock trata `WM_POWERBROADCAST` com `PBT_APMPOWERSTATUSCHANGE`, que o Windows manda às janelas de primeiro nível (as do dock são). Como reserva, caso a mensagem não venha, o tique do status (`read_system`) decide de novo a cada leitura: a chamada é só `GetSystemPowerStatus`, barata. Assim, ao tirar o carregador, a economia entra na hora (ou em até 3 s pela reserva); ao pôr de volta, na hora (ou em até 30 s).
+- **Na troca da tomada** (ou da economia do Windows), o dock trata `WM_POWERBROADCAST` com `PBT_APMPOWERSTATUSCHANGE`, que o Windows manda às janelas de primeiro nível (as do dock são). Ali ele também relê a bateria, a rede e o volume na hora (`forget_shared` e `read_system`): antes, o ícone da bateria esperava o próximo tique, que fora da tomada é de 30 s (achado do autor, 2026-11-05). Como reserva, caso a mensagem não venha, o tique do status (`read_system`) decide de novo a cada leitura: a chamada é só `GetSystemPowerStatus`, barata. Assim, ao tirar o carregador, a economia entra na hora (ou em até 3 s pela reserva); ao pôr de volta, na hora (ou em até 30 s).
 - Quando a decisão muda, o dock arma de novo os timers do status e da atividade com o intervalo novo, limpa os pulos em andamento e repinta (o letreiro para no começo ou volta a rolar).
 - As threads de mídia, clima e atualização leem a decisão (`windows::power::saving`, um `AtomicBool`) a cada volta. Para que uma espera longa não segure o intervalo antigo, o Clima e a atualização esperam em pedaços de no máximo 10 minutos (`RECHECK`) e recalculam o que falta.
 

@@ -731,6 +731,11 @@ const messages = {
       open: "Abrir",
       reveal: "Mostrar no Explorador de Arquivos",
       remove: "Remover do dock",
+      /** Spec 0022 §7: a spacer right after this program. */
+      addSpacer: {
+        small: "Adicionar espaçador pequeno",
+        large: "Adicionar espaçador grande",
+      } satisfies Record<SpacerSize, string>,
       /** Spec 0009 D3; "Nova janela" since F7 of estudo 0002. */
       newWindow: "Nova janela",
       closeWindow: "Fechar janela",

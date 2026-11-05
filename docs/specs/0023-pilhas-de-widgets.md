@@ -13,9 +13,9 @@ Item F3 do [estudo 0002](../estudos/0002-melhorias-e-funcionalidades.md), adiado
 
 - A pilha ocupa o lugar e a largura do widget de cima, e se desenha como ele. O clique abre o painel dele, e o menu é o dele, com as entradas da pilha (§3).
 - **Pontinhos:** uma fileira de pontos pequenos na borda de baixo do ladrilho, um por widget. O de cima fica aceso, na cor da marca do tema, e os outros ficam apagados. Isso diz que há mais coisa ali sem ocupar espaço.
-- **Roda com Ctrl** em cima da pilha: para baixo vai para o próximo, para cima volta ao anterior, dando a volta. A roda lateral (horizontal) faz o mesmo, sem Ctrl. A roda sem Ctrl continua trocando de espaço (spec 0013).
+- **Roda** em cima da pilha, com ou sem Ctrl: para baixo vai para o próximo, para cima volta ao anterior, dando a volta. A roda lateral (horizontal) faz o mesmo. Desde 2026-11-05 a roda só troca de espaço em cima das bolinhas (spec 0013 §3.2); antes, sem Ctrl, ela trocava de espaço também em cima da pilha.
 - **Só o de cima lê dados:** Mídia, Atividade, Rede, Clima, Calendário, Ciclo e Claude só leem o sistema quando estão em cima. A pilha não gasta mais que um widget solto.
-- **Narrador:** a pilha é um botão com o nome do widget de cima e a posição: "Nota, 2 de 3 na pilha". Ctrl+roda não tem equivalente pelo teclado nesta versão.
+- **Narrador:** a pilha é um botão com o nome do widget de cima e a posição: "Nota, 2 de 3 na pilha". A roda na pilha não tem equivalente pelo teclado nesta versão.
 
 ## 3. Menus
 
@@ -57,7 +57,7 @@ Ainda falta conferir à mão os passos 4 e 5 abaixo, e a roda sem Ctrl trocando 
 Roteiro curto (build de lançamento com cópia dos dados):
 
 1. Botão direito num widget › outro widget embaixo de "Empilhar com": os dois viram um ladrilho, com o que foi empilhado em cima e dois pontinhos. A árvore de UI Automation fica com um botão a menos.
-2. Ctrl+roda em cima: troca o de cima, e os pontinhos acompanham. Sem Ctrl, troca de espaço como antes.
+2. A roda em cima, com ou sem Ctrl: troca o de cima, e os pontinhos acompanham. O espaço não muda.
 3. "Tirar da pilha": o de cima volta solto logo depois e a pilha se desfaz.
 4. Configurações › Itens do dock: a linha "Pilha: …" sobe, desce e se desfaz.
 5. Mídia na pilha, embaixo: não lê (nenhum `media` no log de leitura) até ir para cima.

@@ -60,7 +60,7 @@ CREATE TABLE workspace_items (
 ### 3.2 Troca no dock
 
 - **Bolinhas** no começo do dock, numa coluna, uma por espaço e na cor dele: a do espaço mostrado é cheia e maior, as outras são só o contorno. Aparecem com dois ou mais espaços. O clique troca; o nome aparece ao passar o mouse.
-- **Roda do mouse** sobre o dock: o próximo para baixo, o anterior para cima, sem dar a volta.
+- **Roda do mouse** sobre as bolinhas: o próximo para baixo, o anterior para cima, sem dar a volta. No resto do dock a roda não troca de espaço (decisão do autor, 2026-11-05; antes trocava em qualquer ponto do dock): em cima de uma pilha ela troca o widget de cima (spec 0023), e no resto não faz nada.
 - **`Ctrl+Alt+1…9`** (`RegisterHotKey`): vai ao espaço daquela posição no monitor onde está o ponteiro. Os atalhos só são registrados com dois ou mais espaços, e só os que existem: no teclado ABNT2, AltGr+1, 2 e 3 (¹ ² ³) chegam ao Windows como Ctrl+Alt e seriam tomados. Se outro programa já tiver um atalho, o DockMax segue sem ele e registra no log.
 - **Menu do dock:** os espaços (com dois ou mais), cada um com o seu atalho e a marca no mostrado, e **"Novo espaço"**, que cria e mostra um espaço vazio naquele monitor.
 

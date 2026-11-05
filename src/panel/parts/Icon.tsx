@@ -32,6 +32,8 @@ const PATHS = {
   image: ["M5 6h14v12H5z", "M5 15.5l4-4 3 3 2-2 5 5", "M14.5 9.5h.01"],
   play: ["M8.5 6.5v11l9-5.5z"],
   archive: ["M5 7h14v3H5z", "M6 10v8.5h12V10", "M10.5 13h3"],
+  /** Two bars with room between them: a spacer (spec 0022). */
+  spacer: ["M6 6v12M18 6v12", "M9.5 12h5"],
   unpin: ["M9 4.5h6M10 4.5v5l-3 3.5h10l-3-3.5v-5", "M12 13v6.5", "M5 5l14 14"],
   // The sections of the Configurações app (spec 0014 R1), on their plates.
   general: [
