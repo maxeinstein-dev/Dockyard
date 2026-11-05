@@ -58,11 +58,17 @@ O que ainda **não** existe:
 
 ## 5. Verificação
 
-- **Testes do modelo:**
-  - a chave nova, com a migração da antiga;
-  - o monitor que some e volta;
-  - o monitor fixo ignorando a roda, o atalho e o menu;
-  - a troca em todos os monitores pulando os fixos.
-- **Ao vivo com dois monitores:**
-  - um fixo e outro trocando;
-  - religar o monitor e conferir que o espaço volta.
+- **Testes de unidade:**
+  - `workspaces_repo`: o monitor fixo, e a chave nova com a migração da antiga, feita duas vezes sem mudar nada;
+  - o grupo "Monitores" de Configurações: lista, troca de espaço e fixação;
+  - a busca: o grupo está no índice.
+- **Ao vivo (2026-11-05):** build `.medir` e uma cópia dos dados do autor, com dois monitores.
+  - "Novo espaço" pelo menu do dock deu duas bolinhas; a bolinha do "Principal" voltou ao primeiro espaço.
+  - No banco da cópia, os dois monitores ficaram guardados pelo caminho do aparelho (`workspace:\\?\display#gsm5c0c#…` e `…#auo9bb0#…`), sem nenhuma chave `\\.\DISPLAYn`.
+  - "Fixar este monitor neste espaço": as bolinhas sumiram e a fixação ficou no banco. A roda do mouse sobre o dock, três vezes, não trocou o espaço (a foto mostra o FileZilla e nenhuma bolinha; o roteiro tinha a conferência invertida e acusou falha, já corrigido).
+  - "Soltar este monitor": as duas bolinhas voltaram.
+  - A barra do Windows ficou como estava.
+- **Falta conferir à mão:**
+  - religar um monitor e ver o espaço voltar;
+  - o grupo "Monitores" de Configurações na janela de verdade;
+  - "trocar em todos os monitores" pulando um monitor fixo.
