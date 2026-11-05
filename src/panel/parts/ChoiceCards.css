@@ -17,6 +17,16 @@
   grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
 }
 
+/* A gallery folded to two rows (spec 0029 §5): the rest hidden (the card's
+   `display` would win over `hidden`), "Mostrar todos" under it. */
+.choice-card[hidden] {
+  display: none;
+}
+
+.choice-cards-more {
+  justify-self: start;
+}
+
 .choice-card {
   display: grid;
   grid-template-rows: auto 1fr;

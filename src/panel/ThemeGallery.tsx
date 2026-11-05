@@ -143,6 +143,7 @@ function ThemeGallery({
           ) : null;
         }}
         wide
+        rows={2}
       />
       <p className="visually-hidden" role="status">
         {said}
