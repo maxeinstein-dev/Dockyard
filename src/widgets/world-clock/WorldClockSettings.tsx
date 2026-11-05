@@ -22,6 +22,7 @@ import {
 import type { WidgetSettingsProps } from "../contract";
 import { WidthGroup } from "../system/parts";
 import { useSystemSettings } from "../system/useSettings";
+import { findZones, foundName } from "./search";
 import "./world-clock.css";
 
 /** The add list's value before a zone is picked. */
@@ -53,6 +54,12 @@ function WorldClockSettings({
     next.splice(at + by, 0, zone);
     settings.saveConfig({ zones: next });
   }
+
+  const [query, setQuery] = useState("");
+  const found = findZones(
+    query,
+    ianaTimeZones().filter((zone) => !zones.includes(zone)),
+  );
 
   const addable = zonesByOffset(
     now,
@@ -113,14 +120,50 @@ function WorldClockSettings({
           {format(text.full, { max: MAX_WORLD_ZONES })}
         </p>
       ) : (
-        <SelectField
-          label={text.add}
-          value={NONE}
-          options={[{ value: NONE, label: text.addPlaceholder }, ...addable]}
-          onChange={(zone) => {
-            if (zone !== NONE) settings.saveConfig({ zones: [...zones, zone] });
-          }}
-        />
+        <>
+          <TextField
+            label={text.search}
+            placeholder={text.searchPlaceholder}
+            value={query}
+            onChange={setQuery}
+          />
+          {query.trim() === "" ? null : found.length === 0 ? (
+            <p className="sys-hint" role="status">
+              {text.nothingFound}
+            </p>
+          ) : (
+            <ul className="world-found" aria-label={text.found}>
+              {found.map((zone) => (
+                <li key={zone}>
+                  <button
+                    type="button"
+                    className="world-found-zone"
+                    onClick={() => {
+                      settings.saveConfig({ zones: [...zones, zone] });
+                      setQuery("");
+                    }}
+                  >
+                    <span className="world-place-name">
+                      {foundName(query, zone)}
+                    </span>
+                    <span className="world-place-offset">
+                      {utcOffset(now, zone)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <SelectField
+            label={text.add}
+            value={NONE}
+            options={[{ value: NONE, label: text.addPlaceholder }, ...addable]}
+            onChange={(zone) => {
+              if (zone !== NONE)
+                settings.saveConfig({ zones: [...zones, zone] });
+            }}
+          />
+        </>
       )}
       <WidthGroup
         width={config.width}

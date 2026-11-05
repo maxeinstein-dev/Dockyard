@@ -14,9 +14,9 @@ Item F1 do [estudo 0002](../estudos/0002-melhorias-e-funcionalidades.md). O Prim
 
 - **O padrão é Na bateria** (decisão do autor, 2026-11-03). Um `settings.json` de antes desta spec, sem o campo, lê como `onBattery`.
 - "Fora da tomada" é `ACLineStatus == 0` em `GetSystemPowerStatus`. Um desktop (sem bateria) ou uma linha que o Windows não sabe dizer (255) nunca conta como bateria.
-- **A economia de energia do Windows conta como bateria** (pedido do autor, 2026-11-05): com ela ligada (`SystemStatusFlag == 1`), "Na bateria" economiza mesmo na tomada. "Desligada" continua sem economizar.
+- **A economia de energia do Windows conta como bateria** (pedido do autor, 2026-11-05): com ela ligada (`SystemStatusFlag == 1` na economia de bateria antiga; no Windows 11, o aviso `GUID_ENERGY_SAVER_STATUS` > 0, por `PowerSettingRegisterNotification`, já que o sinalizador fica 0 e o modo efetivo diz só "melhor bateria"), "Na bateria" economiza mesmo na tomada. "Desligada" continua sem economizar.
 - A regra é uma função pura, `domain::power::saving(modo, na_bateria)`, com testes; `windows::power::decide` passa "fora da tomada ou economia do Windows" como `na_bateria`.
-- **O ícone da bateria** na ponta do dock fica laranja enquanto a economia do Windows está ligada, como o da barra do Windows, e a dica ganha "(economia de energia)".
+- **O ícone da bateria** na ponta do dock fica laranja enquanto a economia do Windows está ligada e o computador está fora da tomada, como o da barra do Windows, e a dica ganha "(economia de energia)".
 
 ## 2. O que para
 

@@ -461,6 +461,14 @@ pub fn start(app: &AppHandle) -> windows::core::Result<()> {
         log::warn!("dock: OLE could not be initialized: {error}");
     }
     let _ = APP.set(app.clone());
+    // Windows 11's energy saver is told only by its own power setting: the
+    // docks read the battery again when it changes.
+    super::system_status::watch_power_mode(|| {
+        post(|dock| {
+            super::system_status::forget_shared();
+            dock.read_system();
+        });
+    });
     let instance = unsafe { GetModuleHandleW(None) }?;
     let class_data = WNDCLASSW {
         style: CS_DBLCLKS,
@@ -1327,6 +1335,10 @@ impl Dock {
     fn read_system(&mut self) {
         self.check_power();
         self.check_keyboard();
+        // The Recycle Bin's icon at the status's pace (3 s), not every
+        // minute: a file deleted elsewhere shows in it soon (achado do
+        // autor, 2026-11-05).
+        self.check_bin();
         let now = Some(super::system_status::read_shared());
         if now != self.system {
             self.system = now;
@@ -2711,7 +2723,7 @@ impl Dock {
         self.paint();
     }
 
-    /// The Beber água's reminder (spec 0017 F3-2), looked at every minute.
+    /// The Recycle Bin looked at again, when a dock shows it.
     fn check_bin(&self) {
         let shows = self.items.iter().any(
             |item| matches!(item, Item::App(app) if place_of(&app.app_id) == Place::RecycleBin),
@@ -2740,6 +2752,17 @@ impl Dock {
 
     /// The id in the Apps folder of the program at `index`: a pinned one or
     /// an open one. What a folder or files open with (spec 0018).
+    /// What files dropped on the item at `index` go to: a program, which
+    /// opens them, or the Recycle Bin, which takes them (spec 0025).
+    fn drop_id(&self, index: usize) -> Option<String> {
+        match self.items.get(index)? {
+            Item::App(app) if place_of(&app.app_id) == Place::RecycleBin => {
+                Some(app.app_id.clone())
+            }
+            _ => self.program_id(index),
+        }
+    }
+
     fn program_id(&self, index: usize) -> Option<String> {
         match self.items.get(index)? {
             // A folder or the Recycle Bin opens nothing (spec 0025).
@@ -3341,7 +3364,6 @@ fn handle(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
                 dock.paint();
                 dock.arm_clock();
                 dock.check_water();
-                dock.check_bin();
             }),
             STATUS_TIMER => with_dock(hwnd, Dock::read_system),
             LAYOUT_TIMER => with_dock(hwnd, |dock| {

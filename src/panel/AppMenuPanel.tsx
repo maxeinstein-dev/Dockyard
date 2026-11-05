@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { closeApp } from "../core/openApps";
-import { moveInMenu } from "./parts/menu";
+import { followPointer, moveInMenu } from "./parts/menu";
 import {
   appIconOptions,
   appMenu,
@@ -186,6 +186,7 @@ function AppMenuPanel({
         role="menu"
         aria-label={format(text.label, { name: app.name })}
         onKeyDown={onKeyDown}
+        onMouseMove={followPointer}
       >
         {menu === null ? (
           <p className="app-menu-note" role="status">

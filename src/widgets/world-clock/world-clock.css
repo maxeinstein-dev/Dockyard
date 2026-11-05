@@ -28,3 +28,33 @@
   color: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
+
+/* The cities a search found: one button each, the name and the offset. */
+.world-found {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.world-found-zone {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--r-inset);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--fs-label);
+  text-align: left;
+  cursor: pointer;
+}
+
+.world-found-zone:hover,
+.world-found-zone:focus-visible {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}

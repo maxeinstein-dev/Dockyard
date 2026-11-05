@@ -1236,6 +1236,12 @@ const messages = {
       placesHint: "O ladrilho mostra as primeiras, uma por ícone de largura.",
       add: "Adicionar cidade",
       addPlaceholder: "Escolha um fuso…",
+      /** The search of the places (achado do autor, 2026-11-05). */
+      search: "Buscar cidade",
+      searchPlaceholder: "Lisboa, Tóquio, Porto Alegre…",
+      found: "Cidades encontradas",
+      nothingFound:
+        "Nenhuma cidade encontrada. Escolha o fuso na lista abaixo.",
       full: "Até {max} cidades.",
       moveUp: "Subir {city}",
       moveDown: "Descer {city}",

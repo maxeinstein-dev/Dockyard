@@ -174,6 +174,7 @@ O que os testes ao vivo das funcionalidades não cobriram. Cada passo diz de ond
 - [ ] O mouse sobre o vão: nada amplia, sem dica.
 - [ ] Arrastar o vão entre dois apps. Ele fica só no espaço dele.
 - [ ] No menu de um app fixado, "Adicionar espaçador pequeno" e "… grande": o vão entra logo depois do app.
+- [ ] O menu de um app (fixado ou aberto) com a cara do menu do dock: fundo liso, linhas e azul iguais, uma linha acesa por vez, sem rodapé.
 - [ ] Configurações › Itens: os espaçadores sobem, descem e saem.
 - [ ] Narrador: as setas pulam o vão.
 - [ ] Nas bordas de cima e de baixo, nos três tamanhos.
@@ -197,11 +198,17 @@ O que os testes ao vivo das funcionalidades não cobriram. Cada passo diz de ond
 - [ ] Soltar uma pasta no dock: ela entra onde foi solta.
 - [ ] No painel da pasta, um arquivo abre e "Abrir no Explorador" abre a pasta.
 - [ ] "Esvaziar a Lixeira…" › "Não": nada é esvaziado.
+- [ ] Soltar um arquivo na Lixeira do dock: ele vai para a Lixeira (e volta por "Restaurar"), e o ícone fica cheio em até 3 s.
+- [ ] Apagar um arquivo pelo Explorador: o ícone da Lixeira do dock muda em até 3 s.
+- [ ] Soltar na Lixeira do dock um arquivo de pendrive ou de pasta de rede: o Windows avisa que ele seria excluído de vez, e "Não" o deixa onde está.
+- [ ] A economia de energia do Windows ligada e fora da tomada: o ícone da bateria do dock fica laranja; na tomada, não.
 
 **F6 Busca em Configurações** (PR #163, spec 0029 §11)
 - [ ] O campo na barra lateral e a marca na linha encontrada.
 - [ ] Buscar algo do Avançado: o grupo abre e o foco vai à linha.
 - [ ] Buscar linhas de Apps e de Contas.
+- [ ] Buscar o nome de um widget ("Claude", "Clima"): ele aparece em Itens do dock.
+- [ ] Abrir Configurações pelo dock do segundo monitor: a janela abre centrada nele.
 - [ ] Teclado e Narrador no campo.
 
 **F7 Espaços e programas** (PRs #164 e #168)
@@ -215,7 +222,9 @@ O que os testes ao vivo das funcionalidades não cobriram. Cada passo diz de ond
 
 **F9 Widgets novos** (PRs #169, #171, #173 e #175)
 - [ ] Layout do teclado: o tile desenhado, e um clique troca o layout.
+- [ ] Com dois teclados da mesma língua (ABNT e ABNT2): o tile mostra "ABNT" ou "ABNT2", e a dica, o nome do layout.
 - [ ] Relógio mundial: o cartão largo com vários fusos.
+- [ ] Relógio mundial › Ajustes › "Buscar cidade": "Lisboa", "Tóquio" e "Porto Alegre" acham o fuso e um clique o adiciona.
 - [ ] Capturas de tela: o painel e o arrasto de uma captura para fora.
 - [ ] Arquivos recentes: o painel e o arrasto de um arquivo.
 - [ ] A memória com cada um no dock.

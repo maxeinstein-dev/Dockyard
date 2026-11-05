@@ -2,6 +2,7 @@
 //! taskbar does (and the PrimoDock): the battery, the network and the
 //! volume. Read when asked; cheap enough to ask every few seconds.
 
+use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::{Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
@@ -17,7 +18,8 @@ use windows::Win32::System::Com::{CLSCTX_ALL, CLSCTX_INPROC_SERVER, CoCreateInst
 use windows::Win32::System::Power::{GetSystemPowerStatus, SYSTEM_POWER_STATUS};
 
 /// The battery: how full, whether it is charging, and whether Windows'
-/// energy saver is on (its icon then turns orange, as the taskbar's).
+/// energy saver is on while it is not (its icon then turns orange, as the
+/// taskbar's, which is orange only off the charger).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Battery {
     pub percent: u8,
@@ -100,10 +102,93 @@ pub fn on_battery() -> bool {
 }
 
 /// Whether Windows' energy saver (battery saver) is on now: the dock saves
-/// with it too, under "Na bateria".
+/// with it too, under "Na bateria". The old battery saver sets
+/// `SystemStatusFlag`; Windows 11's energy saver is told only by its own
+/// power setting, `GUID_ENERGY_SAVER_STATUS` (achado do autor, 2026-11-05:
+/// with it on, the flag stayed 0 and the effective power mode said "better
+/// battery", while the setting said 1).
 pub fn energy_saver() -> bool {
     let mut status = SYSTEM_POWER_STATUS::default();
-    unsafe { GetSystemPowerStatus(&mut status) }.is_ok() && saver_on(&status)
+    let flag = unsafe { GetSystemPowerStatus(&mut status) }.is_ok() && saver_on(&status);
+    flag || setting_saves()
+}
+
+/// `GUID_ENERGY_SAVER_STATUS` (winnt.h, Windows 11): 0 off, 1 on, 2 on with
+/// the most savings.
+const ENERGY_SAVER_STATUS: windows::core::GUID =
+    windows::core::GUID::from_u128(0x550e8400_e29b_41d4_a716_446655440000);
+
+/// The energy saver's status as last told, -1 before it is.
+static SAVER_STATUS: AtomicI32 = AtomicI32::new(-1);
+
+/// The energy saver is on, by its own setting.
+fn setting_saves() -> bool {
+    SAVER_STATUS.load(Ordering::Relaxed) > 0
+}
+
+/// What [`watch_power_mode`] calls when the status changes.
+static ON_CHANGE: std::sync::OnceLock<Box<dyn Fn() + Send + Sync>> = std::sync::OnceLock::new();
+
+/// Windows tells the energy saver's status: a `POWERBROADCAST_SETTING`
+/// whose data is a `u32`.
+unsafe extern "system" fn saver_changed(
+    _context: *const core::ffi::c_void,
+    _kind: u32,
+    setting: *const core::ffi::c_void,
+) -> u32 {
+    let _ = super::panics::window_message(|| {
+        use windows::Win32::System::Power::POWERBROADCAST_SETTING;
+        if setting.is_null() {
+            return;
+        }
+        let told = unsafe { &*setting.cast::<POWERBROADCAST_SETTING>() };
+        if told.PowerSetting != ENERGY_SAVER_STATUS || told.DataLength < 4 {
+            return;
+        }
+        let data = unsafe { std::ptr::addr_of!(told.Data).cast::<u32>().read_unaligned() };
+        let now = i32::try_from(data).unwrap_or(0);
+        let before = SAVER_STATUS.swap(now, Ordering::Relaxed);
+        if before != now {
+            log::info!("power: energy saver status {now}");
+            if let Some(changed) = ON_CHANGE.get() {
+                changed();
+            }
+        }
+    });
+    0
+}
+
+/// Listens to Windows' energy saver for the rest of the run (once): Windows
+/// tells its status at once and on every change, and `changed` runs then.
+pub fn watch_power_mode(changed: impl Fn() + Send + Sync + 'static) {
+    use windows::Win32::Foundation::HANDLE;
+    use windows::Win32::System::Power::{
+        DEVICE_NOTIFY_SUBSCRIBE_PARAMETERS, PowerSettingRegisterNotification,
+    };
+    use windows::Win32::UI::WindowsAndMessaging::DEVICE_NOTIFY_CALLBACK;
+    if ON_CHANGE.set(Box::new(changed)).is_err() {
+        return;
+    }
+    // Windows keeps the pointer for as long as the registration lasts: the
+    // run's.
+    let parameters: &'static mut DEVICE_NOTIFY_SUBSCRIBE_PARAMETERS =
+        Box::leak(Box::new(DEVICE_NOTIFY_SUBSCRIBE_PARAMETERS {
+            Callback: Some(saver_changed),
+            Context: std::ptr::null_mut(),
+        }));
+    let mut handle: *mut core::ffi::c_void = std::ptr::null_mut();
+    let registered = unsafe {
+        PowerSettingRegisterNotification(
+            &ENERGY_SAVER_STATUS,
+            DEVICE_NOTIFY_CALLBACK,
+            HANDLE(std::ptr::from_mut(parameters).cast()),
+            &mut handle,
+        )
+    };
+    if registered.is_err() {
+        // An older Windows: the battery saver's flag still holds.
+        log::info!("power: the energy saver's status is not told ({registered:?})");
+    }
 }
 
 /// `SystemStatusFlag`: 1 while the energy saver is on.
@@ -119,7 +204,10 @@ fn unplugged(status: &SYSTEM_POWER_STATUS) -> bool {
 fn battery() -> Option<Battery> {
     let mut status = SYSTEM_POWER_STATUS::default();
     unsafe { GetSystemPowerStatus(&mut status) }.ok()?;
-    battery_of(&status)
+    battery_of(&status).map(|battery| Battery {
+        saver: (battery.saver || setting_saves()) && !battery.charging,
+        ..battery
+    })
 }
 
 /// The battery `status` describes; `None` with none (flag 128) or an unknown
@@ -137,7 +225,8 @@ fn battery_of(status: &SYSTEM_POWER_STATUS) -> Option<Battery> {
         percent: status.BatteryLifePercent.min(100),
         // 8: charging; or on the charger.
         charging: status.BatteryFlag & 8 != 0 || status.ACLineStatus == 1,
-        saver: saver_on(status),
+        // Orange as the taskbar's: only off the charger.
+        saver: saver_on(status) && status.ACLineStatus != 1 && status.BatteryFlag & 8 == 0,
     })
 }
 
@@ -264,5 +353,11 @@ mod tests {
         assert!(saver_on(&on));
         assert!(battery_of(&on).is_some_and(|battery| battery.saver));
         assert!(!saver_on(&power(1, 30, 0)));
+        // On the charger the icon is not orange, as the taskbar's.
+        let charging = SYSTEM_POWER_STATUS {
+            SystemStatusFlag: 1,
+            ..power(8, 30, 1)
+        };
+        assert!(battery_of(&charging).is_some_and(|battery| !battery.saver));
     }
 }
