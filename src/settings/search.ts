@@ -1,6 +1,6 @@
 import { format, type Messages } from "../i18n";
 import type { Section } from "./sections";
-import { CATALOG_KINDS } from "./WidgetCatalog";
+import { CATALOG_KINDS } from "./catalog";
 
 /** One option the search of Configurações finds (estudo 0002 F6). */
 export interface SearchEntry {

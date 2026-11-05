@@ -10,40 +10,8 @@ import {
 import { inWorkspace, type Workspace } from "../core/workspaces";
 import { format, useT } from "../i18n";
 import { MiniTile } from "../panel/DockItems";
+import { SHELVES } from "./catalog";
 import "./WidgetCatalog.css";
-
-type Category = "system" | "time" | "media" | "productivity" | "personal";
-
-/** The catalog's shelves, in order, with their kinds. */
-const SHELVES: readonly { category: Category; kinds: CreatableKind[] }[] = [
-  {
-    category: "system",
-    kinds: ["launcher", "keyboard", "activity", "network"],
-  },
-  {
-    category: "time",
-    kinds: [
-      "calendar",
-      "clock",
-      "world-clock",
-      "countdown",
-      "pomodoro",
-      "time-progress",
-    ],
-  },
-  {
-    category: "productivity",
-    kinds: ["todo", "note", "files", "water", "claude", "weather"],
-  },
-  { category: "media", kinds: ["media", "screenshots"] },
-  { category: "personal", kinds: ["cycle"] },
-];
-
-/** Every kind of the catalog, in the order of its shelves: the search of
- * Configurações finds each one by its name ("Claude" finds Uso do Claude). */
-export const CATALOG_KINDS: readonly CreatableKind[] = SHELVES.flatMap(
-  (shelf) => shelf.kinds,
-);
 
 /** How many icons wide a new instance of each kind is (its default). */
 const WIDTHS: Readonly<Record<CreatableKind, number>> = {
