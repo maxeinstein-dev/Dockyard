@@ -17,7 +17,11 @@ import {
   type AppMenu,
   type PinnedApp,
 } from "../core/apps";
-import { moveAppWindows, type WorkspacesSnapshot } from "../core/workspaces";
+import {
+  addSpacerAfterApp,
+  moveAppWindows,
+  type WorkspacesSnapshot,
+} from "../core/workspaces";
 import { format, useT } from "../i18n";
 import PanelFooter from "./PanelFooter";
 import MoveToWorkspace from "./parts/MoveToWorkspace";
@@ -306,6 +310,18 @@ function AppMenuPanel({
               {openCount > 1 ? text.closeWindows : text.closeWindow}
             </button>
           ) : null}
+          {(["small", "large"] as const).map((size) => (
+            <button
+              key={size}
+              type="button"
+              role="menuitem"
+              className="app-menu-item"
+              onClick={() => done(addSpacerAfterApp(app.id, size))}
+            >
+              <Icon name="spacer" />
+              {text.addSpacer[size]}
+            </button>
+          ))}
           <button
             type="button"
             role="menuitem"

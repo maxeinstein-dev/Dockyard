@@ -17,7 +17,7 @@
 //! in one tile, the one on top shown. It belongs to one workspace too; the
 //! widgets in it leave the workspace's list while they are in it.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// The most workspaces: `Ctrl+Alt+1…9` reaches each one.
 pub const MAX_WORKSPACES: usize = 9;
@@ -107,7 +107,7 @@ pub const SPACER_PREFIX: &str = "spacer:";
 
 /// How much room a spacer leaves along the bar (spec 0022): a quarter or
 /// half of an icon, between the gaps that stand on each side of any item.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum SpacerSize {
     Small,

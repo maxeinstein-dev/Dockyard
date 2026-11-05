@@ -309,6 +309,8 @@ pub struct Status {
 pub struct StripCell {
     pub area: Area,
     pub glyph: Option<(char, f32)>,
+    /// A color of its own for the glyph (`Cell::tint`), else the ink.
+    pub tint: Option<Color>,
     pub image: Option<ID2D1Bitmap>,
     pub hovered: bool,
     /// The badge of its program, for an icon of the notification area
@@ -3454,7 +3456,13 @@ impl Painter {
                     Color::BLACK.with_alpha(0.6),
                 );
             }
-            self.icon_glyph(glyph, area, area.width * 0.6, ink.with_alpha(ink.a * alpha));
+            let color = cell.tint.unwrap_or(ink);
+            self.icon_glyph(
+                glyph,
+                area,
+                area.width * 0.6,
+                color.with_alpha(color.a * alpha),
+            );
         }
         if let Some(image) = &cell.image {
             let side = (area.width * 0.66).round();

@@ -109,6 +109,7 @@ fn main() {
             "list_monitors",
             "set_monitor_workspace",
             "set_monitor_fixed",
+            "add_spacer_after_app",
             "remove_spacer",
             "move_spacer",
             "move_stack",
