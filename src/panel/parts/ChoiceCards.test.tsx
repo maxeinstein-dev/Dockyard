@@ -155,4 +155,85 @@ describe("ChoiceCards", () => {
       expect(press("C", "ArrowUp")).toBe("F");
     });
   });
+
+  describe("folded to two rows (spec 0029 §5)", () => {
+    const MANY = Array.from({ length: 8 }, (_, index) => ({
+      value: `c${index}`,
+      label: `Cartão ${index}`,
+    }));
+
+    /** Three columns, as a laid out grid would report. */
+    function foldedCards(selected: string) {
+      vi.spyOn(window, "getComputedStyle").mockImplementation(
+        () =>
+          ({
+            gridTemplateColumns: "148px 148px 148px",
+          }) as CSSStyleDeclaration,
+      );
+      render(
+        <ChoiceCards
+          label="Estilo"
+          choices={MANY}
+          selected={selected}
+          onSelect={vi.fn()}
+          thumb={() => null}
+          rows={2}
+        />,
+      );
+      vi.restoreAllMocks();
+    }
+
+    const shown = () =>
+      within(screen.getByRole("radiogroup", { name: "Estilo" }))
+        .getAllByRole("radio")
+        .map((radio) => radio.textContent);
+
+    it("shows two rows and opens the rest in place", () => {
+      foldedCards("c1");
+
+      expect(shown()).toEqual([0, 1, 2, 3, 4, 5].map((n) => `Cartão ${n}`));
+      const more = screen.getByRole("button", { name: "Mostrar todos (8)" });
+      expect(more).toHaveAttribute("aria-expanded", "false");
+      fireEvent.click(more);
+      expect(shown()).toHaveLength(8);
+      expect(
+        screen.getByRole("button", { name: "Mostrar menos" }),
+      ).toHaveAttribute("aria-expanded", "true");
+    });
+
+    it("keeps the chosen card in sight, in the place of the last", () => {
+      foldedCards("c7");
+
+      expect(shown()).toEqual([0, 1, 2, 3, 4, 7].map((n) => `Cartão ${n}`));
+    });
+
+    it("opens the rest when the arrows go past the rows shown", () => {
+      foldedCards("c1");
+
+      const fifth = within(
+        screen.getByRole("radiogroup", { name: "Estilo" }),
+      ).getByRole("radio", { name: "Cartão 5" });
+      fifth.focus();
+      fireEvent.keyDown(fifth, { key: "ArrowRight" });
+
+      expect(shown()).toHaveLength(8);
+      expect(document.activeElement).toHaveTextContent("Cartão 6");
+    });
+
+    it("folds nothing while the columns can't be told", () => {
+      render(
+        <ChoiceCards
+          label="Estilo"
+          choices={MANY}
+          selected="c1"
+          onSelect={vi.fn()}
+          thumb={() => null}
+          rows={2}
+        />,
+      );
+
+      expect(shown()).toHaveLength(8);
+      expect(screen.queryByRole("button")).toBeNull();
+    });
+  });
 });

@@ -1,10 +1,13 @@
 import {
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+import { flushSync } from "react-dom";
+import { format, useT } from "../../i18n";
 import "./ChoiceCards.css";
 
 export type Choice<V extends string> = {
@@ -20,6 +23,27 @@ function columnsOf(cards: readonly (HTMLElement | null)[]): number {
   const top = cards[0]?.offsetTop;
   const inRow = cards.findIndex((card) => card?.offsetTop !== top);
   return inRow > 0 ? inRow : Math.max(cards.length, 1);
+}
+
+/** How many columns the grid's tracks make now (`auto-fill` follows the
+ * window's width); null while it can't be told (no layout). */
+function trackCount(grid: HTMLElement | null): number | null {
+  if (grid === null) return null;
+  const tracks = getComputedStyle(grid).gridTemplateColumns.trim();
+  if (tracks === "" || tracks === "none" || tracks.includes("(")) return null;
+  return tracks.split(/\s+/).length;
+}
+
+/** The cards a folded grid shows (spec 0029 §5): the first `room`, the
+ * chosen one always among them, in the place of the last. */
+function shownCards(count: number, room: number, chosen: number): Set<number> {
+  const shown = new Set<number>();
+  for (let index = 0; index < Math.min(room, count); index++) shown.add(index);
+  if (chosen >= room && room > 0) {
+    shown.delete(room - 1);
+    shown.add(chosen);
+  }
+  return shown;
 }
 
 /** The card under `current`, in a grid of `columns` and `last + 1` cards:
@@ -55,6 +79,9 @@ type ChoiceCardsProps<V extends string> = {
   thumb: (value: V, chosen: boolean) => ReactNode;
   /** Wider cards, fewer per row (the styles: 148 px; the rest: 120 px). */
   wide?: boolean;
+  /** Folds the grid to this many rows, with "Mostrar todos" under it
+   * (spec 0029 §5); all of them when left out. */
+  rows?: number;
 };
 
 /**
@@ -75,12 +102,35 @@ function ChoiceCards<V extends string>({
   onSelect,
   thumb,
   wide = false,
+  rows,
 }: ChoiceCardsProps<V>) {
+  const t = useT();
   const labelId = useId();
+  const gridId = useId();
+  const grid = useRef<HTMLDivElement>(null);
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
   const [focused, setFocused] = useState<number | null>(null);
+  const [columns, setColumns] = useState<number | null>(null);
+  const [unfolded, setUnfolded] = useState(false);
   const chosen = choices.findIndex((choice) => choice.value === selected);
   const tabStop = focused ?? Math.max(chosen, 0);
+
+  // The columns of the grid, again whenever its width changes.
+  useLayoutEffect(() => {
+    if (rows === undefined) return;
+    const element = grid.current;
+    const measure = () => setColumns(trackCount(element));
+    measure();
+    if (element === null || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [rows]);
+
+  const room = rows !== undefined && columns !== null ? rows * columns : null;
+  const foldable = room !== null && choices.length > room;
+  const shown =
+    foldable && !unfolded ? shownCards(choices.length, room, chosen) : null;
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const last = choices.length - 1;
@@ -88,17 +138,19 @@ function ChoiceCards<V extends string>({
       (button) => button === document.activeElement,
     );
     const current = from >= 0 ? from : tabStop;
-    const columns = columnsOf(buttons.current);
+    const across = columns ?? columnsOf(buttons.current);
     const next = {
       ArrowRight: current === last ? 0 : current + 1,
-      ArrowDown: rowBelow(current, columns, last),
+      ArrowDown: rowBelow(current, across, last),
       ArrowLeft: current === 0 ? last : current - 1,
-      ArrowUp: rowAbove(current, columns, last),
+      ArrowUp: rowAbove(current, across, last),
       Home: 0,
       End: last,
     }[event.key];
     if (next === undefined) return;
     event.preventDefault();
+    // Past the rows shown: the rest opens, and the focus goes on.
+    if (shown !== null && !shown.has(next)) flushSync(() => setUnfolded(true));
     setFocused(next);
     buttons.current[next]?.focus();
   };
@@ -109,6 +161,8 @@ function ChoiceCards<V extends string>({
         {label}
       </span>
       <div
+        ref={grid}
+        id={gridId}
         className={`choice-cards${wide ? " wide" : ""}`}
         role="radiogroup"
         aria-labelledby={labelId}
@@ -135,6 +189,7 @@ function ChoiceCards<V extends string>({
             }
             aria-checked={index === chosen}
             tabIndex={index === tabStop ? 0 : -1}
+            hidden={shown !== null && !shown.has(index)}
             disabled={disabled}
             onFocus={() => setFocused(index)}
             onClick={() => {
@@ -159,6 +214,19 @@ function ChoiceCards<V extends string>({
           </button>
         ))}
       </div>
+      {foldable ? (
+        <button
+          type="button"
+          className="quiet-button choice-cards-more"
+          aria-expanded={unfolded}
+          aria-controls={gridId}
+          onClick={() => setUnfolded((open) => !open)}
+        >
+          {unfolded
+            ? t.settings.app.showFewer
+            : format(t.settings.app.showAll, { count: choices.length })}
+        </button>
+      ) : null}
     </div>
   );
 }

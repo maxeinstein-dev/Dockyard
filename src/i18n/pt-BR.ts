@@ -141,6 +141,9 @@ const messages = {
       /** The name of the index of the groups, under the lead (spec 0029
        * §3). */
       contents: "Nesta seção",
+      /** Under a gallery folded to two rows (spec 0029 §5). */
+      showAll: "Mostrar todos ({count})",
+      showFewer: "Mostrar menos",
       /** The top of the side bar (spec 0014 R1). */
       brand: "Configurações",
       /** The search at the top of the side bar (estudo 0002 F6). */
