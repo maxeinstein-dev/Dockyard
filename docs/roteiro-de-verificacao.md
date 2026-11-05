@@ -200,6 +200,8 @@ O que os testes ao vivo das funcionalidades não cobriram. Cada passo diz de ond
 - [ ] "Esvaziar a Lixeira…" › "Não": nada é esvaziado.
 - [ ] Soltar um arquivo na Lixeira do dock: ele vai para a Lixeira (e volta por "Restaurar"), e o ícone fica cheio em até 3 s.
 - [ ] Apagar um arquivo pelo Explorador: o ícone da Lixeira do dock muda em até 3 s.
+- [ ] Soltar na Lixeira do dock um arquivo de pendrive ou de pasta de rede: o Windows avisa que ele seria excluído de vez, e "Não" o deixa onde está.
+- [ ] A economia de energia do Windows ligada e fora da tomada: o ícone da bateria do dock fica laranja; na tomada, não.
 
 **F6 Busca em Configurações** (PR #163, spec 0029 §11)
 - [ ] O campo na barra lateral e a marca na linha encontrada.

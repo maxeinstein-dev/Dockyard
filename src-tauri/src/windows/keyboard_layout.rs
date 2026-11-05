@@ -164,8 +164,14 @@ fn registry_text(key: &str, value: &str) -> Option<String> {
     if read.is_err() {
         return None;
     }
-    let length = (size as usize / 2).saturating_sub(1).min(text.len());
-    Some(String::from_utf16_lossy(&text[..length]))
+    // Up to the first 0: an expanded value (`%SystemRoot%`) reports the
+    // size before the expansion, longer than the text.
+    let length = (size as usize / 2).min(text.len());
+    let end = text[..length]
+        .iter()
+        .position(|unit| *unit == 0)
+        .unwrap_or(length);
+    Some(String::from_utf16_lossy(&text[..end]))
 }
 
 /// Asks the window in front to go to the next installed layout. Nothing

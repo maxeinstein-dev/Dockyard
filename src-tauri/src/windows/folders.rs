@@ -91,6 +91,7 @@ pub fn bin_full() -> Option<bool> {
 
 /// Sends `paths` to the Recycle Bin, as Explorer does when they are dropped
 /// on it (achado do autor, 2026-11-05): they can be put back from there.
+/// Never deleted for good without Windows asking (decisão do autor).
 /// Off the caller's thread; the dock's icon of the bin follows.
 #[cfg(windows)]
 pub fn recycle(paths: Vec<PathBuf>) {
@@ -98,7 +99,8 @@ pub fn recycle(paths: Vec<PathBuf>) {
         .name("recycle".into())
         .spawn(move || {
             use ::windows::Win32::UI::Shell::{
-                FO_DELETE, FOF_ALLOWUNDO, FOF_NOCONFIRMATION, SHFILEOPSTRUCTW, SHFileOperationW,
+                FO_DELETE, FOF_ALLOWUNDO, FOF_NOCONFIRMATION, FOF_WANTNUKEWARNING, SHFILEOPSTRUCTW,
+                SHFileOperationW,
             };
             use std::os::windows::ffi::OsStrExt;
             if paths.is_empty() {
@@ -114,7 +116,12 @@ pub fn recycle(paths: Vec<PathBuf>) {
             let mut operation = SHFILEOPSTRUCTW {
                 wFunc: FO_DELETE,
                 pFrom: ::windows::core::PCWSTR(from.as_ptr()),
-                fFlags: (FOF_ALLOWUNDO.0 | FOF_NOCONFIRMATION.0) as u16,
+                // To the Recycle Bin without a question, as Explorer's drop;
+                // but what can't go there (a USB stick, a network folder, a
+                // file too large) would be deleted for good: Windows asks
+                // first (FOF_WANTNUKEWARNING overrides FOF_NOCONFIRMATION
+                // then), so nothing is ever deleted without a yes.
+                fFlags: (FOF_ALLOWUNDO.0 | FOF_NOCONFIRMATION.0 | FOF_WANTNUKEWARNING.0) as u16,
                 ..Default::default()
             };
             let result = unsafe { SHFileOperationW(&mut operation) };

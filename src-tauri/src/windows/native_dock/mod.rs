@@ -461,6 +461,14 @@ pub fn start(app: &AppHandle) -> windows::core::Result<()> {
         log::warn!("dock: OLE could not be initialized: {error}");
     }
     let _ = APP.set(app.clone());
+    // Windows 11's energy saver is told only through the effective power
+    // mode: the docks read the battery again when it changes.
+    super::system_status::watch_power_mode(|| {
+        post(|dock| {
+            super::system_status::forget_shared();
+            dock.read_system();
+        });
+    });
     let instance = unsafe { GetModuleHandleW(None) }?;
     let class_data = WNDCLASSW {
         style: CS_DBLCLKS,
@@ -2744,6 +2752,17 @@ impl Dock {
 
     /// The id in the Apps folder of the program at `index`: a pinned one or
     /// an open one. What a folder or files open with (spec 0018).
+    /// What files dropped on the item at `index` go to: a program, which
+    /// opens them, or the Recycle Bin, which takes them (spec 0025).
+    fn drop_id(&self, index: usize) -> Option<String> {
+        match self.items.get(index)? {
+            Item::App(app) if place_of(&app.app_id) == Place::RecycleBin => {
+                Some(app.app_id.clone())
+            }
+            _ => self.program_id(index),
+        }
+    }
+
     fn program_id(&self, index: usize) -> Option<String> {
         match self.items.get(index)? {
             // A folder or the Recycle Bin opens nothing (spec 0025).

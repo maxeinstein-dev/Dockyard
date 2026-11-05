@@ -2,6 +2,7 @@
 //! taskbar does (and the PrimoDock): the battery, the network and the
 //! volume. Read when asked; cheap enough to ask every few seconds.
 
+use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::{Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
@@ -17,7 +18,8 @@ use windows::Win32::System::Com::{CLSCTX_ALL, CLSCTX_INPROC_SERVER, CoCreateInst
 use windows::Win32::System::Power::{GetSystemPowerStatus, SYSTEM_POWER_STATUS};
 
 /// The battery: how full, whether it is charging, and whether Windows'
-/// energy saver is on (its icon then turns orange, as the taskbar's).
+/// energy saver is on while it is not (its icon then turns orange, as the
+/// taskbar's, which is orange only off the charger).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Battery {
     pub percent: u8,
@@ -100,10 +102,63 @@ pub fn on_battery() -> bool {
 }
 
 /// Whether Windows' energy saver (battery saver) is on now: the dock saves
-/// with it too, under "Na bateria".
+/// with it too, under "Na bateria". The old battery saver sets
+/// `SystemStatusFlag`; Windows 11's energy saver only shows in the effective
+/// power mode (achado do autor, 2026-11-05: the flag stayed 0 with it on).
 pub fn energy_saver() -> bool {
     let mut status = SYSTEM_POWER_STATUS::default();
-    unsafe { GetSystemPowerStatus(&mut status) }.is_ok() && saver_on(&status)
+    let flag = unsafe { GetSystemPowerStatus(&mut status) }.is_ok() && saver_on(&status);
+    flag || mode_saves()
+}
+
+/// Windows' effective power mode as last told (`EFFECTIVE_POWER_MODE`), -1
+/// before it is.
+static POWER_MODE: AtomicI32 = AtomicI32::new(-1);
+
+/// The effective power mode is the energy saver's.
+fn mode_saves() -> bool {
+    POWER_MODE.load(Ordering::Relaxed)
+        == windows::Win32::System::Power::EffectivePowerModeBatterySaver.0
+}
+
+/// What [`watch_power_mode`] calls when the mode changes.
+static ON_MODE: std::sync::OnceLock<Box<dyn Fn() + Send + Sync>> = std::sync::OnceLock::new();
+
+unsafe extern "system" fn mode_changed(
+    mode: windows::Win32::System::Power::EFFECTIVE_POWER_MODE,
+    _context: *const core::ffi::c_void,
+) {
+    let _ = super::panics::window_message(|| {
+        let before = POWER_MODE.swap(mode.0, Ordering::Relaxed);
+        if before != mode.0
+            && let Some(changed) = ON_MODE.get()
+        {
+            changed();
+        }
+    });
+}
+
+/// Listens to Windows' effective power mode for the rest of the run (once):
+/// Windows tells it at once and on every change, and `changed` runs then.
+pub fn watch_power_mode(changed: impl Fn() + Send + Sync + 'static) {
+    use windows::Win32::System::Power::{
+        EFFECTIVE_POWER_MODE_V2, PowerRegisterForEffectivePowerModeNotifications,
+    };
+    if ON_MODE.set(Box::new(changed)).is_err() {
+        return;
+    }
+    let mut handle: *mut core::ffi::c_void = std::ptr::null_mut();
+    let registered = unsafe {
+        PowerRegisterForEffectivePowerModeNotifications(
+            EFFECTIVE_POWER_MODE_V2,
+            Some(mode_changed),
+            None,
+            &mut handle,
+        )
+    };
+    if let Err(error) = registered {
+        log::warn!("power: the effective power mode is not told: {error}");
+    }
 }
 
 /// `SystemStatusFlag`: 1 while the energy saver is on.
@@ -119,7 +174,10 @@ fn unplugged(status: &SYSTEM_POWER_STATUS) -> bool {
 fn battery() -> Option<Battery> {
     let mut status = SYSTEM_POWER_STATUS::default();
     unsafe { GetSystemPowerStatus(&mut status) }.ok()?;
-    battery_of(&status)
+    battery_of(&status).map(|battery| Battery {
+        saver: (battery.saver || mode_saves()) && !battery.charging,
+        ..battery
+    })
 }
 
 /// The battery `status` describes; `None` with none (flag 128) or an unknown
@@ -137,7 +195,8 @@ fn battery_of(status: &SYSTEM_POWER_STATUS) -> Option<Battery> {
         percent: status.BatteryLifePercent.min(100),
         // 8: charging; or on the charger.
         charging: status.BatteryFlag & 8 != 0 || status.ACLineStatus == 1,
-        saver: saver_on(status),
+        // Orange as the taskbar's: only off the charger.
+        saver: saver_on(status) && status.ACLineStatus != 1 && status.BatteryFlag & 8 == 0,
     })
 }
 
@@ -264,5 +323,11 @@ mod tests {
         assert!(saver_on(&on));
         assert!(battery_of(&on).is_some_and(|battery| battery.saver));
         assert!(!saver_on(&power(1, 30, 0)));
+        // On the charger the icon is not orange, as the taskbar's.
+        let charging = SYSTEM_POWER_STATUS {
+            SystemStatusFlag: 1,
+            ..power(8, 30, 1)
+        };
+        assert!(battery_of(&charging).is_some_and(|battery| !battery.saver));
     }
 }
