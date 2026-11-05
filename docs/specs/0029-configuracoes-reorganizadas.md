@@ -4,7 +4,7 @@ Configurações cresceu com a busca (F6), os espaçadores, as pilhas e o ícone 
 
 Esta spec muda a **arquitetura de informação** da janela da [spec 0011](0011-arquitetura-hibrida.md) §3. A linguagem visual continua a da [spec 0014](0014-rebranding-configuracoes-e-menus.md) §3: placa, cabeçalho e grupo com linhas.
 
-**Status:** aprovada em 2026-11-04, com as decisões do grilling (Q1–Q12, §9). Os passos do §10 entram um por PR.
+**Status:** aprovada em 2026-11-04, com as decisões do grilling (Q1–Q12, §9). Os passos do §10 entraram um por PR: P1 (#184), P2 (#186), as galerias do P3 (#188) e, depois da F13, Espaços e o lugar dos switches de monitor (Q13–Q14, de 2026-11-05).
 
 ## 1. Onde estamos
 
@@ -34,11 +34,10 @@ A barra lateral ganha **três faixas**, cada uma com um título pequeno. A pesso
 | **Dock** | Geral | `general` | Dock · Windows · Idioma e inicialização |
 | | Aparência | `look` | Temas · Estilo da barra · Ao passar o mouse · Indicador · Ícones · *Avançado* |
 | | Comportamento | `behavior` (novo) | Mostrar e ocultar · Prévias · Apps no dock · Energia · *Avançado* |
-| **Conteúdo** | Espaços | `workspaces` | (fichas e cartão do espaço) |
+| **Conteúdo** | Espaços | `workspaces` | (fichas e cartão do espaço) · Monitores |
 | | Apps | `apps` | (fixados e catálogo) |
 | | Widgets | `items` | (em uso e catálogo) |
 | **Mais** | Lançador | `launcher` (novo) | Lançador · Busca na web · *Avançado* |
-| | Monitores | `monitors` (F13) | definido pela F13 |
 | | Contas | `accounts` | App do Google · Contas Google |
 | | Sobre | `about` | Sobre · Cópia das configurações |
 
@@ -51,8 +50,8 @@ A barra lateral ganha **três faixas**, cada uma com um título pequeno. A pesso
   A faixa já diz do que se trata.
 - **ids:**
   - continuam os de hoje, inclusive `items`, para não quebrar `__DOCKYARD_SECTION__` nem o lançador;
-  - `behavior` e `launcher` são novos;
-  - `monitors` vem da F13.
+  - `behavior` e `launcher` são novos.
+- **Monitores não é seção.** A F13 ([spec 0030](0030-itens-e-espaco-por-monitor.md) §4 E) pôs Monitores como grupo de Espaços, com cada monitor, o seu espaço e a fixação. A faixa "Mais" fica com Lançador, Contas e Sobre (Q13).
 - **Rust:** `Section` em `src-tauri/src/domain/launcher_pages.rs` acompanha a lista, como pede o comentário de `src/settings/sections.ts`. O lançador passa a achar "Comportamento" e "Lançador" como páginas.
 
 ### 2.1 De onde vem cada linha da Geral de hoje
@@ -70,10 +69,11 @@ A barra lateral ganha **três faixas**, cada uma com um título pequeno. A pesso
 | Lançador (switch), Atalho do lançador, aviso de atalho em uso | Lançador › Lançador |
 | Busca na web | Lançador › Busca na web |
 | Histórico do lançador | Lançador › Avançado |
-| Dock em todos os monitores, Trocar de espaço em todos os monitores | **Monitores** (F13) |
+| Dock em todos os monitores | Geral › Dock (Q13) |
+| Trocar de espaço em todos os monitores | Espaços › Monitores, no alto do grupo (Q13) |
 | Indicador na cor do espaço | **Aparência › Indicador**, ao lado de "Cor do indicador" |
 
-Até a F13 mergear, os dois switches de monitor ficam em Comportamento, num grupo "Monitores", e saem de lá no PR em que a seção Monitores entrar. Assim nenhum ajuste fica sem lugar.
+Até a F13 mergear, os dois switches de monitor ficaram em Comportamento, num grupo "Monitores" provisório. Depois dela, cada um foi para o seu lugar (Q13) e o grupo provisório saiu.
 
 ## 3. O topo de cada seção
 
@@ -81,7 +81,6 @@ Até a F13 mergear, os dois switches de monitor ficam em Comportamento, num grup
   - Geral: "Onde o dock fica e como ele convive com o Windows."
   - Comportamento: "Quando o dock aparece e o que ele mostra."
   - Lançador: "Abra apps e busque na web pelo teclado."
-  - Monitores: o texto é da F13.
 - **Índice dos grupos:** fica embaixo da frase. São links em linha, separados por " · ", por exemplo "Temas · Estilo da barra · Ao passar o mouse · Indicador · Ícones · Avançado".
   - Cada link rola até o grupo e põe o foco no título dele.
   - **O índice só aparece quando a seção tem 3 grupos ou mais, sem contar o Avançado.** Hoje isso vale para Geral, Aparência e Comportamento.
@@ -101,7 +100,7 @@ Até a F13 mergear, os dois switches de monitor ficam em Comportamento, num grup
 | Comportamento | Botão do meio, Atalho do dock |
 | Aparência | Personalizar este estilo (Borda, Cantos, Reflexos, Restaurar); Animação de abertura; Abrir pasta Skins, Abrir pasta de pacotes, Recarregar pacotes |
 | Lançador | Histórico do lançador (Limpar o histórico) |
-| Geral, Espaços, Apps, Widgets, Monitores, Contas, Sobre | sem Avançado |
+| Geral, Espaços, Apps, Widgets, Contas, Sobre | sem Avançado |
 
 Dois casos especiais na Aparência:
 - **Problemas de skin ou de pacote:** a lista de problemas da pasta (`SkinsFolderNotice`, problemas dos pacotes) **continua visível** embaixo da galeria, mesmo com os botões de pasta no Avançado. Erro não fica escondido.
@@ -144,10 +143,11 @@ Duas consequências dos cortes:
 
 ## 7. Espaços
 
-Esta parte só entra depois do merge da F13, que mexe em `WorkspacesPanel` e em Configurações › Espaços.
+Esta parte entrou depois do merge da F13, que mexe em `WorkspacesPanel` e em Configurações › Espaços.
 
 - O parágrafo longo (`workspaces.lead`) sai. No lugar fica a frase de apoio, como nas outras seções.
 - A explicação de como trocar (Ctrl+Alt+n, a roda do mouse, as bolinhas) vira uma linha "Como trocar de espaço", com dica de 1 linha: "Ctrl+Alt+1 a 9, a roda do mouse no dock ou as bolinhas".
+- "Editar aqui não muda o que o dock mostra.", que estava no parágrafo, vira uma nota no alto do cartão do espaço sendo editado (Q14).
 
 ## 8. Busca e leitor de tela
 
@@ -176,6 +176,8 @@ Esta parte só entra depois do merge da F13, que mexe em `WorkspacesPanel` e em 
 | Q10 | Dicas de no máximo 1 linha, conforme a tabela do §6 |
 | Q11 | O parágrafo de Espaços vira frase de apoio e uma linha "Como trocar de espaço", depois da F13 |
 | Q12 | Um PR por passo (§10) |
+| Q13 | (2026-11-05) Monitores é grupo de Espaços, como a F13 fez, e não seção. "Dock em todos os monitores" vai para Geral › Dock, e "Trocar de espaço em todos os monitores" para Espaços › Monitores |
+| Q14 | (2026-11-05) A nota "Editar aqui não muda o que o dock mostra." fica no cartão do espaço |
 
 ## 10. Entrega
 
@@ -185,10 +187,7 @@ Esta parte só entra depois do merge da F13, que mexe em `WorkspacesPanel` e em 
 | **P2** | O grupo Avançado (§4), as dicas enxutas (§6) e a etiqueta "Padrão" | P1 |
 | **P3** | As galerias com "Mostrar todos" (§5) e Espaços (§7) | P1; a parte de Espaços espera o merge da F13 |
 
-**Coordenação com a F13:**
-- A seção `monitors` e o seu conteúdo são da F13.
-- Se a F13 mergear antes do P1, o P1 já põe Monitores na faixa "Mais" e tira de Comportamento os dois switches de monitor.
-- Se mergear depois, ela faz isso no próprio PR.
+**Coordenação com a F13:** ela mergeou depois do P1, com Monitores como grupo de Espaços. O PR de Espaços (§7) também leva os dois switches de monitor para o seu lugar (Q13).
 
 ## 11. Testes
 
@@ -209,4 +208,4 @@ Esta parte só entra depois do merge da F13, que mexe em `WorkspacesPanel` e em 
 - Mudar o mecanismo da busca para data-attributes.
 - Mexer nos menus do dock ou tirar deles ajustes repetidos.
 - O painel antigo de Configurações no dock (`SettingsPanel` sem `grouped`).
-- O conteúdo da seção Monitores (F13).
+- O conteúdo do grupo Monitores (F13), salvo o switch de troca em todos os monitores.

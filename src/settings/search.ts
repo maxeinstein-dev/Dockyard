@@ -37,6 +37,7 @@ export function searchIndex(t: Messages): SearchEntry[] {
     general(s.groups.edge, groups.dock),
     general(s.groups.size, groups.dock),
     general(s.groups.opacity, groups.dock),
+    general(s.everyMonitor, groups.dock),
     general(groups.taskbar, groups.taskbar),
     general(s.groups.taskbar, groups.taskbar),
     general(t.tray.inDock.label, groups.taskbar),
@@ -78,17 +79,21 @@ export function searchIndex(t: Messages): SearchEntry[] {
     behavior(s.showBadges, groups.appsInDock),
     behavior(groups.energy, groups.energy),
     behavior(s.groups.powerSaver, groups.energy),
-    behavior(groups.monitors, groups.monitors),
-    behavior(s.everyMonitor, groups.monitors),
-    behavior(s.switchEveryMonitor, groups.monitors),
     behavior(groups.advanced, groups.advanced),
     behavior(s.groups.middleClick, groups.advanced),
     behavior(s.dockHotkey.label, groups.advanced),
     { section: "workspaces" as const, label: t.workspaces.name },
-    // Spec 0030: the monitors, each one's workspace and hold.
+    { section: "workspaces" as const, label: t.workspaces.howTo },
+    // Spec 0030: the monitors, each one's workspace and hold, and the
+    // switch of every monitor at once (spec 0029 §2.1).
     {
       section: "workspaces" as const,
       label: t.workspaces.monitors.title,
+      group: t.workspaces.monitors.title,
+    },
+    {
+      section: "workspaces" as const,
+      label: s.switchEveryMonitor,
       group: t.workspaces.monitors.title,
     },
     { section: "apps" as const, label: t.apps.add },

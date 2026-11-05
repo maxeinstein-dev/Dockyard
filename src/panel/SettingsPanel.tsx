@@ -444,21 +444,6 @@ function SettingsPanel({
         <SettingsGroup title={groups.energy} grouped>
           {powerSaverField}
         </SettingsGroup>
-        {/* Until the Monitores section (F13) takes them. */}
-        <SettingsGroup title={groups.monitors} grouped>
-          {dockToggle(
-            "everyMonitor",
-            t.settings.everyMonitor,
-            t.settings.everyMonitorHint,
-            true,
-          )}
-          {dockToggle(
-            "switchEveryMonitor",
-            t.settings.switchEveryMonitor,
-            t.settings.switchEveryMonitorHint,
-            false,
-          )}
-        </SettingsGroup>
         <AdvancedGroup
           id="behavior"
           title={groups.advanced}
@@ -513,6 +498,14 @@ function SettingsPanel({
           />
           {sizeField}
           {opacityField}
+          {/* Where the docks are (spec 0029 §2.1); the switch of the
+              workspaces is in Espaços › Monitores. */}
+          {dockToggle(
+            "everyMonitor",
+            t.settings.everyMonitor,
+            t.settings.everyMonitorHint,
+            true,
+          )}
         </SettingsGroup>
         <SettingsGroup title={groups.taskbar} grouped>
           <ChoiceCards
