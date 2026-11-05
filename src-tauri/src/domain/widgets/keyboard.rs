@@ -56,24 +56,27 @@ const LAYOUT_LETTERS: usize = 5;
 
 /// The tile's text for a layout named `own` (as Windows lists it:
 /// `Português (Brasil ABNT2)`) when other layouts of its language are
-/// installed, named `others`: the first word of its name that none of
-/// theirs has, upper case, at most five letters, so two Portuguese
-/// keyboards read `ABNT` and `ABNT2`, whatever order they were added in
-/// (achado do autor, 2026-11-05). The language's `short` name when it is
-/// alone, or when no word sets it apart.
+/// installed, named `others` (achado do autor, 2026-11-05): the acronym its
+/// name already carries (`ABNT2`), or the initials of its words
+/// (`Estados Unidos-Internacional` reads `EUI`), whatever order the layouts
+/// were added in. Should that be another layout's too, the first word of its
+/// name none of theirs has; the language's `short` name when it is alone or
+/// nothing sets it apart.
 pub fn distinguished(short: &str, own: &str, others: &[String]) -> String {
     if others.is_empty() {
         return short.to_owned();
     }
-    let words = |name: &str| -> Vec<String> {
-        name.split(|c: char| !c.is_alphanumeric())
-            .filter(|word| !word.is_empty())
-            .map(str::to_lowercase)
-            .collect()
-    };
-    let theirs: Vec<Vec<String>> = others.iter().map(|other| words(other)).collect();
+    let label = |name: &str| acronym(name).unwrap_or_else(|| initials(name));
+    let mine = label(own);
+    if !mine.is_empty() && others.iter().all(|other| label(other) != mine) {
+        return mine;
+    }
+    let theirs: Vec<Vec<String>> = others
+        .iter()
+        .map(|other| words(other).map(str::to_lowercase).collect())
+        .collect();
     words(own)
-        .into_iter()
+        .map(str::to_lowercase)
         .find(|word| theirs.iter().all(|their| !their.contains(word)))
         .map(|word| {
             word.chars()
@@ -82,6 +85,38 @@ pub fn distinguished(short: &str, own: &str, others: &[String]) -> String {
                 .to_uppercase()
         })
         .unwrap_or_else(|| short.to_owned())
+}
+
+/// The words of a layout's name.
+fn words(name: &str) -> impl Iterator<Item = &str> {
+    name.split(|c: char| !c.is_alphanumeric())
+        .filter(|word| !word.is_empty())
+}
+
+/// The last acronym of a name: a word of capitals (and digits), two to six
+/// long, with two capitals at least (`ABNT2`, `US`).
+fn acronym(name: &str) -> Option<String> {
+    words(name)
+        .filter(|word| {
+            (2..=6).contains(&word.chars().count())
+                && word
+                    .chars()
+                    .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit())
+                && word.chars().filter(char::is_ascii_uppercase).count() >= 2
+        })
+        .last()
+        .map(str::to_owned)
+}
+
+/// The initials of the words of a name that are not short joining words
+/// (`de`, `do`), upper case, at most five.
+fn initials(name: &str) -> String {
+    words(name)
+        .filter(|word| word.chars().count() > 2)
+        .filter_map(|word| word.chars().next())
+        .take(LAYOUT_LETTERS)
+        .collect::<String>()
+        .to_uppercase()
 }
 
 /// The key of a layout under `Keyboard Layouts` in the registry (its KLID)
@@ -100,6 +135,9 @@ mod tests {
     fn two_layouts_of_one_language_are_told_apart_by_their_names() {
         let abnt = "Português (Brasil ABNT)".to_owned();
         let abnt2 = "Português (Brasil ABNT2)".to_owned();
+        let intl = "Estados Unidos-Internacional".to_owned();
+        let us = "Estados Unidos".to_owned();
+        // The acronym the name carries, whatever the other one is.
         assert_eq!(
             distinguished("PTB", &abnt, std::slice::from_ref(&abnt2)),
             "ABNT"
@@ -108,16 +146,25 @@ mod tests {
             distinguished("PTB", &abnt2, std::slice::from_ref(&abnt)),
             "ABNT2"
         );
+        assert_eq!(
+            distinguished("PTB", &abnt2, std::slice::from_ref(&intl)),
+            "ABNT2"
+        );
+        // No acronym: the initials.
+        assert_eq!(
+            distinguished("PTB", &intl, std::slice::from_ref(&abnt2)),
+            "EUI"
+        );
+        assert_eq!(distinguished("ENU", &us, std::slice::from_ref(&intl)), "EU");
         // Alone, the language's short name.
         assert_eq!(distinguished("PTB", &abnt, &[]), "PTB");
-        // No word of its own: the short name; a long word, cut.
-        let us = "Estados Unidos".to_owned();
-        let intl = "Estados Unidos-Internacional".to_owned();
+        // Initials that differ by a word.
+        let dvorak = "Estados Unidos-Dvorak".to_owned();
+        let ext = "Estados Unidos-Dvorak Extra".to_owned();
         assert_eq!(
-            distinguished("ENU", &us, std::slice::from_ref(&intl)),
-            "ENU"
+            distinguished("ENU", &ext, std::slice::from_ref(&dvorak)),
+            "EUDE"
         );
-        assert_eq!(distinguished("ENU", &intl, &[us]), "INTER");
     }
 
     #[test]

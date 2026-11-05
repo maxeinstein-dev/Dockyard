@@ -103,61 +103,91 @@ pub fn on_battery() -> bool {
 
 /// Whether Windows' energy saver (battery saver) is on now: the dock saves
 /// with it too, under "Na bateria". The old battery saver sets
-/// `SystemStatusFlag`; Windows 11's energy saver only shows in the effective
-/// power mode (achado do autor, 2026-11-05: the flag stayed 0 with it on).
+/// `SystemStatusFlag`; Windows 11's energy saver is told only by its own
+/// power setting, `GUID_ENERGY_SAVER_STATUS` (achado do autor, 2026-11-05:
+/// with it on, the flag stayed 0 and the effective power mode said "better
+/// battery", while the setting said 1).
 pub fn energy_saver() -> bool {
     let mut status = SYSTEM_POWER_STATUS::default();
     let flag = unsafe { GetSystemPowerStatus(&mut status) }.is_ok() && saver_on(&status);
-    flag || mode_saves()
+    flag || setting_saves()
 }
 
-/// Windows' effective power mode as last told (`EFFECTIVE_POWER_MODE`), -1
-/// before it is.
-static POWER_MODE: AtomicI32 = AtomicI32::new(-1);
+/// `GUID_ENERGY_SAVER_STATUS` (winnt.h, Windows 11): 0 off, 1 on, 2 on with
+/// the most savings.
+const ENERGY_SAVER_STATUS: windows::core::GUID =
+    windows::core::GUID::from_u128(0x550e8400_e29b_41d4_a716_446655440000);
 
-/// The effective power mode is the energy saver's.
-fn mode_saves() -> bool {
-    POWER_MODE.load(Ordering::Relaxed)
-        == windows::Win32::System::Power::EffectivePowerModeBatterySaver.0
+/// The energy saver's status as last told, -1 before it is.
+static SAVER_STATUS: AtomicI32 = AtomicI32::new(-1);
+
+/// The energy saver is on, by its own setting.
+fn setting_saves() -> bool {
+    SAVER_STATUS.load(Ordering::Relaxed) > 0
 }
 
-/// What [`watch_power_mode`] calls when the mode changes.
-static ON_MODE: std::sync::OnceLock<Box<dyn Fn() + Send + Sync>> = std::sync::OnceLock::new();
+/// What [`watch_power_mode`] calls when the status changes.
+static ON_CHANGE: std::sync::OnceLock<Box<dyn Fn() + Send + Sync>> = std::sync::OnceLock::new();
 
-unsafe extern "system" fn mode_changed(
-    mode: windows::Win32::System::Power::EFFECTIVE_POWER_MODE,
+/// Windows tells the energy saver's status: a `POWERBROADCAST_SETTING`
+/// whose data is a `u32`.
+unsafe extern "system" fn saver_changed(
     _context: *const core::ffi::c_void,
-) {
+    _kind: u32,
+    setting: *const core::ffi::c_void,
+) -> u32 {
     let _ = super::panics::window_message(|| {
-        let before = POWER_MODE.swap(mode.0, Ordering::Relaxed);
-        if before != mode.0
-            && let Some(changed) = ON_MODE.get()
-        {
-            changed();
+        use windows::Win32::System::Power::POWERBROADCAST_SETTING;
+        if setting.is_null() {
+            return;
+        }
+        let told = unsafe { &*setting.cast::<POWERBROADCAST_SETTING>() };
+        if told.PowerSetting != ENERGY_SAVER_STATUS || told.DataLength < 4 {
+            return;
+        }
+        let data = unsafe { std::ptr::addr_of!(told.Data).cast::<u32>().read_unaligned() };
+        let now = i32::try_from(data).unwrap_or(0);
+        let before = SAVER_STATUS.swap(now, Ordering::Relaxed);
+        if before != now {
+            log::info!("power: energy saver status {now}");
+            if let Some(changed) = ON_CHANGE.get() {
+                changed();
+            }
         }
     });
+    0
 }
 
-/// Listens to Windows' effective power mode for the rest of the run (once):
-/// Windows tells it at once and on every change, and `changed` runs then.
+/// Listens to Windows' energy saver for the rest of the run (once): Windows
+/// tells its status at once and on every change, and `changed` runs then.
 pub fn watch_power_mode(changed: impl Fn() + Send + Sync + 'static) {
+    use windows::Win32::Foundation::HANDLE;
     use windows::Win32::System::Power::{
-        EFFECTIVE_POWER_MODE_V2, PowerRegisterForEffectivePowerModeNotifications,
+        DEVICE_NOTIFY_SUBSCRIBE_PARAMETERS, PowerSettingRegisterNotification,
     };
-    if ON_MODE.set(Box::new(changed)).is_err() {
+    use windows::Win32::UI::WindowsAndMessaging::DEVICE_NOTIFY_CALLBACK;
+    if ON_CHANGE.set(Box::new(changed)).is_err() {
         return;
     }
+    // Windows keeps the pointer for as long as the registration lasts: the
+    // run's.
+    let parameters: &'static mut DEVICE_NOTIFY_SUBSCRIBE_PARAMETERS =
+        Box::leak(Box::new(DEVICE_NOTIFY_SUBSCRIBE_PARAMETERS {
+            Callback: Some(saver_changed),
+            Context: std::ptr::null_mut(),
+        }));
     let mut handle: *mut core::ffi::c_void = std::ptr::null_mut();
     let registered = unsafe {
-        PowerRegisterForEffectivePowerModeNotifications(
-            EFFECTIVE_POWER_MODE_V2,
-            Some(mode_changed),
-            None,
+        PowerSettingRegisterNotification(
+            &ENERGY_SAVER_STATUS,
+            DEVICE_NOTIFY_CALLBACK,
+            HANDLE(std::ptr::from_mut(parameters).cast()),
             &mut handle,
         )
     };
-    if let Err(error) = registered {
-        log::warn!("power: the effective power mode is not told: {error}");
+    if registered.is_err() {
+        // An older Windows: the battery saver's flag still holds.
+        log::info!("power: the energy saver's status is not told ({registered:?})");
     }
 }
 
@@ -175,7 +205,7 @@ fn battery() -> Option<Battery> {
     let mut status = SYSTEM_POWER_STATUS::default();
     unsafe { GetSystemPowerStatus(&mut status) }.ok()?;
     battery_of(&status).map(|battery| Battery {
-        saver: (battery.saver || mode_saves()) && !battery.charging,
+        saver: (battery.saver || setting_saves()) && !battery.charging,
         ..battery
     })
 }

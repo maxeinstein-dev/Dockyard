@@ -461,8 +461,8 @@ pub fn start(app: &AppHandle) -> windows::core::Result<()> {
         log::warn!("dock: OLE could not be initialized: {error}");
     }
     let _ = APP.set(app.clone());
-    // Windows 11's energy saver is told only through the effective power
-    // mode: the docks read the battery again when it changes.
+    // Windows 11's energy saver is told only by its own power setting: the
+    // docks read the battery again when it changes.
     super::system_status::watch_power_mode(|| {
         post(|dock| {
             super::system_status::forget_shared();
