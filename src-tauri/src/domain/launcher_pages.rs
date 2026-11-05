@@ -272,7 +272,13 @@ pub const PAGES: &[Page] = &[
     dockyard(
         "dockmax-general",
         "Configurações do Dockyard",
-        &["dockyard", "dockmax", "dock", "modo de cor", "posicao do dock"],
+        &[
+            "dockyard",
+            "dockmax",
+            "dock",
+            "modo de cor",
+            "posicao do dock",
+        ],
         Section::General,
     ),
     dockyard(
@@ -326,7 +332,12 @@ pub const PAGES: &[Page] = &[
     dockyard(
         "dockmax-launcher",
         "Lançador do Dockyard",
-        &["lancador", "atalho do lancador", "busca na web", "palavra chave"],
+        &[
+            "lancador",
+            "atalho do lancador",
+            "busca na web",
+            "palavra chave",
+        ],
         Section::Launcher,
     ),
     dockyard(
