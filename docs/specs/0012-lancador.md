@@ -469,6 +469,8 @@ O "botão Iniciar" do PrimoDock, com o lançador no lugar do Iniciar.
 
 ## 9. Extensões (depois)
 
+> **Fora do roadmap** (decisão do autor, 2026-11-05: a F14 do [estudo 0002](../estudos/0002-melhorias-e-funcionalidades.md) foi retirada). O desenho abaixo fica como registro.
+
 Fica aqui só o desenho que o L1 não pode fechar:
 
 - **Ativadas por palavra-chave**, como no Ulauncher: uma extensão declara a palavra (`gh`, `todo`) e só recebe as consultas que começam com ela; a busca de apps nunca espera uma extensão.

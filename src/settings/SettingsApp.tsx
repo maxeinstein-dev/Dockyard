@@ -449,7 +449,7 @@ function SettingsApp() {
                   onEditApps={() => setSection("apps")}
                   onEditItems={() => setSection("items")}
                 />
-                <MonitorsSection snapshot={spaces} />
+                <MonitorsSection snapshot={spaces} settings={settings} />
               </>
             ) : null}
             {section === "look" ? (
