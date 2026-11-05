@@ -185,6 +185,10 @@ const EXPECTED_CAPABILITIES: &[(&str, &str, &[&str], &[&str])] = &[
             "allow-recolor-workspace",
             "allow-move-workspace",
             "allow-delete-workspace",
+            // The monitors (spec 0030): each one's workspace and hold.
+            "allow-list-monitors",
+            "allow-set-monitor-workspace",
+            "allow-set-monitor-fixed",
             // Its spacers (spec 0022): removed and moved in Itens do dock.
             "allow-remove-spacer",
             "allow-move-spacer",

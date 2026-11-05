@@ -557,8 +557,8 @@ Janela própria de 880×640 (mínimo 720×480; spec 0011 §3), com a linguagem d
 - **Seção:** coluna de até 640 px, 18 px entre blocos.
   - **Cabeçalho:** a placa grande de 44 px, o título em Display 22 px e a frase de apoio em 13 px `--ink-2`.
   - **Índice:** logo abaixo do cabeçalho, só quando a seção tem 3 grupos ou mais, sem contar o Avançado (`nav` "Nesta seção"). São os nomes dos grupos em `--accent`, 13 px, separados por " · " (decorativo), com sublinhado no hover. Cada nome rola até o grupo e foca o título dele.
-- **Grupo:** título pequeno em `--ink-2` (`h2.settings-group-title`) e, abaixo, um cartão com as linhas separadas por fios `--hair`. Cada linha leva o nome em Label Strong, a dica embaixo e o controle à direita. As escolhas visuais são cartões com miniatura (`ChoiceCards`).
-  - O grupo "Avançado" vem por último na seção e guarda ajuste fino ou raramente mexido.
+- **Grupo:** título pequeno em `--ink-2` (`h2.settings-group-title`) e, abaixo, um cartão com as linhas separadas por fios `--hair`. Cada linha leva o nome em Label Strong, a dica embaixo (uma linha no máximo, sem repetir o nome; spec 0029 §6) e o controle à direita. As escolhas visuais são cartões com miniatura (`ChoiceCards`).
+  - O grupo "Avançado" vem por último na seção, **fechado** (`AdvancedGroup`), e guarda ajuste fino ou raramente mexido. O título dele é o botão que abre (`aria-expanded`, chevron), e embaixo uma linha em Caption `--ink-2` diz o que tem dentro. Fechado, as linhas ficam na página mas ocultas: a busca e o índice abrem o grupo. Continua aberto enquanto a janela vive. Erros (problemas de skin e de pacote) nunca vão para o Avançado.
   - Uma linha que só aparece com um switch ligado fica ao lado desse switch.
 - **Rodapé:** "Salvo automaticamente", no fim das seções de ajustes.
 

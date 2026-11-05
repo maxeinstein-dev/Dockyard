@@ -63,8 +63,7 @@ export const en: Messages = {
       onBattery: "On battery",
       always: "Always",
     },
-    powerSaverHint:
-      "Stops the scrolling text and the opening jump, and reads the system less often",
+    powerSaverHint: "Less animation and fewer system reads",
     app: {
       nav: "Settings sections",
       sections: {
@@ -114,11 +113,14 @@ export const en: Messages = {
         launcher: "Launcher",
         themes: "Themes",
         style: "Bar style",
-        tweaks: "Customize this style",
         hover: "On hover",
         indicator: "Indicator",
         icons: "Icons",
-        openAnimation: "Open animation",
+      },
+      advancedSummary: {
+        behavior: "Middle button, dock shortcut",
+        look: "Customize the style, open animation, folders",
+        launcher: "Launcher history",
       },
     },
     showOpenApps: "Show open apps",
@@ -126,13 +128,11 @@ export const en: Messages = {
     showBadges: "Show notification badges",
     showBadgesHint: "The unread count the app puts on the Windows taskbar",
     autoHide: "Automatically hide",
-    autoHideHint:
-      "The dock hides when the pointer leaves and comes back at the screen edge",
+    autoHideHint: "Hides when the pointer leaves, back at the screen edge",
     autoHideReveal: "Show delay",
-    autoHideRevealHint:
-      "How long the pointer stays at the edge before the dock comes back",
+    autoHideRevealHint: "With the pointer on the edge",
     autoHideDelay: "Hide delay",
-    autoHideDelayHint: "How long the pointer stays away before the dock hides",
+    autoHideDelayHint: "With the pointer away from the dock",
     everyMonitor: "Dock on every monitor",
     everyMonitorHint: "Each monitor gets its own dock, in place of the taskbar",
     switchEveryMonitor: "Switch workspace on every monitor",
@@ -144,14 +144,11 @@ export const en: Messages = {
     previews: "Preview on hover",
     previewsHint: "Rest the pointer on an open app to see its windows",
     previewDelay: "Preview delay",
-    previewDelayHint: "How long to rest before the preview appears",
     previewsOnlySeveral: "Only with 2 or more windows",
-    previewsOnlySeveralHint: "An app with a single window shows no preview",
     launchAtLogin: "Start with Windows",
-    launchAtLoginHint: "Opens Dockyard when you sign in to Windows",
     dockHotkey: {
       label: "Dock shortcut",
-      hint: "Takes the keyboard to the dock: the arrows move between items, Enter opens, Shift+F10 opens the menu and Esc goes back to the previous program",
+      hint: "Takes the keyboard to the dock; Esc goes back to the previous program",
       change: "Change the dock shortcut, currently {hotkey}",
       press: "Press the combination… (Esc cancels)",
       saving: "Saving…",
@@ -172,7 +169,7 @@ export const en: Messages = {
     },
     launcher: {
       label: "Launcher ({hotkey})",
-      hint: "Find and open apps from anywhere; also in Search apps…, in the dock menu",
+      hint: "Find and open apps from anywhere",
       taken: "{hotkey} is in use by another program.",
       takenDetail: "Open the launcher from Search apps…, in the dock menu.",
       history: "Launcher history",
@@ -181,7 +178,6 @@ export const en: Messages = {
       cleared: "History cleared",
       hotkey: {
         label: "Launcher shortcut",
-        hint: "Click the button and press the new combination",
         change: "Change the shortcut, currently {hotkey}",
         press: "Press the combination… (Esc cancels)",
         saving: "Saving…",
@@ -202,7 +198,7 @@ export const en: Messages = {
       },
       keywords: {
         label: "Web search",
-        hint: "In the launcher, type the keyword, a space and what to search for: g dockyard. The first one in the list is the default search, used when nothing else is found.",
+        hint: "Type the keyword and what to search: g dockyard",
         list: "Web search keywords",
         add: "Add keyword",
         edit: "Edit",
@@ -339,7 +335,6 @@ export const en: Messages = {
       tweaks: "Customize this style",
       border: "Border",
       corners: "Corners",
-      cornersHint: "How rounded the bar is",
       reflections: "Reflections",
       reflectionsHint: "A mirrored image under each icon",
       restore: "Restore",
@@ -363,8 +358,7 @@ export const en: Messages = {
         original: "As they come",
       },
       iconPack: "App icons",
-      iconPackHint:
-        "Replace every app's icon with a pack from the packs folder",
+      iconPackHint: "Swaps every app's icon at once",
       iconPackOriginal: "Original",
       iconPackCovers: "Covers {covers} of {total} apps",
       iconPackCount: "{count} icons",
@@ -372,6 +366,9 @@ export const en: Messages = {
       iconPackLoading: "Reading the packs…",
       iconPackFailed: "The packs couldn't be read",
       openPacksFolder: "Open packs folder",
+      skinsFolder: "Skins folder",
+      packsFolder: "Packs folder",
+      packsFolderHint: "Put a pack in the folder and reload",
       reloadPacks: "Reload packs",
       packProblem: "Pack {id}: {reason}",
       packErrors: {
@@ -504,6 +501,15 @@ export const en: Messages = {
     },
   },
   workspaces: {
+    monitors: {
+      title: "Monitors",
+      loading: "Reading the monitors…",
+      primary: "{name} (main)",
+      workspace: "{name}'s workspace",
+      fixed: "Hold {name} on this workspace",
+      fixedHint:
+        "Held on the chosen workspace: its dock shows no dots, and the wheel, the shortcuts and switching every monitor leave it alone.",
+    },
     title: "Workspaces",
     lead: "Each workspace has its own dock and keeps its own windows. Switch with the dots on the dock, the mouse wheel over it or Ctrl+Alt+number. Editing here doesn't change what the dock shows.",
     loading: "Reading the workspaces…",

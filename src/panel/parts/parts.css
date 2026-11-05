@@ -532,6 +532,68 @@
   border-top: 1px solid var(--hair);
 }
 
+/* Avançado (spec 0029 §4, AdvancedGroup): the title is the button that
+   opens it, with a chevron; the line under it says what it holds. Closed,
+   the card is hidden (its `display` would win over `hidden`). */
+.settings-group-card[hidden] {
+  display: none;
+}
+
+.settings-advanced-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 2px 0;
+  border: 0;
+  border-radius: 4px;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.settings-advanced-toggle::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform var(--t-pop) var(--ease);
+}
+
+.settings-advanced-toggle[aria-expanded="true"]::after {
+  transform: translateY(1px) rotate(-135deg);
+}
+
+.settings-advanced-toggle:hover {
+  color: var(--ink);
+}
+
+.settings-advanced-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.settings-advanced-summary {
+  margin: -4px 0 0;
+  padding-left: 2px;
+  font-size: var(--fs-caption);
+  color: var(--ink-2);
+}
+
+/* A folder's row (Skins, packs): the name and what it is for, the buttons
+   at the right, under them when narrow. */
+.folder-row {
+  flex-wrap: wrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-advanced-toggle::after {
+    transition: none;
+  }
+}
+
 /* Windows' contrast mode (M6): the focus line and the shadows are gone
    there, so the field in focus, a switch turned on and a hotkey being
    recorded say so with the system's colors. */

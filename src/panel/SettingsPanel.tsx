@@ -21,7 +21,7 @@ import PanelFooter from "./PanelFooter";
 import NavRow from "./parts/NavRow";
 import RangeField from "./parts/RangeField";
 import ChoiceCards from "./parts/ChoiceCards";
-import SettingsGroup from "./parts/SettingsGroup";
+import SettingsGroup, { AdvancedGroup } from "./parts/SettingsGroup";
 import { ScreenThumb } from "./ChoiceThumbs";
 import ToggleField from "./parts/ToggleField";
 import HotkeyField from "./HotkeyField";
@@ -303,7 +303,6 @@ function SettingsPanel({
         <>
           <RangeField
             label={t.settings.previewDelay}
-            hint={t.settings.previewDelayHint}
             value={shown.dock.previewDelay}
             min={0}
             max={MAX_PREVIEW_DELAY}
@@ -315,7 +314,6 @@ function SettingsPanel({
           />
           <ToggleField
             label={t.settings.previewsOnlySeveral}
-            hint={t.settings.previewsOnlySeveralHint}
             checked={shown.dock.previewsOnlySeveral}
             onChange={(previewsOnlySeveral) =>
               change((s) => ({
@@ -382,7 +380,6 @@ function SettingsPanel({
   const launchAtLoginField = (
     <ToggleField
       label={t.settings.launchAtLogin}
-      hint={t.settings.launchAtLoginHint}
       checked={shown?.launchAtLogin ?? false}
       disabled={shown === null}
       onChange={(launchAtLogin) => change((s) => ({ ...s, launchAtLogin }))}
@@ -462,10 +459,14 @@ function SettingsPanel({
             false,
           )}
         </SettingsGroup>
-        <SettingsGroup title={groups.advanced} grouped>
+        <AdvancedGroup
+          id="behavior"
+          title={groups.advanced}
+          summary={t.settings.app.advancedSummary.behavior}
+        >
           {middleClickField}
           {dockHotkeyField}
-        </SettingsGroup>
+        </AdvancedGroup>
         {ending}
       </>
     );
@@ -485,9 +486,13 @@ function SettingsPanel({
         <SettingsGroup title={t.settings.launcher.keywords.label} grouped>
           {webKeywordsField}
         </SettingsGroup>
-        <SettingsGroup title={groups.advanced} grouped>
+        <AdvancedGroup
+          id="launcher"
+          title={groups.advanced}
+          summary={t.settings.app.advancedSummary.launcher}
+        >
           <LauncherHistoryField />
-        </SettingsGroup>
+        </AdvancedGroup>
         {ending}
       </>
     );
