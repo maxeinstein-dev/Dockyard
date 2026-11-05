@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_LOOK, type Settings } from "../core/settings";
 import { en } from "../i18n/en";
 import { ptBR } from "../i18n/pt-BR";
+import { forgetAdvanced } from "../panel/parts/advanced";
 import SettingsApp from "./SettingsApp";
 import {
   ROW_LABELS,
@@ -88,6 +89,7 @@ const searchBox = () =>
 
 beforeEach(() => {
   delete window.__DOCKYARD_SECTION__;
+  forgetAdvanced();
   close.mockClear();
   invoke.mockReset();
   invoke.mockImplementation((command: string) => {
@@ -218,6 +220,27 @@ describe("the search of Configurações", () => {
     expect(screen.getByRole("status").textContent).toBe(
       "Nenhum ajuste com “xyzzy”.",
     );
+  });
+
+  it("opens Avançado for a row inside it (spec 0029 §8.1)", async () => {
+    await renderApp();
+    fireEvent.change(searchBox(), { target: { value: "botao do meio" } });
+    fireEvent.click(
+      within(nav()).getByRole("button", {
+        name: new RegExp(`^${ptBR.settings.groups.middleClick}`),
+      }),
+    );
+    await act(async () => {});
+
+    expect(
+      screen.getByRole("button", {
+        name: text.groups.advanced,
+        expanded: true,
+      }),
+    ).toBeInTheDocument();
+    const row = document.querySelector(".search-hit");
+    expect(row?.textContent).toContain(ptBR.settings.groups.middleClick);
+    expect(row?.contains(document.activeElement)).toBe(true);
   });
 
   it("goes to the option's section, marks the row and focuses it", async () => {

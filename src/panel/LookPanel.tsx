@@ -16,13 +16,13 @@ import {
 import { dockLookOf } from "../dock/look";
 import { STYLE_PAINTS } from "../dock/paints";
 import { activeLocale, useT } from "../i18n";
-import IconPacksField from "./IconPacksField";
+import IconPacksField, { PacksFolderRow } from "./IconPacksField";
 import OptionGroup, { type Option } from "./OptionGroup";
 import PanelFooter from "./PanelFooter";
 import PanelHeader from "./parts/PanelHeader";
 import RangeField from "./parts/RangeField";
 import ChoiceCards from "./parts/ChoiceCards";
-import SettingsGroup from "./parts/SettingsGroup";
+import SettingsGroup, { AdvancedGroup } from "./parts/SettingsGroup";
 import {
   HoverThumb,
   IndicatorThumb,
@@ -30,7 +30,7 @@ import {
   ShapeThumb,
 } from "./ChoiceThumbs";
 import ToggleField from "./parts/ToggleField";
-import SkinsFolderNotice from "./SkinsFolder";
+import SkinsFolderNotice, { SkinsFolderRow } from "./SkinsFolder";
 import StyleGallery from "./StyleGallery";
 import ThemeGallery from "./ThemeGallery";
 import { useSettingsEditor } from "./useSettingsEditor";
@@ -182,6 +182,8 @@ function LookPanel({
   const skinsFolder = useSkinsFolder();
   const text = t.settings.look;
   const groups = t.settings.app.groups;
+  /** The reloads of the packs asked from Avançado (spec 0029 §4). */
+  const [packReloads, setPackReloads] = useState(0);
 
   const update = (patch: Partial<DockSettings>) =>
     change((s) => ({ ...s, dock: { ...s.dock, ...patch } }));
@@ -217,7 +219,6 @@ function LookPanel({
     <RangeField
       key="corners"
       label={text.corners}
-      hint={text.cornersHint}
       value={look?.corners ?? MIN_CORNERS}
       min={MIN_CORNERS}
       max={MAX_CORNERS}
@@ -288,13 +289,12 @@ function LookPanel({
         <SkinsFolderNotice
           problems={skinsFolder.problems}
           failed={skinsFolder.failed}
+          withFolder={!grouped}
         />
       </SettingsGroup>
-      {grouped ? (
-        <SettingsGroup title={groups.tweaks} grouped>
-          {tweaks}
-        </SettingsGroup>
-      ) : (
+      {/* In the Configurações app the changes to the style are in Avançado
+          (spec 0029 §4). */}
+      {grouped ? null : (
         <section className="look-group" aria-label={text.tweaks}>
           <h2 className="look-group-title">{text.tweaks}</h2>
           {tweaks}
@@ -404,10 +404,19 @@ function LookPanel({
           appIds={appIds}
           disabled={disabled}
           onSelect={(iconPack) => update({ iconPack })}
+          withActions={!grouped}
+          reloads={packReloads}
         />
       </SettingsGroup>
-      <SettingsGroup title={groups.openAnimation} grouped={grouped}>
-        {grouped ? (
+      {grouped ? (
+        // Avançado (spec 0029 §4): the changes to the style, the opening
+        // animation and the folders.
+        <AdvancedGroup
+          id="look"
+          title={groups.advanced}
+          summary={t.settings.app.advancedSummary.look}
+        >
+          {tweaks}
           <ChoiceCards
             label={text.openAnimation}
             choices={options(OPEN_ANIMATIONS, text.openAnimationOptions)}
@@ -418,15 +427,17 @@ function LookPanel({
               <OpenThumb animation={openAnimation} chosen={chosen} />
             )}
           />
-        ) : (
-          <OptionGroup
-            label={text.openAnimation}
-            options={options(OPEN_ANIMATIONS, text.openAnimationOptions)}
-            selected={dock?.openAnimation ?? null}
-            onSelect={(openAnimation) => update({ openAnimation })}
-          />
-        )}
-      </SettingsGroup>
+          <SkinsFolderRow />
+          <PacksFolderRow onReload={() => setPackReloads((n) => n + 1)} />
+        </AdvancedGroup>
+      ) : (
+        <OptionGroup
+          label={text.openAnimation}
+          options={options(OPEN_ANIMATIONS, text.openAnimationOptions)}
+          selected={dock?.openAnimation ?? null}
+          onSelect={(openAnimation) => update({ openAnimation })}
+        />
+      )}
       <PanelFooter alert={error && t.settings.errors[error]}>
         {t.settings.footer}
       </PanelFooter>

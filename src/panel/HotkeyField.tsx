@@ -62,6 +62,9 @@ function HotkeyField({
   const text =
     of === "dock" ? t.settings.dockHotkey : t.settings.launcher.hotkey;
   const { fallback, save: saveHotkey, capture: captureHotkey } = KINDS[of];
+  // The launcher's has none: the button and its "Pressione…" say it
+  // (spec 0029 §6).
+  const hint = of === "dock" ? t.settings.dockHotkey.hint : undefined;
   const hintId = useId();
   const statusId = useId();
   const [state, setState] = useState<State>({ kind: "idle" });
@@ -164,9 +167,11 @@ function HotkeyField({
       <div className="toggle-row">
         <div className="toggle-text">
           <span className="toggle-label">{text.label}</span>
-          <span id={hintId} className="toggle-hint">
-            {text.hint}
-          </span>
+          {hint ? (
+            <span id={hintId} className="toggle-hint">
+              {hint}
+            </span>
+          ) : null}
         </div>
         <button
           type="button"
@@ -176,7 +181,7 @@ function HotkeyField({
               ? text.press
               : format(text.change, { hotkey: label(hotkey) })
           }
-          aria-describedby={hintId}
+          aria-describedby={hint ? hintId : undefined}
           aria-pressed={state.kind === "capturing"}
           disabled={disabled || state.kind === "saving"}
           onClick={() => {
