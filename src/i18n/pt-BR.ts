@@ -623,6 +623,16 @@ const messages = {
    * pair through `plural`. */
   /** Configurações › Apps do dock (spec 0006). */
   workspaces: {
+    /** Spec 0030: each monitor's workspace, held on it or not. */
+    monitors: {
+      title: "Monitores",
+      loading: "Lendo os monitores…",
+      primary: "{name} (principal)",
+      workspace: "Espaço de {name}",
+      fixed: "Fixar {name} neste espaço",
+      fixedHint:
+        "Preso no espaço escolhido: o dock dele não mostra as bolinhas e a roda, os atalhos e a troca em todos os monitores não o mudam.",
+    },
     title: "Espaços de trabalho",
     lead: "Cada espaço tem o seu dock e guarda as suas janelas. Troque pelas bolinhas no dock, pela roda do mouse sobre ele ou com Ctrl+Alt+número. Editar aqui não muda o que o dock mostra.",
     loading: "Lendo os espaços…",

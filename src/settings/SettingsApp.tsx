@@ -17,6 +17,7 @@ import { format, useT } from "../i18n";
 import AboutPanel from "../panel/AboutPanel";
 import AppsPanel from "../panel/AppsPanel";
 import AccountsPanel from "./AccountsPanel";
+import MonitorsSection from "./MonitorsSection";
 import SettingsCopy from "./SettingsCopy";
 import WidgetCatalog from "./WidgetCatalog";
 import DockItems from "../panel/DockItems";
@@ -440,13 +441,16 @@ function SettingsApp() {
               />
             ) : null}
             {section === "workspaces" ? (
-              <WorkspacesPanel
-                snapshot={spaces}
-                selected={editing}
-                onSelect={setChosen}
-                onEditApps={() => setSection("apps")}
-                onEditItems={() => setSection("items")}
-              />
+              <>
+                <WorkspacesPanel
+                  snapshot={spaces}
+                  selected={editing}
+                  onSelect={setChosen}
+                  onEditApps={() => setSection("apps")}
+                  onEditItems={() => setSection("items")}
+                />
+                <MonitorsSection snapshot={spaces} />
+              </>
             ) : null}
             {section === "look" ? (
               <LookPanel settings={settings} appIds={pinnedInUse} grouped />
