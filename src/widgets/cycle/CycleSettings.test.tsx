@@ -1,9 +1,11 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CycleConfig, WidgetInstance } from "../../core/widgets";
 import { ptBR } from "../../i18n/pt-BR";
 import type { WidgetUpdate } from "../contract";
+import tokens from "../../themes/tokens.css?raw";
 import CycleSettings from "./CycleSettings";
+import css from "./cycle.css?raw";
 
 const text = ptBR.widgets.cycle;
 
@@ -32,15 +34,17 @@ type OnUpdate = (update: WidgetUpdate<"cycle">) => Promise<void>;
 
 function show(instance = cycle) {
   const onUpdate = vi.fn<OnUpdate>(() => Promise.resolve());
-  render(
-    <CycleSettings
-      instance={instance}
-      onUpdate={onUpdate}
-      onRemove={() => Promise.resolve()}
-      onBack={() => undefined}
-    />,
-  );
-  return onUpdate;
+  return {
+    onUpdate,
+    ...render(
+      <CycleSettings
+        instance={instance}
+        onUpdate={onUpdate}
+        onRemove={() => Promise.resolve()}
+        onBack={() => undefined}
+      />,
+    ),
+  };
 }
 
 beforeEach(() => {
@@ -50,7 +54,7 @@ beforeEach(() => {
 
 describe("CycleSettings", () => {
   it("turns the Windows notice on", () => {
-    const onUpdate = show({
+    const { onUpdate } = show({
       ...cycle,
       config: { ...CONFIG, notices: { ...CONFIG.notices, windows: false } },
     });
@@ -82,7 +86,7 @@ describe("CycleSettings", () => {
   });
 
   it("turns a Windows notice off", () => {
-    const onUpdate = show();
+    const { onUpdate } = show();
     fireEvent.click(
       screen.getByRole("switch", { name: text.noticeToggles.eve }),
     );
@@ -96,7 +100,7 @@ describe("CycleSettings", () => {
   });
 
   it("lists, adds and removes reminders", () => {
-    const onUpdate = show();
+    const { onUpdate } = show();
     expect(screen.getByText("Paciência")).toBeInTheDocument();
     expect(screen.getByText("1 dia depois da menstruação")).toBeInTheDocument();
 
@@ -155,5 +159,39 @@ describe("CycleSettings", () => {
     expect(await screen.findByRole("status")).toHaveTextContent(
       text.testResult.sent,
     );
+  });
+});
+
+describe("CycleSettings scroll", () => {
+  it("scrolls the fields, keeping the header, Remover and the footer in view", () => {
+    // With her reminders the fields outgrow the screen: the panel was cut
+    // off at the top, with no way to reach the first fields.
+    const { container } = show();
+    const scroll = container.querySelector(".cycle-scroll");
+    expect(scroll).not.toBeNull();
+    const fields = within(scroll as HTMLElement);
+    expect(fields.getByRole("textbox", { name: text.symbol })).toBeVisible();
+    expect(fields.getByText(text.remindersTitle)).toBeVisible();
+    expect(fields.getByText("Paciência")).toBeVisible();
+    expect(
+      fields.queryByRole("button", { name: ptBR.widgets.common.remove }),
+    ).toBeNull();
+    expect(fields.queryByRole("heading")).toBeNull();
+  });
+});
+
+describe("cycle.css", () => {
+  it("scrolls the fields above 400 px", () => {
+    expect(css).toMatch(/\.cycle-scroll\s*\{[^}]*max-height:\s*400px/);
+    expect(css).toMatch(/\.cycle-scroll\s*\{[^}]*overflow-y:\s*auto/);
+  });
+
+  it("uses only tokens that tokens.css defines", () => {
+    const defined = new Set(
+      [...tokens.matchAll(/(--[\w-]+)\s*:/g)].map((match) => match[1]),
+    );
+    const used = [...css.matchAll(/var\((--[\w-]+)/g)].map((match) => match[1]);
+    expect(used.length).toBeGreaterThan(0);
+    expect(used.filter((token) => !defined.has(token))).toEqual([]);
   });
 });
