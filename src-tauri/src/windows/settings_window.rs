@@ -159,6 +159,44 @@ fn system_dark() -> bool {
     false
 }
 
+/// Centers a new Configurações window on the work area of the monitor under
+/// the pointer: the one whose dock (or tray) asked for it, not always the
+/// primary (achado do autor, 2026-11-05). Left where Windows put it when
+/// the pointer or its monitor can't be read.
+fn place_on_pointer(app: &AppHandle, window: &tauri::WebviewWindow) {
+    let Ok(pointer) = app.cursor_position() else {
+        return;
+    };
+    let Ok(Some(monitor)) = app.monitor_from_point(pointer.x, pointer.y) else {
+        return;
+    };
+    let Ok(size) = window.outer_size() else {
+        return;
+    };
+    // The size is the one of the monitor it was made on; on the pointer's,
+    // Windows scales it by the ratio of the two scales.
+    let ratio = monitor.scale_factor() / window.scale_factor().unwrap_or(1.0);
+    let area = monitor.work_area();
+    let (x, y) = centered(
+        (area.position.x, area.position.y),
+        (area.size.width, area.size.height),
+        (
+            (f64::from(size.width) * ratio).round() as u32,
+            (f64::from(size.height) * ratio).round() as u32,
+        ),
+    );
+    if let Err(error) = window.set_position(tauri::PhysicalPosition::new(x, y)) {
+        log::warn!("settings: the window could not be placed: {error}");
+    }
+}
+
+/// The corner that centers a window of `size` on an area at `at` of
+/// `area`; a window larger than the area starts at its corner.
+fn centered(at: (i32, i32), area: (u32, u32), size: (u32, u32)) -> (i32, i32) {
+    let offset = |area: u32, size: u32| i32::try_from(area.saturating_sub(size) / 2).unwrap_or(0);
+    (at.0 + offset(area.0, size.0), at.1 + offset(area.1, size.1))
+}
+
 fn open_at(app: &AppHandle, section: Option<Section>) -> Result<(), Box<dyn Error>> {
     let _ = APP.set(app.clone());
     if let Some(window) = app.get_webview_window(LABEL) {
@@ -200,7 +238,8 @@ fn open_at(app: &AppHandle, section: Option<Section>) -> Result<(), Box<dyn Erro
             .title(title)
             .inner_size(880.0, 640.0)
             .min_inner_size(720.0, 480.0)
-            .center()
+            // Hidden until it is placed on the pointer's monitor.
+            .visible(false)
             .resizable(true)
             .background_color(Color(red, green, blue, 255))
             .additional_browser_args(super::BROWSER_ARGS)
@@ -249,6 +288,10 @@ fn open_at(app: &AppHandle, section: Option<Section>) -> Result<(), Box<dyn Erro
                         *PENDING_SECTION
                             .lock()
                             .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(section);
+                    }
+                    place_on_pointer(&app, &window);
+                    if let Err(error) = window.show() {
+                        log::warn!("settings: the window could not be shown: {error}");
                     }
                     // In front, even when making it took long enough for
                     // the click's right to the foreground to lapse.
@@ -368,6 +411,17 @@ unsafe extern "system" fn subclass_proc(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_window_is_centered_on_the_monitor_it_goes_to() {
+        // A second monitor to the right of a 1920-wide primary.
+        assert_eq!(
+            centered((1920, 0), (2560, 1400), (1320, 960)),
+            (1920 + 620, 220)
+        );
+        // Larger than the area: at its corner.
+        assert_eq!(centered((-1280, 0), (1280, 680), (1320, 960)), (-1280, 0));
+    }
 
     #[test]
     fn the_first_request_makes_the_window_on_its_section() {

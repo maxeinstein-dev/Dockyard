@@ -166,11 +166,15 @@ O que os testes ao vivo das funcionalidades não cobriram. Cada passo diz de ond
 - [ ] Com "Na bateria" e o Tocando agora de título longo, tire o carregador: o letreiro para, e um app fixado abre sem pulo. Ponha o carregador de volta: o letreiro volta.
 - [ ] Com "Sempre", na tomada: o letreiro fica parado e o clique abre sem pulo.
 - [ ] No log aparecem `dock: battery saver on/off`.
+- [ ] Ao tirar e pôr o carregador, o ícone da bateria na ponta do dock troca na hora, sem esperar 30 s.
+- [ ] Com "Na bateria", na tomada, ligue a economia de energia do Windows: o letreiro para e o ícone da bateria fica laranja, com "(economia de energia)" na dica. Desligue: tudo volta.
 
 **F2 Espaçadores** (spec 0022 §7)
 - [ ] O espaçador pequeno, pelo menu do dock, abre um vão de ¼ de ícone. Até hoje só o grande foi visto.
 - [ ] O mouse sobre o vão: nada amplia, sem dica.
 - [ ] Arrastar o vão entre dois apps. Ele fica só no espaço dele.
+- [ ] No menu de um app fixado, "Adicionar espaçador pequeno" e "… grande": o vão entra logo depois do app.
+- [ ] O menu de um app (fixado ou aberto) com a cara do menu do dock: fundo liso, linhas e azul iguais, uma linha acesa por vez, sem rodapé.
 - [ ] Configurações › Itens: os espaçadores sobem, descem e saem.
 - [ ] Narrador: as setas pulam o vão.
 - [ ] Nas bordas de cima e de baixo, nos três tamanhos.
@@ -179,7 +183,8 @@ O que os testes ao vivo das funcionalidades não cobriram. Cada passo diz de ond
 **F3 Pilhas de widgets** (spec 0023 §6)
 - [ ] Configurações › Itens: a linha "Pilha: …" sobe, desce e se desfaz.
 - [ ] O Mídia por baixo de uma pilha não lê nada até ficar por cima.
-- [ ] A roda sem Ctrl em cima da pilha troca de espaço, como antes.
+- [ ] A roda em cima da pilha, sem Ctrl, troca o widget de cima; o espaço não muda.
+- [ ] A roda em cima das bolinhas troca de espaço; em cima de um app ou de um widget solto, nada acontece.
 - [ ] Os pontinhos: o de cima, maior, se distingue dos outros.
 - [ ] O log, sem WARN.
 
@@ -193,11 +198,17 @@ O que os testes ao vivo das funcionalidades não cobriram. Cada passo diz de ond
 - [ ] Soltar uma pasta no dock: ela entra onde foi solta.
 - [ ] No painel da pasta, um arquivo abre e "Abrir no Explorador" abre a pasta.
 - [ ] "Esvaziar a Lixeira…" › "Não": nada é esvaziado.
+- [ ] Soltar um arquivo na Lixeira do dock: ele vai para a Lixeira (e volta por "Restaurar"), e o ícone fica cheio em até 3 s.
+- [ ] Apagar um arquivo pelo Explorador: o ícone da Lixeira do dock muda em até 3 s.
+- [ ] Soltar na Lixeira do dock um arquivo de pendrive ou de pasta de rede: o Windows avisa que ele seria excluído de vez, e "Não" o deixa onde está.
+- [ ] A economia de energia do Windows ligada e fora da tomada: o ícone da bateria do dock fica laranja; na tomada, não.
 
 **F6 Busca em Configurações** (PR #163, spec 0029 §11)
 - [ ] O campo na barra lateral e a marca na linha encontrada.
 - [ ] Buscar algo do Avançado: o grupo abre e o foco vai à linha.
 - [ ] Buscar linhas de Apps e de Contas.
+- [ ] Buscar o nome de um widget ("Claude", "Clima"): ele aparece em Itens do dock.
+- [ ] Abrir Configurações pelo dock do segundo monitor: a janela abre centrada nele.
 - [ ] Teclado e Narrador no campo.
 
 **F7 Espaços e programas** (PRs #164 e #168)
@@ -211,7 +222,9 @@ O que os testes ao vivo das funcionalidades não cobriram. Cada passo diz de ond
 
 **F9 Widgets novos** (PRs #169, #171, #173 e #175)
 - [ ] Layout do teclado: o tile desenhado, e um clique troca o layout.
+- [ ] Com dois teclados da mesma língua (ABNT e ABNT2): o tile mostra "ABNT" ou "ABNT2", e a dica, o nome do layout.
 - [ ] Relógio mundial: o cartão largo com vários fusos.
+- [ ] Relógio mundial › Ajustes › "Buscar cidade": "Lisboa", "Tóquio" e "Porto Alegre" acham o fuso e um clique o adiciona.
 - [ ] Capturas de tela: o painel e o arrasto de uma captura para fora.
 - [ ] Arquivos recentes: o painel e o arrasto de um arquivo.
 - [ ] A memória com cada um no dock.

@@ -25,7 +25,7 @@ Item F2 do [estudo 0002](../estudos/0002-melhorias-e-funcionalidades.md), adiado
 ## 3. Menus
 
 - **Menu do dock** (botão direito no espaço vazio do dock ou num widget), logo depois de "Buscar apps…" e "Gerenciador de Tarefas": **"Adicionar espaçador pequeno"** e **"Adicionar espaçador grande"** (en: "Add small spacer", "Add large spacer"). Só no dock, que mostra um espaço; o menu do ícone da bandeja não os tem.
-- **Onde o novo vai:** logo depois do item em que o menu abriu (um widget ou outro espaçador); aberto no espaço vazio (as pontas da barra, os separadores), no fim do espaço (`spacer_place`). O botão direito num programa abre o menu do programa, que não tem a entrada: põe-se o espaçador no fim e arrasta-se.
+- **Onde o novo vai:** logo depois do item em que o menu abriu (um widget ou outro espaçador); aberto no espaço vazio (as pontas da barra, os separadores), no fim do espaço (`spacer_place`). O botão direito num programa abre o menu do programa: ali estão **as mesmas duas entradas**, que põem o espaçador logo depois do programa (comando `add_spacer_after_app`, no espaço em uso; pedido do autor, 2026-11-05, porque entre dois programas não sobra espaço vazio para o menu do dock).
 - **Menu do espaçador** (botão direito em cima dele, que acha o espaçador por `spacer_hit`): **"Remover espaçador"** (en: "Remove spacer"), e depois o menu do dock, como o "Remover do dock" de um widget.
 
 ## 4. Arrastar

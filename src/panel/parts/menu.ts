@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, MouseEvent } from "react";
 
 /** The menu items of `root` that can be chosen, in order. */
 export function menuItems(root: HTMLElement | null): HTMLButtonElement[] {
@@ -26,5 +26,17 @@ export function moveInMenu(
   if (target) {
     event.preventDefault();
     target.focus();
+  }
+}
+
+/** The pointer over an item of a menu takes the focus to it, as the
+ * Dockyard's native menus do: one item lit at a time, and the arrow keys go
+ * on from where the pointer is (achado do autor, 2026-11-05). */
+export function followPointer(event: MouseEvent<HTMLElement>) {
+  const item = (event.target as HTMLElement).closest<HTMLButtonElement>(
+    'button:is([role="menuitem"], [role="menuitemradio"]):not(:disabled)',
+  );
+  if (item !== null && item !== document.activeElement) {
+    item.focus({ preventScroll: true });
   }
 }

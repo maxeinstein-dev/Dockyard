@@ -113,6 +113,7 @@ export const WORKSPACE_COMMANDS = {
   delete: "delete_workspace",
   moveAppWindows: "move_app_windows",
   moveOpenWindows: "move_open_windows",
+  addSpacerAfterApp: "add_spacer_after_app",
   removeSpacer: "remove_spacer",
   moveSpacer: "move_spacer",
   moveStack: "move_stack",
@@ -240,6 +241,12 @@ export function moveOpenWindows(
   workspace: string,
 ): Promise<number> {
   return run(WORKSPACE_COMMANDS.moveOpenWindows, { key, workspace });
+}
+
+/** "Adicionar espaçador" in the menu of a pinned program (spec 0022 §7): a
+ * spacer of `size` right after the program `id`, in the workspace in use. */
+export function addSpacerAfterApp(id: string, size: SpacerSize): Promise<void> {
+  return run(WORKSPACE_COMMANDS.addSpacerAfterApp, { id, size });
 }
 
 /** Removes the spacer `id` of `workspace` (the one in use without it) for

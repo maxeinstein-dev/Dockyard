@@ -121,6 +121,7 @@ const EXPECTED_CAPABILITIES: &[(&str, &str, &[&str], &[&str])] = &[
             // workspaces read, and its windows given to another.
             "allow-list-workspaces",
             "allow-move-app-windows",
+            "allow-add-spacer-after-app",
             "allow-move-open-windows",
             "allow-list-icon-packs",
             "allow-icon-pack-preview",

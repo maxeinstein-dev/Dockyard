@@ -185,6 +185,16 @@ describe("searchSettings", () => {
     expect(find("licença").sections).toEqual(["about"]);
   });
 
+  it("finds a widget of the catalog by its name", () => {
+    expect(find("claude").entries).toEqual([
+      {
+        section: "items",
+        label: ptBR.widgets.kinds.claude,
+        group: ptBR.widgets.catalog.title,
+      },
+    ]);
+  });
+
   it("finds the launcher's switch by its name without the hotkey", () => {
     const entries = find("lançador").entries;
     expect(entries.map((entry) => entry.label)).toContain("Lançador");

@@ -1,5 +1,6 @@
 //! Takes the files dropped on the dock: on a program's tile they open with
-//! it (spec 0018); anywhere else, a program among them is pinned (spec 0006
+//! it (spec 0018); on the Recycle Bin they go to it (spec 0025); anywhere
+//! else, a program among them is pinned (spec 0006
 //! B2, drop to pin) where it was let go, or moved there when already pinned.
 //!
 //! The dock's window (spec 0011 H3: native) takes the drop itself. The paths
@@ -16,8 +17,8 @@ use tauri::AppHandle;
 use windows::Win32::Foundation::{HWND, POINTL};
 use windows::Win32::System::Com::{DVASPECT_CONTENT, FORMATETC, IDataObject, TYMED_HGLOBAL};
 use windows::Win32::System::Ole::{
-    CF_HDROP, DROPEFFECT, DROPEFFECT_COPY, DROPEFFECT_NONE, IDropTarget, IDropTarget_Impl,
-    RegisterDragDrop, ReleaseStgMedium,
+    CF_HDROP, DROPEFFECT, DROPEFFECT_COPY, DROPEFFECT_MOVE, DROPEFFECT_NONE, IDropTarget,
+    IDropTarget_Impl, RegisterDragDrop, ReleaseStgMedium,
 };
 use windows::Win32::System::SystemServices::MODIFIERKEYS_FLAGS;
 use windows::Win32::UI::Shell::{DragQueryFileW, HDROP};
@@ -50,6 +51,11 @@ fn paths_of(data: &IDataObject) -> Vec<PathBuf> {
     paths
 }
 
+/// Whether the tile under the drop is the Recycle Bin.
+fn is_bin(id: &str) -> bool {
+    crate::domain::folders::place_of(id) == crate::domain::folders::Place::RecycleBin
+}
+
 fn effect_for(accepts: bool) -> DROPEFFECT {
     if accepts {
         DROPEFFECT_COPY
@@ -79,7 +85,9 @@ impl DockDropTarget_Impl {
         } else {
             super::native_dock::drop_over(self.hwnd, Some((at.x, at.y)))
         };
-        let effect = if program.is_some() {
+        let effect = if program.as_deref().is_some_and(is_bin) {
+            DROPEFFECT_MOVE
+        } else if program.is_some() {
             DROPEFFECT_COPY
         } else {
             effect_for(self.accepts.get())
@@ -142,6 +150,12 @@ impl IDropTarget_Impl for DockDropTarget_Impl {
             super::native_dock::drop_over(self.hwnd, None);
             let paths = std::mem::take(&mut *self.paths.borrow_mut());
             let accepts = self.accepts.replace(false);
+            if program.as_deref().is_some_and(is_bin) {
+                // On the Recycle Bin: they go to it.
+                super::folders::recycle(paths);
+                unsafe { *pdwEffect = effect };
+                return Ok(());
+            }
             if let Some(program) = program {
                 // On a program's tile: it opens them.
                 super::open_with::open_off_thread(program, paths);

@@ -152,6 +152,21 @@ describe("AppMenuPanel", () => {
     expect(onDone).toHaveBeenCalledTimes(3);
   });
 
+  it("adds a spacer right after the program, small or large", async () => {
+    const onDone = vi.fn();
+    await renderMenu(onDone);
+
+    fireEvent.click(item(text.addSpacer.small));
+    fireEvent.click(item(text.addSpacer.large));
+    await flush();
+
+    expect(sent("add_spacer_after_app")).toEqual([
+      { id: APP.id, size: "small" },
+      { id: APP.id, size: "large" },
+    ]);
+    expect(onDone).toHaveBeenCalledTimes(2);
+  });
+
   it("says Nova janela while the program has windows open, and opens one more", async () => {
     answer({ ...MENU, sections: [] });
     await renderMenu(() => {}, 2);
@@ -228,8 +243,8 @@ describe("AppMenuPanel", () => {
     fireEvent.keyDown(item(text.remove), { key: "ArrowDown" });
     expect(item(text.remove)).toHaveFocus();
     fireEvent.keyDown(item(text.remove), { key: "ArrowUp" });
-    expect(item(text.reveal)).toHaveFocus();
-    fireEvent.keyDown(item(text.reveal), { key: "Home" });
+    expect(item(text.addSpacer.large)).toHaveFocus();
+    fireEvent.keyDown(item(text.addSpacer.large), { key: "Home" });
     expect(first).toHaveFocus();
     fireEvent.keyDown(first, { key: "ArrowUp" });
     expect(first).toHaveFocus();
