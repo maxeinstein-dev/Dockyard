@@ -1,5 +1,20 @@
 /* The Ciclo's panel (spec 0017 F2b). Tokens of tokens.css only. */
 
+/* The settings' fields between the header and "Remover do dock": they
+   scroll above 400 px, so the card fits the screen with her reminders. */
+.cycle-scroll {
+  display: grid;
+  gap: 14px;
+  max-height: 400px;
+  /* Room for the focus ring (2 px plus 1 px offset) and the scrollbar,
+     taken back from the card's padding so the fields keep their width. */
+  margin: -3px -11px -3px -3px;
+  padding: 3px 11px 3px 3px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--ink-2) 50%, transparent) transparent;
+}
+
 .cycle-phase {
   margin: 0 0 12px;
   font: 600 15px / 1.35 var(--font-display);

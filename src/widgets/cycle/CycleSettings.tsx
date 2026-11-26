@@ -108,144 +108,153 @@ function CycleSettings({
   return (
     <>
       <PanelHeader title={text.settingsTitle} onBack={onBack} focusAction />
-      <TextField
-        label={t.widgets.common.label}
-        placeholder={t.widgets.kinds.cycle}
-        value={settings.labelDraft}
-        invalid={settings.error === "invalidLabel"}
-        onChange={settings.setLabelDraft}
-        onCommit={settings.commitLabel}
-      />
-      <TextField
-        label={text.symbol}
-        value={symbol}
-        invalid={settings.error === "invalidCycle"}
-        onChange={setSymbol}
-        onCommit={commitSymbol}
-      />
-      <label className="cycle-select">
-        <span className="field-label">{text.calendar}</span>
-        <select
-          className="field-input"
-          value={config.calendar ?? ""}
-          onChange={(event) =>
-            settings.saveConfig({ calendar: event.target.value || null })
-          }
-        >
-          <option value="">{text.allCalendars}</option>
-          {sources.map((source) => (
-            <option key={source.id} value={source.id}>
-              {source.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <OptionGroup
-        label={text.window}
-        options={CYCLE_WINDOWS.map((value) => ({
-          value: String(value),
-          label: String(value),
-        }))}
-        selected={String(config.sensitive)}
-        onSelect={(value) => settings.saveConfig({ sensitive: Number(value) })}
-      />
-      <p className="sys-hint">{text.windowHint}</p>
-      <fieldset className="cycle-group">
-        <legend>{text.noticesTitle}</legend>
-        <ToggleField
-          label={text.noticeToggles.sensitive}
-          checked={config.notices.sensitive}
-          onChange={(sensitive) => saveNotices({ sensitive })}
+      {/* The fields scroll: with her reminders they outgrow the screen. */}
+      <div className="cycle-scroll">
+        <TextField
+          label={t.widgets.common.label}
+          placeholder={t.widgets.kinds.cycle}
+          value={settings.labelDraft}
+          invalid={settings.error === "invalidLabel"}
+          onChange={settings.setLabelDraft}
+          onCommit={settings.commitLabel}
         />
-        <ToggleField
-          label={text.noticeToggles.eve}
-          checked={config.notices.eve}
-          onChange={(eve) => saveNotices({ eve })}
+        <TextField
+          label={text.symbol}
+          value={symbol}
+          invalid={settings.error === "invalidCycle"}
+          onChange={setSymbol}
+          onCommit={commitSymbol}
         />
-        <ToggleField
-          label={text.noticeToggles.day}
-          checked={config.notices.day}
-          onChange={(day) => saveNotices({ day })}
-        />
-        <p className="sys-hint">{text.noticesHint}</p>
-        <ToggleField
-          label={text.noticeToggles.windows}
-          hint={text.windowsHint}
-          checked={config.notices.windows}
-          onChange={(windows) => saveNotices({ windows })}
-        />
-        <div className="cycle-test">
-          <button type="button" className="secondary-button" onClick={sendTest}>
-            {text.testNotice}
-          </button>
-          {testSent ? (
-            <span role="status" className="sys-hint">
-              {text.testResult[testSent]}
-            </span>
-          ) : null}
-        </div>
-      </fieldset>
-      <fieldset className="cycle-group">
-        <legend>{text.remindersTitle}</legend>
-        {config.reminders.length === 0 ? (
-          <p className="sys-hint">{text.noReminders}</p>
-        ) : (
-          <ul className="cycle-reminders">
-            {config.reminders.map((reminder, index) => (
-              <li key={`${index}|${reminder.text}`}>
-                <span className="cycle-reminder-text">{reminder.text}</span>
-                <span className="cycle-reminder-when">
-                  {whenText(t, reminder)}
-                </span>
-                <IconButton
-                  icon="trash"
-                  tone="danger"
-                  label={format(text.removeReminder, { text: reminder.text })}
-                  onClick={() => removeReminder(index)}
-                />
-              </li>
+        <label className="cycle-select">
+          <span className="field-label">{text.calendar}</span>
+          <select
+            className="field-input"
+            value={config.calendar ?? ""}
+            onChange={(event) =>
+              settings.saveConfig({ calendar: event.target.value || null })
+            }
+          >
+            <option value="">{text.allCalendars}</option>
+            {sources.map((source) => (
+              <option key={source.id} value={source.id}>
+                {source.name}
+              </option>
             ))}
-          </ul>
-        )}
-        {config.reminders.length < MAX_REMINDERS ? (
-          <>
-            <TextField
-              label={text.reminderText}
-              placeholder={text.reminderPlaceholder}
-              value={reminderText}
-              invalid={tooLong}
-              onChange={setReminderText}
-            />
-            <SelectField
-              label={text.reminderDaysLabel}
-              value={String(reminderDays)}
-              options={DAY_OPTIONS.map((days) => ({
-                value: String(days),
-                label: daysText(t, days),
-              }))}
-              onChange={(value) => setReminderDays(Number(value))}
-            />
-            <SelectField
-              label={text.reminderAnchorLabel}
-              value={reminderAnchor}
-              options={REMINDER_ANCHORS.map((anchor) => ({
-                value: anchor,
-                label: text.anchors[anchor],
-              }))}
-              onChange={(value) => setReminderAnchor(value as ReminderAnchor)}
-            />
+          </select>
+        </label>
+        <OptionGroup
+          label={text.window}
+          options={CYCLE_WINDOWS.map((value) => ({
+            value: String(value),
+            label: String(value),
+          }))}
+          selected={String(config.sensitive)}
+          onSelect={(value) =>
+            settings.saveConfig({ sensitive: Number(value) })
+          }
+        />
+        <p className="sys-hint">{text.windowHint}</p>
+        <fieldset className="cycle-group">
+          <legend>{text.noticesTitle}</legend>
+          <ToggleField
+            label={text.noticeToggles.sensitive}
+            checked={config.notices.sensitive}
+            onChange={(sensitive) => saveNotices({ sensitive })}
+          />
+          <ToggleField
+            label={text.noticeToggles.eve}
+            checked={config.notices.eve}
+            onChange={(eve) => saveNotices({ eve })}
+          />
+          <ToggleField
+            label={text.noticeToggles.day}
+            checked={config.notices.day}
+            onChange={(day) => saveNotices({ day })}
+          />
+          <p className="sys-hint">{text.noticesHint}</p>
+          <ToggleField
+            label={text.noticeToggles.windows}
+            hint={text.windowsHint}
+            checked={config.notices.windows}
+            onChange={(windows) => saveNotices({ windows })}
+          />
+          <div className="cycle-test">
             <button
               type="button"
               className="secondary-button"
-              disabled={reminderText.trim() === "" || tooLong}
-              onClick={addReminder}
+              onClick={sendTest}
             >
-              {text.addReminder}
+              {text.testNotice}
             </button>
-          </>
-        ) : null}
-        <p className="sys-hint">{text.remindersHint}</p>
-      </fieldset>
+            {testSent ? (
+              <span role="status" className="sys-hint">
+                {text.testResult[testSent]}
+              </span>
+            ) : null}
+          </div>
+        </fieldset>
+        <fieldset className="cycle-group">
+          <legend>{text.remindersTitle}</legend>
+          {config.reminders.length === 0 ? (
+            <p className="sys-hint">{text.noReminders}</p>
+          ) : (
+            <ul className="cycle-reminders">
+              {config.reminders.map((reminder, index) => (
+                <li key={`${index}|${reminder.text}`}>
+                  <span className="cycle-reminder-text">{reminder.text}</span>
+                  <span className="cycle-reminder-when">
+                    {whenText(t, reminder)}
+                  </span>
+                  <IconButton
+                    icon="trash"
+                    tone="danger"
+                    label={format(text.removeReminder, { text: reminder.text })}
+                    onClick={() => removeReminder(index)}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+          {config.reminders.length < MAX_REMINDERS ? (
+            <>
+              <TextField
+                label={text.reminderText}
+                placeholder={text.reminderPlaceholder}
+                value={reminderText}
+                invalid={tooLong}
+                onChange={setReminderText}
+              />
+              <SelectField
+                label={text.reminderDaysLabel}
+                value={String(reminderDays)}
+                options={DAY_OPTIONS.map((days) => ({
+                  value: String(days),
+                  label: daysText(t, days),
+                }))}
+                onChange={(value) => setReminderDays(Number(value))}
+              />
+              <SelectField
+                label={text.reminderAnchorLabel}
+                value={reminderAnchor}
+                options={REMINDER_ANCHORS.map((anchor) => ({
+                  value: anchor,
+                  label: text.anchors[anchor],
+                }))}
+                onChange={(value) => setReminderAnchor(value as ReminderAnchor)}
+              />
+              <button
+                type="button"
+                className="secondary-button"
+                disabled={reminderText.trim() === "" || tooLong}
+                onClick={addReminder}
+              >
+                {text.addReminder}
+              </button>
+            </>
+          ) : null}
+          <p className="sys-hint">{text.remindersHint}</p>
+        </fieldset>
+      </div>
       <RemoveButton
         onClick={() => void settings.remove()}
         disabled={settings.removing}
