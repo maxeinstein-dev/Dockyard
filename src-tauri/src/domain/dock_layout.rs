@@ -220,21 +220,21 @@ pub const TIP_HEIGHT: f64 = 24.0;
 
 /// Each line a label pill has past its first: the line height of its text
 /// (12.5 px Segoe UI Variable).
-#[allow(dead_code)] // Stub: the tests go red before the change.
 pub const TIP_LINE: f64 = 17.0;
 
 /// The lines a label shows: a tray icon's tip may hold several (the
 /// Battery Hub's: its name, then a line per device), each trimmed, the
 /// blank ones left out.
-#[allow(dead_code)] // Stub: the tests go red before the change.
 pub fn tip_lines(text: &str) -> Vec<&str> {
-    vec![text]
+    text.lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect()
 }
 
 /// The height of a label pill of `lines` lines: one line at the least.
-#[allow(dead_code)] // Stub: the tests go red before the change.
-pub fn tip_height(_lines: usize) -> f64 {
-    TIP_HEIGHT
+pub fn tip_height(lines: usize) -> f64 {
+    TIP_HEIGHT + TIP_LINE * lines.saturating_sub(1) as f64
 }
 
 /// Width of the clock and date at the end of the bar.
@@ -593,6 +593,10 @@ fn ceil(value: f64) -> f64 {
 /// items', its strip cells' and its workspace dots'. A pill sits over what
 /// it names and moves in to stay inside the window (`tip_center`), so the
 /// window never grows past the widest of them.
+///
+/// Every pill here is one line tall; the dock itself, whose tray tips may
+/// hold many lines, asks `window_size_for`.
+#[cfg(test)]
 pub fn window_size(
     shape: &Shape,
     side: impl Into<Side>,
@@ -605,7 +609,6 @@ pub fn window_size(
 
 /// `window_size` for label pills of any height: `labels` are each pill's
 /// width and height (`tip_height`).
-#[allow(dead_code)] // Stub: the tests go red before the change.
 pub fn window_size_for(
     shape: &Shape,
     side: impl Into<Side>,
@@ -613,14 +616,16 @@ pub fn window_size_for(
     labels: &[(f64, f64)],
 ) -> (f64, f64) {
     let label_widths: Vec<f64> = labels.iter().map(|&(w, _)| w).collect();
-    let lying = lying_window(shape, motion, &label_widths);
+    // The tallest pill: a tray tip of many lines (the Battery Hub's).
+    let tallest = labels.iter().map(|&(_, h)| h).fold(TIP_HEIGHT, f64::max);
+    let lying = lying_window(shape, motion, &label_widths, tallest);
     if !side.into().standing() {
         return (lying.along, lying.across);
     }
     // On a side (spec 0028) a label stands beside its tile, so its width
     // counts across the column and its height along it.
     let across = lying.reach + TIP_GAP + lying.label + ROOM;
-    let along = lying.bar.max(TIP_HEIGHT) + 2.0 * ROOM;
+    let along = lying.bar.max(tallest) + 2.0 * ROOM;
     (ceil(across), ceil(along))
 }
 
@@ -636,12 +641,12 @@ struct LyingWindow {
 }
 
 /// The window of a lying bar: along it, then across.
-fn lying_window(shape: &Shape, motion: bool, label_widths: &[f64]) -> LyingWindow {
+fn lying_window(shape: &Shape, motion: bool, label_widths: &[f64], tallest: f64) -> LyingWindow {
     let SizeGeometry { icon, pad, .. } = shape.size.geometry();
     let peak = shape.hover.peak();
     let grows = motion && peak.scale != 1.0;
     let Magnification { scale, lift } = if grows { peak } else { REST };
-    let height = pad + icon * scale + lift + TIP_GAP + TIP_HEIGHT + ROOM;
+    let height = pad + icon * scale + lift + TIP_GAP + tallest + ROOM;
 
     let count = row(shape, &|_| REST).items.len();
     let mut states = vec![None];

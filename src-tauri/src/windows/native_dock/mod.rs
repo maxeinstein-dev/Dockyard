@@ -326,7 +326,8 @@ pub struct Dock {
     items: Vec<Item>,
     names: Vec<String>,
     groups: Vec<usize>,
-    label_widths: Vec<f64>,
+    /// The pill of every label the dock can show: its width and height.
+    tip_sizes: Vec<(f64, f64)>,
     dark: bool,
     /// Windows' contrast colors while its contrast mode is on (M6): the
     /// dock draws with them alone.
@@ -536,7 +537,7 @@ fn make_dock(app: &AppHandle, monitor: Monitor) -> Option<Dock> {
         items: Vec::new(),
         names: Vec::new(),
         groups: Vec::new(),
-        label_widths: Vec::new(),
+        tip_sizes: Vec::new(),
         dark: theme::system_dark(),
         contrast: theme::system_contrast(),
         motion: system_motion(),
@@ -1099,9 +1100,9 @@ impl Dock {
             .chain(self.strip.iter().map(Cell::tip))
             .chain(self.data.workspaces.iter().map(|w| w.name.clone()))
             .collect();
-        self.label_widths = labels
+        self.tip_sizes = labels
             .iter()
-            .map(|label| self.painter.label_width(label))
+            .map(|label| self.painter.label_size(label))
             .collect();
         self.notices = self.read_notices();
         self.request_pictures();
@@ -1560,7 +1561,7 @@ impl Dock {
     /// Puts the window where the settings say, the size its content needs.
     fn place(&mut self) {
         let shape = self.shape();
-        let size = dock_layout::window_size(&shape, self.edge(), self.motion, &self.label_widths);
+        let size = dock_layout::window_size_for(&shape, self.edge(), self.motion, &self.tip_sizes);
         let bar_height = {
             let geometry = shape.size.geometry();
             geometry.icon + 2.0 * geometry.pad
