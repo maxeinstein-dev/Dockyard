@@ -220,16 +220,19 @@ pub const TIP_HEIGHT: f64 = 24.0;
 
 /// Each line a label pill has past its first: the line height of its text
 /// (12.5 px Segoe UI Variable).
+#[allow(dead_code)] // Stub: the tests go red before the change.
 pub const TIP_LINE: f64 = 17.0;
 
 /// The lines a label shows: a tray icon's tip may hold several (the
 /// Battery Hub's: its name, then a line per device), each trimmed, the
 /// blank ones left out.
+#[allow(dead_code)] // Stub: the tests go red before the change.
 pub fn tip_lines(text: &str) -> Vec<&str> {
     vec![text]
 }
 
 /// The height of a label pill of `lines` lines: one line at the least.
+#[allow(dead_code)] // Stub: the tests go red before the change.
 pub fn tip_height(_lines: usize) -> f64 {
     TIP_HEIGHT
 }
@@ -602,6 +605,7 @@ pub fn window_size(
 
 /// `window_size` for label pills of any height: `labels` are each pill's
 /// width and height (`tip_height`).
+#[allow(dead_code)] // Stub: the tests go red before the change.
 pub fn window_size_for(
     shape: &Shape,
     side: impl Into<Side>,
