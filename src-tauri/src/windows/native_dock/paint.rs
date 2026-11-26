@@ -749,9 +749,15 @@ impl Painter {
         Some(format)
     }
 
-    /// The width of `text` in the label pill's style, in logical pixels.
-    pub fn label_width(&mut self, text: &str) -> f64 {
-        self.text_width(text, 12.5, 600, false) + 20.0
+    /// The size of the label pill of `text`, in logical pixels: its widest
+    /// line in the pill's style and room around, a line for each line.
+    pub fn label_size(&mut self, text: &str) -> (f64, f64) {
+        let lines = dock_layout::tip_lines(text);
+        let widest = lines
+            .iter()
+            .map(|line| self.text_width(line, 12.5, 600, false))
+            .fold(0.0, f64::max);
+        (widest + 20.0, dock_layout::tip_height(lines.len()))
     }
 
     fn text_width(&mut self, text: &str, size: f64, weight: i32, display: bool) -> f64 {
@@ -3490,7 +3496,7 @@ impl Painter {
     }
 
     fn tip(&mut self, scene: &Scene, tip: &Tip) {
-        let width = self.label_width(&tip.text);
+        let (width, height) = self.label_size(&tip.text);
         let (x, y) = tip.anchor;
         // The window in logical pixels, to keep the pill whole inside it.
         let window = self.surface.as_ref().map(|surface| {
@@ -3506,27 +3512,27 @@ impl Painter {
                 Area {
                     x: x - width / 2.0,
                     y: if scene.edge == DockEdge::Bottom {
-                        y - 24.0
+                        y - height
                     } else {
                         y
                     },
                     width,
-                    height: 24.0,
+                    height,
                 }
             }
             // Beside the tile on a side (spec 0028), moved in along the
             // column near the window's ends.
             DockEdge::Left | DockEdge::Right => {
-                let y = window.map_or(y, |(_, tall)| dock_layout::tip_center(y, 24.0, tall));
+                let y = window.map_or(y, |(_, tall)| dock_layout::tip_center(y, height, tall));
                 Area {
                     x: if scene.edge == DockEdge::Left {
                         x
                     } else {
                         x - width
                     },
-                    y: y - 12.0,
+                    y: y - height / 2.0,
                     width,
-                    height: 24.0,
+                    height,
                 }
             }
         };
@@ -3557,7 +3563,9 @@ impl Painter {
             self.target
                 .DrawRoundedRectangle(&shape, &ring, 1.0, None::<&ID2D1StrokeStyle>)
         };
-        self.text(&tip.text, pill, 12.5, 600, false, scene.palette.tip_ink);
+        // A line for each line of the tip (a tray icon's may hold several).
+        let lines = dock_layout::tip_lines(&tip.text).join("\n");
+        self.text(&lines, pill, 12.5, 600, false, scene.palette.tip_ink);
     }
 }
 

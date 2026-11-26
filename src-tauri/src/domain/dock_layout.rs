@@ -218,6 +218,25 @@ pub const TIP_GAP: f64 = 10.0;
 /// Height of the label pill: a 16 px line plus 4 px above and below.
 pub const TIP_HEIGHT: f64 = 24.0;
 
+/// Each line a label pill has past its first: the line height of its text
+/// (12.5 px Segoe UI Variable).
+pub const TIP_LINE: f64 = 17.0;
+
+/// The lines a label shows: a tray icon's tip may hold several (the
+/// Battery Hub's: its name, then a line per device), each trimmed, the
+/// blank ones left out.
+pub fn tip_lines(text: &str) -> Vec<&str> {
+    text.lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect()
+}
+
+/// The height of a label pill of `lines` lines: one line at the least.
+pub fn tip_height(lines: usize) -> f64 {
+    TIP_HEIGHT + TIP_LINE * lines.saturating_sub(1) as f64
+}
+
 /// Width of the clock and date at the end of the bar.
 pub const STATUS_WIDTH: f64 = 76.0;
 
@@ -574,20 +593,39 @@ fn ceil(value: f64) -> f64 {
 /// items', its strip cells' and its workspace dots'. A pill sits over what
 /// it names and moves in to stay inside the window (`tip_center`), so the
 /// window never grows past the widest of them.
+///
+/// Every pill here is one line tall; the dock itself, whose tray tips may
+/// hold many lines, asks `window_size_for`.
+#[cfg(test)]
 pub fn window_size(
     shape: &Shape,
     side: impl Into<Side>,
     motion: bool,
     label_widths: &[f64],
 ) -> (f64, f64) {
-    let lying = lying_window(shape, motion, label_widths);
+    let labels: Vec<(f64, f64)> = label_widths.iter().map(|&w| (w, TIP_HEIGHT)).collect();
+    window_size_for(shape, side, motion, &labels)
+}
+
+/// `window_size` for label pills of any height: `labels` are each pill's
+/// width and height (`tip_height`).
+pub fn window_size_for(
+    shape: &Shape,
+    side: impl Into<Side>,
+    motion: bool,
+    labels: &[(f64, f64)],
+) -> (f64, f64) {
+    let label_widths: Vec<f64> = labels.iter().map(|&(w, _)| w).collect();
+    // The tallest pill: a tray tip of many lines (the Battery Hub's).
+    let tallest = labels.iter().map(|&(_, h)| h).fold(TIP_HEIGHT, f64::max);
+    let lying = lying_window(shape, motion, &label_widths, tallest);
     if !side.into().standing() {
         return (lying.along, lying.across);
     }
     // On a side (spec 0028) a label stands beside its tile, so its width
     // counts across the column and its height along it.
     let across = lying.reach + TIP_GAP + lying.label + ROOM;
-    let along = lying.bar.max(TIP_HEIGHT) + 2.0 * ROOM;
+    let along = lying.bar.max(tallest) + 2.0 * ROOM;
     (ceil(across), ceil(along))
 }
 
@@ -603,12 +641,12 @@ struct LyingWindow {
 }
 
 /// The window of a lying bar: along it, then across.
-fn lying_window(shape: &Shape, motion: bool, label_widths: &[f64]) -> LyingWindow {
+fn lying_window(shape: &Shape, motion: bool, label_widths: &[f64], tallest: f64) -> LyingWindow {
     let SizeGeometry { icon, pad, .. } = shape.size.geometry();
     let peak = shape.hover.peak();
     let grows = motion && peak.scale != 1.0;
     let Magnification { scale, lift } = if grows { peak } else { REST };
-    let height = pad + icon * scale + lift + TIP_GAP + TIP_HEIGHT + ROOM;
+    let height = pad + icon * scale + lift + TIP_GAP + tallest + ROOM;
 
     let count = row(shape, &|_| REST).items.len();
     let mut states = vec![None];
@@ -1496,6 +1534,94 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn a_tip_reads_one_line_per_line_of_its_text() {
+        // The Battery Hub's tip: its name, then a line per device.
+        let battery_hub = "Battery Hub\r\nX11mouse1: 80%\n  MX Keys: 55%  \n\n";
+        assert_eq!(
+            tip_lines(battery_hub),
+            ["Battery Hub", "X11mouse1: 80%", "MX Keys: 55%"]
+        );
+        assert_eq!(tip_lines("Docker"), ["Docker"]);
+        assert!(tip_lines("  \r\n").is_empty());
+    }
+
+    #[test]
+    fn a_pill_grows_a_line_for_each_line_of_its_text() {
+        assert_eq!(tip_height(0), TIP_HEIGHT);
+        assert_eq!(tip_height(1), TIP_HEIGHT);
+        assert_eq!(tip_height(5), TIP_HEIGHT + 4.0 * TIP_LINE);
+    }
+
+    #[test]
+    fn window_grows_with_a_label_of_many_lines() {
+        let shape = shape(DockSize::Medium);
+        let one = window_size(&shape, DockEdge::Bottom, true, &[200.0, 60.0]);
+        let five = window_size_for(
+            &shape,
+            DockEdge::Bottom,
+            true,
+            &[(200.0, tip_height(5)), (60.0, TIP_HEIGHT)],
+        );
+        assert_eq!(five.0, one.0);
+        assert_eq!(five.1, one.1 + 4.0 * TIP_LINE);
+        // On a side, the column is at least as long as the tallest pill.
+        let (_, along) = window_size_for(&shape, Side::Left, true, &[(200.0, tip_height(9))]);
+        assert!(along >= tip_height(9) + 2.0 * ROOM);
+    }
+
+    #[test]
+    fn the_label_of_many_lines_of_a_tray_icon_fits_the_window() {
+        // The Battery Hub's tip has five lines, wider than the bar.
+        let shape = Shape {
+            groups: vec![1],
+            status: true,
+            tray: 5,
+            ..shape(DockSize::Small)
+        };
+        let battery_hub = (230.0, tip_height(5));
+        let labels = [
+            (60.0, TIP_HEIGHT),
+            (90.0, TIP_HEIGHT),
+            battery_hub,
+            (50.0, TIP_HEIGHT),
+            (70.0, TIP_HEIGHT),
+            (80.0, TIP_HEIGHT),
+        ];
+        for edge in [DockEdge::Bottom, DockEdge::Top] {
+            for motion in [true, false] {
+                let window = window_size_for(&shape, edge, motion, &labels);
+                let placement = place(&shape, edge, window, None);
+                let icon = shape.size.geometry().icon;
+                let cells = tray_cells(placement.tray.unwrap(), shape.tray, icon, false);
+                for (index, cell) in cells.iter().enumerate() {
+                    assert!(
+                        pill_of_fits(*cell, labels[1 + index], edge, window),
+                        "{edge:?} {motion} cell {index} in {window:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// Whether the pill `size` (width, height) of what sits in `named`, in
+    /// a window of `window` on a lying bar, is whole inside it, with `ROOM`
+    /// around.
+    fn pill_of_fits(named: Area, size: (f64, f64), edge: DockEdge, window: (f64, f64)) -> bool {
+        let (width, height) = size;
+        let (x, y) = tip_anchor(named, edge);
+        let x = tip_center(x, width, window.0);
+        let top = if edge == DockEdge::Bottom {
+            y - height
+        } else {
+            y
+        };
+        x - width / 2.0 >= ROOM - 1e-9
+            && x + width / 2.0 <= window.0 - ROOM + 1e-9
+            && top >= -1e-9
+            && top + height <= window.1 + 1e-9
     }
 
     /// Whether the pill `width` wide of what sits in `named`, in a window
