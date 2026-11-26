@@ -8,6 +8,11 @@ use crate::commands::tray::TrayIcon;
 use crate::domain::settings::{DockEdge, TaskbarMode};
 use crate::windows::system_status::{Battery, Network, Status, Volume};
 
+use super::theme::Color;
+
+/// The battery's color while Windows' energy saver is on.
+pub const SAVER_ORANGE: Color = Color::rgb(0xF7, 0x93, 0x1E);
+
 /// The font of Windows 11's own icons (the taskbar's).
 pub const ICON_FONT: &str = "Segoe Fluent Icons";
 
@@ -79,6 +84,15 @@ impl Cell {
         })
     }
 
+    /// A color of its own instead of the ink: the battery, orange while
+    /// Windows' energy saver is on, as the taskbar's.
+    pub fn tint(&self) -> Option<Color> {
+        match self {
+            Cell::Battery(battery) if battery.saver => Some(SAVER_ORANGE),
+            _ => None,
+        }
+    }
+
     /// What its label says.
     pub fn tip(&self) -> String {
         let text = &crate::i18n::messages().dock;
@@ -91,12 +105,19 @@ impl Cell {
             Cell::Network(Network::Offline) => text.offline.into(),
             Cell::Volume(volume) if volume.muted => text.muted.into(),
             Cell::Volume(volume) => text.volume.replace("{n}", &volume.percent.to_string()),
-            Cell::Battery(battery) => (if battery.charging {
-                text.battery_charging
-            } else {
-                text.battery
-            })
-            .replace("{n}", &battery.percent.to_string()),
+            Cell::Battery(battery) => {
+                let tip = (if battery.charging {
+                    text.battery_charging
+                } else {
+                    text.battery
+                })
+                .replace("{n}", &battery.percent.to_string());
+                if battery.saver {
+                    format!("{tip}{}", text.battery_saver)
+                } else {
+                    tip
+                }
+            }
         }
     }
 }
@@ -157,6 +178,7 @@ mod tests {
         battery: Some(Battery {
             percent: 78,
             charging: false,
+            saver: false,
         }),
         network: Network::Wifi,
         volume: Some(Volume {
@@ -206,10 +228,14 @@ mod tests {
     #[test]
     fn the_glyphs_follow_the_state() {
         let battery = |percent, charging| {
-            Cell::Battery(Battery { percent, charging })
-                .glyph(DockEdge::Bottom)
-                .unwrap()
-                .0
+            Cell::Battery(Battery {
+                percent,
+                charging,
+                saver: false,
+            })
+            .glyph(DockEdge::Bottom)
+            .unwrap()
+            .0
         };
         assert_eq!(battery(0, false), '\u{E850}');
         assert_eq!(battery(78, false), '\u{E858}');
@@ -239,6 +265,16 @@ mod tests {
     fn the_labels_say_the_values() {
         assert_eq!(Cell::Battery(STATUS.battery.unwrap()).tip(), "Bateria: 78%");
         assert_eq!(Cell::Volume(STATUS.volume.unwrap()).tip(), "Volume: 40%");
+        let saving = Battery {
+            saver: true,
+            ..STATUS.battery.unwrap()
+        };
+        assert_eq!(
+            Cell::Battery(saving).tip(),
+            "Bateria: 78% (economia de energia)"
+        );
+        assert_eq!(Cell::Battery(saving).tint(), Some(SAVER_ORANGE));
+        assert_eq!(Cell::Battery(STATUS.battery.unwrap()).tint(), None);
         assert_eq!(Cell::Tray(icon("1:1", "path:a.exe#1")).tip(), "Docker");
     }
 }

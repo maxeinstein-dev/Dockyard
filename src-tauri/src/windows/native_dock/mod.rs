@@ -46,6 +46,7 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager};
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
 use windows::Win32::Graphics::Direct2D::ID2D1Bitmap;
+use windows::Win32::Graphics::Gdi::ScreenToClient;
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     ReleaseCapture, SetCapture, TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent,
@@ -460,6 +461,14 @@ pub fn start(app: &AppHandle) -> windows::core::Result<()> {
         log::warn!("dock: OLE could not be initialized: {error}");
     }
     let _ = APP.set(app.clone());
+    // Windows 11's energy saver is told only by its own power setting: the
+    // docks read the battery again when it changes.
+    super::system_status::watch_power_mode(|| {
+        post(|dock| {
+            super::system_status::forget_shared();
+            dock.read_system();
+        });
+    });
     let instance = unsafe { GetModuleHandleW(None) }?;
     let class_data = WNDCLASSW {
         style: CS_DBLCLKS,
@@ -765,9 +774,6 @@ fn names() -> Names {
         screenshots: dock.screenshots,
     }
 }
-
-/// `MK_CONTROL` of a wheel message's keys: Ctrl is held.
-const MK_CONTROL: usize = 0x0008;
 
 /// The name of `item` in "Empilhar com" (spec 0023): a stack's says the
 /// names of its widgets.
@@ -1329,6 +1335,10 @@ impl Dock {
     fn read_system(&mut self) {
         self.check_power();
         self.check_keyboard();
+        // The Recycle Bin's icon at the status's pace (3 s), not every
+        // minute: a file deleted elsewhere shows in it soon (achado do
+        // autor, 2026-11-05).
+        self.check_bin();
         let now = Some(super::system_status::read_shared());
         if now != self.system {
             self.system = now;
@@ -2152,6 +2162,7 @@ impl Dock {
             .map(|(index, (cell, area))| StripCell {
                 area: *area,
                 glyph: cell.glyph(edge),
+                tint: cell.tint(),
                 image: match cell {
                     Cell::Tray(icon) => self
                         .tray_images
@@ -2344,6 +2355,20 @@ impl Dock {
 
     // ---- The mouse ----
 
+    /// The dock's point under a point of the screen in `lparam` (the
+    /// wheel's messages carry one).
+    fn screen_point(&self, lparam: LPARAM) -> (f64, f64) {
+        let mut point = POINT {
+            x: i32::from((lparam.0 & 0xffff) as u16 as i16),
+            y: i32::from(((lparam.0 >> 16) & 0xffff) as u16 as i16),
+        };
+        let _ = unsafe { ScreenToClient(self.hwnd, &mut point) };
+        (
+            f64::from(point.x) / self.scale,
+            f64::from(point.y) / self.scale,
+        )
+    }
+
     fn point(&self, lparam: LPARAM) -> (f64, f64) {
         let x = f64::from((lparam.0 & 0xffff) as u16 as i16);
         let y = f64::from(((lparam.0 >> 16) & 0xffff) as u16 as i16);
@@ -2470,10 +2495,20 @@ impl Dock {
         }));
     }
 
-    /// The mouse wheel over the dock: the next workspace down, the one
-    /// before up (spec 0013).
-    fn wheel(&mut self, delta: i16) {
-        if self.data.workspaces.len() < 2 || delta == 0 {
+    /// The mouse wheel at `(x, y)`, the dock's own point (spec 0013, as the
+    /// author asked on 2026-11-05): over a stack, another widget on top;
+    /// over the workspace dots, the next workspace down, the one before up;
+    /// anywhere else, nothing, so a turn of the wheel meant for a window
+    /// behind does not switch the workspace.
+    fn wheel(&mut self, x: f64, y: f64, delta: i16) {
+        if delta == 0 || self.turn_stack(delta < 0) {
+            return;
+        }
+        let over_dots = self
+            .placement_now()
+            .switcher
+            .is_some_and(|area| area.contains(x, y));
+        if !over_dots || self.data.workspaces.len() < 2 {
             return;
         }
         self.end_preview();
@@ -2484,7 +2519,7 @@ impl Dock {
         }));
     }
 
-    /// Ctrl and the wheel, or the side wheel, over a stack (spec 0023):
+    /// The wheel, or the side wheel, over a stack (spec 0023):
     /// another widget on top, the next one `forward`, going round; the
     /// workspace keeps it and the dock reads it again. False when the pointer
     /// is on no stack.
@@ -2688,7 +2723,7 @@ impl Dock {
         self.paint();
     }
 
-    /// The Beber água's reminder (spec 0017 F3-2), looked at every minute.
+    /// The Recycle Bin looked at again, when a dock shows it.
     fn check_bin(&self) {
         let shows = self.items.iter().any(
             |item| matches!(item, Item::App(app) if place_of(&app.app_id) == Place::RecycleBin),
@@ -2717,6 +2752,17 @@ impl Dock {
 
     /// The id in the Apps folder of the program at `index`: a pinned one or
     /// an open one. What a folder or files open with (spec 0018).
+    /// What files dropped on the item at `index` go to: a program, which
+    /// opens them, or the Recycle Bin, which takes them (spec 0025).
+    fn drop_id(&self, index: usize) -> Option<String> {
+        match self.items.get(index)? {
+            Item::App(app) if place_of(&app.app_id) == Place::RecycleBin => {
+                Some(app.app_id.clone())
+            }
+            _ => self.program_id(index),
+        }
+    }
+
     fn program_id(&self, index: usize) -> Option<String> {
         match self.items.get(index)? {
             // A folder or the Recycle Bin opens nothing (spec 0025).
@@ -3217,13 +3263,10 @@ fn handle(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
         WM_RUN => run_queue(),
         WM_MOUSEWHEEL => with_dock(hwnd, |dock| {
             // The high word of `wparam`: notches of 120, negative toward the
-            // user; the low one, the keys held. With Ctrl over a stack, it
-            // turns the stack (spec 0023).
+            // user. `lparam`: the pointer, on the screen.
             let delta = (wparam.0 >> 16) as u16 as i16;
-            let ctrl = wparam.0 & MK_CONTROL != 0;
-            if !(ctrl && delta != 0 && dock.turn_stack(delta < 0)) {
-                dock.wheel(delta);
-            }
+            let (x, y) = dock.screen_point(lparam);
+            dock.wheel(x, y, delta);
         }),
         // The side wheel: positive to the right. Only a stack takes it.
         WM_MOUSEHWHEEL => with_dock(hwnd, |dock| {
@@ -3321,7 +3364,6 @@ fn handle(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
                 dock.paint();
                 dock.arm_clock();
                 dock.check_water();
-                dock.check_bin();
             }),
             STATUS_TIMER => with_dock(hwnd, Dock::read_system),
             LAYOUT_TIMER => with_dock(hwnd, |dock| {
@@ -3376,10 +3418,13 @@ fn handle(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
             });
         }
         // Alt+F4 hides the dock instead of closing it.
-        // On the battery or back on the charger (or the battery's level,
-        // which changes nothing): the battery saver follows at once.
+        // On the battery or back on the charger, Windows' energy saver on or
+        // off (or the battery's level): the battery saver follows at once.
+        // The battery's icon too, read again at once: not at the next tick,
+        // 30 s away once unplugged (the battery saver turns on).
         WM_POWERBROADCAST if wparam.0 == PBT_APMPOWERSTATUSCHANGE as usize => {
-            with_dock(hwnd, Dock::check_power);
+            super::system_status::forget_shared();
+            with_dock(hwnd, Dock::read_system);
         }
         WM_CLOSE => with_dock(hwnd, Dock::hide),
         WM_GETOBJECT => match access::get_object(hwnd, wparam, lparam) {

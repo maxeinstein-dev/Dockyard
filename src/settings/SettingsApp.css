@@ -76,11 +76,18 @@ body {
    section shown. */
 .settings-app {
   grid-template-columns: 220px 1fr;
+  /* One row as tall as the window, never the side bar's content. */
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .settings-nav {
   gap: 3px;
   padding: 18px 12px;
+  /* A short window scrolls the side bar on its own (achado do autor,
+     2026-11-05: the last sections were out of reach). */
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .settings-brand {

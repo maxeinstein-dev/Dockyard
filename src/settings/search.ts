@@ -1,5 +1,6 @@
 import { format, type Messages } from "../i18n";
 import type { Section } from "./sections";
+import { CATALOG_KINDS } from "./catalog";
 
 /** One option the search of Configurações finds (estudo 0002 F6). */
 export interface SearchEntry {
@@ -98,6 +99,13 @@ export function searchIndex(t: Messages): SearchEntry[] {
     },
     { section: "apps" as const, label: t.apps.add },
     { section: "items" as const, label: t.widgets.catalog.title },
+    // Each widget of the catalog, by its name (achado do autor, 2026-11-05:
+    // "Claude" found nothing).
+    ...CATALOG_KINDS.map((kind) => ({
+      section: "items" as const,
+      label: t.widgets.kinds[kind],
+      group: t.widgets.catalog.title,
+    })),
     launcher(groups.launcher, groups.launcher),
     // The switch's name carries the hotkey ("Lançador (Alt+Espaço)"): the
     // entry is the name alone, and the row is found by its start.
@@ -178,11 +186,11 @@ export function searchSettings(
 
 /** The names a row of Configurações shows, the ones the index lists. */
 export const ROW_LABELS =
-  ".option-label, .toggle-label, .range-label, .field-label, .settings-group-title, .catalog-title, .apps-add-label";
+  ".option-label, .toggle-label, .range-label, .field-label, .settings-group-title, .catalog-title, .catalog-card-name, .apps-add-label";
 
 /** The row an option lives in, from its name. */
 const ROWS =
-  ".option-row, .choice-field, .toggle-row, .range-row, .field, .settings-group, .catalog, .apps-add";
+  ".option-row, .choice-field, .toggle-row, .range-row, .field, .settings-group, .catalog-card, .catalog, .apps-add";
 
 /**
  * The row of the option named `label` inside `root`: the one whose name is

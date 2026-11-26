@@ -10,7 +10,7 @@ import { moveOpenWindows, type WorkspacesSnapshot } from "../core/workspaces";
 import { format, useT } from "../i18n";
 import PanelFooter from "./PanelFooter";
 import PanelHeader from "./parts/PanelHeader";
-import { menuItems, moveInMenu } from "./parts/menu";
+import { followPointer, menuItems, moveInMenu } from "./parts/menu";
 import MoveToWorkspace from "./parts/MoveToWorkspace";
 import "./AppMenuPanel.css";
 
@@ -64,6 +64,7 @@ function OpenMenuPanel({
         role="menu"
         aria-label={format(text.label, { name: other.name })}
         onKeyDown={onKeyDown}
+        onMouseMove={followPointer}
       >
         <div className="app-menu-section" role="group">
           <button

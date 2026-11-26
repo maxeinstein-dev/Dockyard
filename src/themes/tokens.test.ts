@@ -202,7 +202,10 @@ describe("tokens.css", () => {
     const offenders = Object.entries(sources)
       .filter(([path]) => path !== "/src/themes/tokens.css")
       .filter(([path]) => !/\.test\.tsx?$/.test(path))
-      .filter(([, text]) => /color-scheme\s*:|colorScheme/.test(text))
+      // The property, not the media query that reads it (`prefers-…`).
+      .filter(([, text]) =>
+        /(?<!prefers-)color-scheme\s*:|colorScheme/.test(text),
+      )
       .map(([path]) => path);
     expect(offenders).toEqual([]);
   });
