@@ -17,10 +17,15 @@ pub fn saving() -> bool {
 }
 
 /// Decides again from `mode` and the power line, read now; the answer.
+/// Windows' energy saver counts as the battery: with it on, "Na bateria"
+/// saves even on the charger.
 /// Cheap (`GetSystemPowerStatus` only): the docks call it on every status
 /// tick, on `WM_POWERBROADCAST` and when the settings change.
 pub fn decide(mode: PowerSaver) -> bool {
-    let now = power::saving(mode, super::system_status::on_battery());
+    let now = power::saving(
+        mode,
+        super::system_status::on_battery() || super::system_status::energy_saver(),
+    );
     SAVING.store(now, Ordering::Relaxed);
     now
 }

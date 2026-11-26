@@ -575,6 +575,29 @@ pub fn add_spacer(app: &AppHandle, workspace: Option<&str>, size: SpacerSize, af
     });
 }
 
+/// "Adicionar espaçador pequeno" or "… grande" in the menu of a pinned
+/// program (spec 0022 §7): a spacer right after the program `id`, in the
+/// workspace in use (the one of the dock the menu came from). Between two
+/// programs there is no room for the dock's own menu.
+#[tauri::command]
+pub fn add_spacer_after_app(
+    app: AppHandle,
+    state: State<'_, Mutex<Storage>>,
+    id: String,
+    size: SpacerSize,
+) -> Result<(), WorkspaceCommandError> {
+    change(&app, &state, "add spacer", |storage| {
+        let found = workspace_or_in_use(storage, None)?;
+        let after = format!("app:{id}");
+        if !found.items.contains(&after) {
+            return Err(WorkspaceError::NotFound);
+        }
+        storage
+            .add_spacer(&found.id, size, Some(&after))
+            .map(|_| ())
+    })
+}
+
 /// Removes the spacer `id` for good ("Remover espaçador" in its menu).
 pub fn remove_spacer_from_dock(app: &AppHandle, id: &str) {
     let state = app.state::<Mutex<Storage>>();

@@ -161,3 +161,113 @@
     outline-offset: -2px;
   }
 }
+
+/* The menus of a program, pinned or open, look like the Dockyard's own
+   native menus (spec 0014 R3, `windows/menu`; achado do autor, 2026-11-05):
+   a plain plate in Windows' light or dark (not the dock's theme), rows of
+   34 px in 14 px text, the one under the pointer or the keyboard in the
+   dock's blue, the program's name as a small dim title, and no footer
+   unless something failed. The colors are `launcher::layout::colors`. */
+.panel[data-panel="app"],
+.panel[data-panel="open"] {
+  --menu-plate: #f6f6f8;
+  --menu-ink: #1c1c1e;
+  --menu-dim: #6e6e73;
+  --menu-pick: #006ee6;
+  gap: 0;
+  padding: 6px;
+  color: var(--menu-ink);
+  background: var(--menu-plate);
+}
+
+@media (prefers-color-scheme: dark) {
+  .panel[data-panel="app"],
+  .panel[data-panel="open"] {
+    --menu-plate: #242426;
+    --menu-ink: #f5f5f7;
+    --menu-dim: #a1a1a6;
+    --menu-pick: #0a84ff;
+  }
+}
+
+.panel[data-panel="app"] .panel-header,
+.panel[data-panel="open"] .panel-header {
+  min-height: 28px;
+  padding: 0 10px;
+}
+
+.panel[data-panel="app"] .panel-header h1,
+.panel[data-panel="open"] .panel-header h1 {
+  font: 600 12px/28px var(--font);
+  color: var(--menu-dim);
+}
+
+.panel[data-panel="app"] .app-menu-item,
+.panel[data-panel="open"] .app-menu-item {
+  min-height: 34px;
+  font-size: 14px;
+  color: var(--menu-ink);
+}
+
+.panel[data-panel="app"] .app-menu-item .part-icon,
+.panel[data-panel="open"] .app-menu-item .part-icon,
+.panel[data-panel="app"] .app-menu-heading,
+.panel[data-panel="open"] .app-menu-heading,
+.panel[data-panel="app"] .app-menu-note,
+.panel[data-panel="open"] .app-menu-note {
+  color: var(--menu-dim);
+}
+
+.panel[data-panel="app"] .app-menu-item:hover,
+.panel[data-panel="app"] .app-menu-item:focus-visible,
+.panel[data-panel="open"] .app-menu-item:hover,
+.panel[data-panel="open"] .app-menu-item:focus-visible,
+.panel[data-panel="app"] .app-menu-file:hover,
+.panel[data-panel="app"] .app-menu-file:focus-visible {
+  color: #fff;
+  background: var(--menu-pick);
+}
+
+.panel[data-panel="app"] .app-menu-item:hover .part-icon,
+.panel[data-panel="app"] .app-menu-item:focus-visible .part-icon,
+.panel[data-panel="open"] .app-menu-item:hover .part-icon,
+.panel[data-panel="open"] .app-menu-item:focus-visible .part-icon {
+  color: inherit;
+}
+
+.panel[data-panel="app"] .app-menu-section,
+.panel[data-panel="open"] .app-menu-section {
+  border-top-color: color-mix(in srgb, var(--menu-ink) 12%, transparent);
+}
+
+/* The footer only while it reports a failure: its alert stays mounted, so
+   a screen reader still reads one. */
+.panel[data-panel="app"] .panel-foot > span,
+.panel[data-panel="app"] .close-hint,
+.panel[data-panel="open"] .panel-foot > span,
+.panel[data-panel="open"] .close-hint {
+  display: none;
+}
+
+.panel[data-panel="app"] .panel-foot.status:has(.live:empty),
+.panel[data-panel="open"] .panel-foot.status:has(.live:empty) {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+}
+
+.panel[data-panel="app"] .panel-foot.status:not(:has(.live:empty)),
+.panel[data-panel="open"] .panel-foot.status:not(:has(.live:empty)) {
+  padding: 8px 10px 4px;
+}
+
+/* Windows' contrast themes: its own colors, as the native menus. */
+@media (forced-colors: active) {
+  .panel[data-panel="app"] .app-menu-item:hover,
+  .panel[data-panel="app"] .app-menu-item:focus-visible,
+  .panel[data-panel="open"] .app-menu-item:hover,
+  .panel[data-panel="open"] .app-menu-item:focus-visible {
+    color: HighlightText;
+    background: Highlight;
+  }
+}

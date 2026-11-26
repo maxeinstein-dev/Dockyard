@@ -248,6 +248,8 @@ pub struct DockMessages {
     pub muted: &'static str,
     pub battery: &'static str,
     pub battery_charging: &'static str,
+    /// After the battery's label while Windows' energy saver is on.
+    pub battery_saver: &'static str,
 }
 
 /// The Configurações app (spec 0011 H1).
@@ -454,6 +456,7 @@ const PT_BR: Messages = Messages {
         muted: "Sem som",
         battery: "Bateria: {n}%",
         battery_charging: "Bateria: {n}% (carregando)",
+        battery_saver: " (economia de energia)",
     },
     launcher: LauncherMessages {
         title: "Lançador do Dockyard",
@@ -693,6 +696,7 @@ const EN: Messages = Messages {
         muted: "Muted",
         battery: "Battery: {n}%",
         battery_charging: "Battery: {n}% (charging)",
+        battery_saver: " (energy saver)",
     },
     launcher: LauncherMessages {
         title: "Dockyard launcher",

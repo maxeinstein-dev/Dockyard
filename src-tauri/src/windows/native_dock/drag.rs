@@ -104,8 +104,8 @@ impl Dock {
     }
 
     /// Files dragged over the dock at the screen point `at` (physical
-    /// pixels), or gone with `None`: the program under them is shown as
-    /// under the pointer. Its id, when there is one.
+    /// pixels), or gone with `None`: the program (or the Recycle Bin) under
+    /// them is shown as under the pointer. Its id, when there is one.
     pub(super) fn drop_over(&mut self, at: Option<(i32, i32)>) -> Option<String> {
         let index = at.and_then(|(x, y)| {
             let mut point = POINT { x, y };
@@ -118,7 +118,7 @@ impl Dock {
                     )
                 })
                 .flatten()
-                .filter(|&index| self.program_id(index).is_some())
+                .filter(|&index| self.drop_id(index).is_some())
         });
         if index != self.drop_hover {
             self.drop_hover = index;
@@ -126,7 +126,7 @@ impl Dock {
             self.animate();
             self.paint();
         }
-        index.and_then(|index| self.program_id(index))
+        index.and_then(|index| self.drop_id(index))
     }
 
     /// Files dropped at the screen point (`x`, `y`) (physical pixels) that
