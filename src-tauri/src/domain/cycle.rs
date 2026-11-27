@@ -255,11 +255,6 @@ pub fn notices(
     notices
 }
 
-/// The share of the cycle gone today, 0–1, for the tile's ring.
-pub fn fraction(status: &Status) -> Option<f32> {
-    (status.day > 0).then(|| (status.day as f64 / status.averages.cycle).clamp(0.0, 1.0) as f32)
-}
-
 /// What a day ahead is expected to be (spec 0031 §3.2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(tag = "phase", rename_all = "camelCase")]
@@ -381,6 +376,15 @@ pub fn coinciding(
         .collect()
 }
 
+/// Whether today is an expected day (the sensitive window, the period, or
+/// the days that may be it while late): the Calendário's tile has a dot
+/// then (spec 0031 §3.5), whatever was seen.
+pub fn in_phase(periods: &[Period], today: i64, sensitive: i64) -> bool {
+    ahead(periods, today, sensitive)
+        .first()
+        .is_some_and(|(day, _)| *day == today)
+}
+
 /// The last day `ahead` reaches: how far the events must be read.
 pub fn horizon_end(ahead: &[(i64, Expected)]) -> Option<i64> {
     ahead.last().map(|(day, _)| *day)
@@ -483,7 +487,6 @@ mod tests {
         let today = status(&periods, 140, 5);
         assert_eq!(today.day, 13);
         assert_eq!(today.next, Some(156));
-        assert_eq!(fraction(&today), Some(13.0 / 28.0));
     }
 
     #[test]
@@ -546,7 +549,6 @@ mod tests {
     fn without_marks_nothing_is_guessed() {
         let none = status(&[], 100, 5);
         assert_eq!(none.phase, Phase::Unknown);
-        assert_eq!(fraction(&none), None);
         // A mark ahead of today doesn't count yet.
         let ahead = status(
             &[Period {
@@ -769,5 +771,21 @@ mod tests {
     fn the_horizon_ends_with_the_last_expected_day() {
         assert_eq!(horizon_end(&ahead(&two_cycles(), 140, 5)), Some(160));
         assert_eq!(horizon_end(&[]), None);
+    }
+
+    #[test]
+    fn the_dot_shows_on_every_expected_day() {
+        let periods = two_cycles();
+        // Between: no dot.
+        assert!(!in_phase(&periods, 140, 5));
+        // The window, the day due and the period going on.
+        assert!(in_phase(&periods, 151, 5));
+        assert!(in_phase(&periods, 155, 5));
+        assert!(in_phase(&periods, 156, 5));
+        assert!(in_phase(&periods, 130, 5));
+        assert!(!in_phase(&periods, 133, 5));
+        // Late, the days that may be the period.
+        assert!(in_phase(&periods, 158, 5));
+        assert!(!in_phase(&[], 140, 5));
     }
 }

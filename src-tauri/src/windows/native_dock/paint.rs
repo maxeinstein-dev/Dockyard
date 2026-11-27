@@ -192,6 +192,9 @@ pub enum Face {
         note: Option<String>,
         /// Seconds the tile has shown: where a long title rolls to.
         since: f64,
+        /// Today is a day the cycle expects (spec 0031 §3.5): a dot in a
+        /// corner, whatever was seen; no word.
+        cycle: bool,
     },
     /// The Tocando agora (spec 0017 F4): the cover (a note without one),
     /// dimmed while paused; on a wide tile, the title and the artist beside
@@ -1605,10 +1608,12 @@ impl Painter {
                     blocks,
                     note,
                     since,
+                    cycle,
                 } => Face::Calendar {
                     blocks: blocks.clone(),
                     note: note.clone(),
                     since: *since,
+                    cycle: *cycle,
                 },
                 Face::Media {
                     glaze,
@@ -1797,6 +1802,7 @@ impl Painter {
                 blocks,
                 note,
                 since,
+                cycle,
             } => {
                 let ground = if scene.palette.dark {
                     Glaze::NEUTRAL_DARK
@@ -1805,6 +1811,9 @@ impl Painter {
                 };
                 self.glaze(area, ground, tile.pressed);
                 self.calendar(scene, area, blocks, note.as_deref(), *since);
+                if *cycle {
+                    self.cycle_dot(area);
+                }
             }
             Face::Rates {
                 glaze,
@@ -2306,6 +2315,25 @@ impl Painter {
         }
     }
 
+    /// The Calendário's dot while the cycle expects today (spec 0031 §3.5):
+    /// small, in the Ciclo's hue, in the top-left corner (the badge takes
+    /// the top-right one).
+    fn cycle_dot(&mut self, area: Area) {
+        let side = (area.height * 0.11).max(4.0);
+        let inset = area.height * 0.07;
+        let ink = Color::hsl(Glaze::CYCLE.h, 48.0, 58.0);
+        self.fill_round(
+            Area {
+                x: area.x + inset,
+                y: area.y + inset,
+                width: side,
+                height: side,
+            },
+            side / 2.0,
+            ink,
+        );
+    }
+
     fn fill_round(&mut self, area: Area, radius: f64, ink: Color) {
         let brush = self.solid(ink).clone();
         unsafe {
@@ -2487,6 +2515,7 @@ impl Painter {
                 blocks,
                 note,
                 since,
+                cycle,
             } => {
                 let ground = if scene.palette.dark {
                     Glaze::NEUTRAL_DARK
@@ -2494,6 +2523,9 @@ impl Painter {
                     Glaze::NEUTRAL_LIGHT
                 };
                 self.glaze(area, ground, tile.pressed);
+                if *cycle {
+                    self.cycle_dot(area);
+                }
                 let ink = scene.palette.ink;
                 if blocks.is_empty() {
                     match note.as_deref().filter(|note| !note.is_empty()) {

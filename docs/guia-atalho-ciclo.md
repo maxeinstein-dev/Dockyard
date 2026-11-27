@@ -1,6 +1,6 @@
 # Marcar o ciclo com um toque no iPhone
 
-O widget **Ciclo** do Dockyard lê a agenda Google de quem marca. Cada menstruação é um evento de **dia inteiro** chamado **🌸**, no primeiro dia. Este guia monta um Atalho no iPhone para criar esse evento com um toque ou pela Siri, sem abrir a agenda.
+O **Ciclo** do Dockyard, uma seção do widget Calendário ([spec 0031](specs/0031-ciclo-no-calendario.md)), lê a agenda Google de quem marca. Cada menstruação é um evento de **dia inteiro** chamado **🌸**, no primeiro dia. Este guia monta um Atalho no iPhone para criar esse evento com um toque ou pela Siri, sem abrir a agenda.
 
 Tudo fica sob controle de quem marca: o evento é dela, na agenda dela, e ela pode apagar ou mudar quando quiser. O Dockyard só lê os eventos com o 🌸, e só enquanto está aberto; nada é guardado.
 
@@ -33,4 +33,4 @@ Pronto: no primeiro dia, um toque no ícone (ou **"E aí Siri, começou"**) cria
 
 - **Duração:** o Atalho marca só o primeiro dia. O Dockyard usa a duração média das vezes em que o evento foi esticado (5 dias, sem histórico). Para registrar a duração real, basta esticar o evento no Google Agenda.
 - **Esqueceu de marcar?** Dá para criar o evento depois, no dia certo, pelo próprio Google Agenda.
-- **Outro símbolo:** se o 🌸 já é usado para outra coisa, troque o título no Atalho e o símbolo nos Ajustes do widget Ciclo, para os dois ficarem iguais.
+- **Outro símbolo:** se o 🌸 já é usado para outra coisa, troque o título no Atalho e o símbolo nos Ajustes do Calendário, na seção Ciclo, para os dois ficarem iguais.

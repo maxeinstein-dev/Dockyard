@@ -146,6 +146,8 @@ pub fn agenda(
         blocks,
         note: note.map(str::to_owned),
         since: 0.0,
+        // The dock's (`face_of`), set after.
+        cycle: false,
     };
     let snapshot = match snapshot {
         None => return calendar_face(Vec::new(), Some(text.no_value)),
@@ -199,37 +201,6 @@ pub fn agenda(
         calendar_face(blocks, Some(text.calendar_free))
     } else {
         calendar_face(blocks, None)
-    }
-}
-
-/// The Ciclo's face (spec 0017 F2b), discreet: a ring of the cycle and a
-/// number, the days to the next start, or `•2` on the period's second day.
-/// No word on the tile: the panel says what it is.
-pub fn cycle(config: &crate::domain::widgets::CycleConfig, size: DockSize) -> Face {
-    use crate::domain::cycle::{self, Phase};
-    let offset = crate::windows::calendar::offset();
-    let today = cycle::day_of(crate::windows::calendar::now(), offset);
-    let marks = crate::windows::calendar::cycle_marks(config.symbol.trim(), |calendar| {
-        config.reads(calendar)
-    });
-    let status = marks.map(|marks| {
-        cycle::status(
-            &cycle::periods(&marks, offset),
-            today,
-            i64::from(config.sensitive),
-        )
-    });
-    let no_value = crate::i18n::messages().dock.no_value.to_string();
-    let text = match status.map(|status| status.phase) {
-        Some(Phase::Period { day }) => format!("•{day}"),
-        Some(Phase::Sensitive { days } | Phase::Between { days }) => days.max(0).to_string(),
-        Some(Phase::Unknown) | None => no_value,
-    };
-    Face::Ring {
-        glaze: Glaze::CYCLE,
-        fraction: status.as_ref().and_then(cycle::fraction),
-        // The small size shows only the ring.
-        text: (size != DockSize::Small).then_some(text),
     }
 }
 
@@ -523,7 +494,13 @@ pub fn widget(
             }),
         },
         WidgetConfig::Network(config) => rates(config.width, system),
-        WidgetConfig::Cycle(config) => cycle(config, size),
+        // The Ciclo became a part of the Calendário (spec 0031): the ones
+        // stored are moved into it on opening, and none is shown.
+        WidgetConfig::Cycle(_) => Face::Ring {
+            glaze: Glaze::CYCLE,
+            fraction: None,
+            text: None,
+        },
         WidgetConfig::Countdown(config) => countdown(config, size),
         WidgetConfig::Pomodoro(config) => pomodoro(widget, config, size),
         WidgetConfig::Todo(config) => todo(config, size),
@@ -557,7 +534,14 @@ pub fn widget(
             paths: &["M9 17.5V5.5l10 -2v12"],
         },
         WidgetConfig::Calendar(config) => {
-            agenda(config, calendar, crate::windows::calendar::now(), opened)
+            let mut face = agenda(config, calendar, crate::windows::calendar::now(), opened);
+            if let Face::Calendar { cycle, .. } = &mut face {
+                *cycle = config
+                    .cycle
+                    .as_ref()
+                    .is_some_and(crate::windows::calendar::in_phase);
+            }
+            face
         }
         // The Arquivos (F9 of estudo 0002): a document with a clock's hand,
         // "the files of late".
