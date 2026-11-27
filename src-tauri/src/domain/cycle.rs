@@ -260,6 +260,100 @@ pub fn fraction(status: &Status) -> Option<f32> {
     (status.day > 0).then(|| (status.day as f64 / status.averages.cycle).clamp(0.0, 1.0) as f32)
 }
 
+/// What a day ahead is expected to be (spec 0031 §3.2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(tag = "phase", rename_all = "camelCase")]
+pub enum Expected {
+    /// Inside the sensitive window before the next start.
+    Sensitive,
+    /// A day of the period: its day, or `None` while late, when the
+    /// coming days may be it.
+    Period { day: Option<i64> },
+}
+
+/// The days expected from `today` to the end of the next period, in
+/// order and each once: the rest of the period going on, the sensitive
+/// window and the next period. Late, today and the days after it of the
+/// average period, as maybe the period. Empty without marks.
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "used by the Calendário in spec 0031 PR 3")
+)]
+pub fn ahead(periods: &[Period], today: i64, sensitive: i64) -> Vec<(i64, Expected)> {
+    let status = status(periods, today, sensitive);
+    let (Some(last), Some(next)) = (status.last, status.next) else {
+        return Vec::new();
+    };
+    let period = (status.averages.period.round() as i64).max(1);
+    let mut days = Vec::new();
+    if next < today {
+        days.extend((today..today + period).map(|day| (day, Expected::Period { day: None })));
+        return days;
+    }
+    if let Phase::Period { .. } = status.phase {
+        let length = periods
+            .iter()
+            .find(|each| each.first == last)
+            .map_or(
+                period,
+                |each| if each.days > 1 { each.days } else { period },
+            );
+        days.extend((today..last + length).map(|day| {
+            (
+                day,
+                Expected::Period {
+                    day: Some(day - last + 1),
+                },
+            )
+        }));
+    }
+    let from = days.last().map_or(today, |(day, _)| day + 1);
+    days.extend((from.max(next - sensitive)..next).map(|day| (day, Expected::Sensitive)));
+    let from = days.last().map_or(today, |(day, _)| day + 1);
+    days.extend((from.max(next)..next + period).map(|day| {
+        (
+            day,
+            Expected::Period {
+                day: Some(day - next + 1),
+            },
+        )
+    }));
+    days
+}
+
+/// How many days past the expected start, with no new mark.
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "used by the Calendário in spec 0031 PR 3")
+)]
+pub fn late_by(status: &Status) -> Option<i64> {
+    match status.phase {
+        Phase::Between { days } if days < 0 => Some(-days),
+        _ => None,
+    }
+}
+
+/// The first expected day an event from `start` to `end` (exclusive, in
+/// seconds) falls on, and what it is. An all-day event runs from local
+/// midnight to local midnight, as Google gives it.
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "used by the Calendário in spec 0031 PR 3")
+)]
+pub fn overlaps(
+    start: i64,
+    end: i64,
+    offset: i64,
+    ahead: &[(i64, Expected)],
+) -> Option<(i64, Expected)> {
+    let first = day_of(start, offset);
+    let last = day_of(end - 1, offset).max(first);
+    ahead
+        .iter()
+        .find(|(day, _)| (first..=last).contains(day))
+        .copied()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -447,5 +541,130 @@ mod tests {
         // Only the 6-day period says how long they last.
         assert_eq!(status(&periods, 133, 5).phase, Phase::Period { day: 6 });
         assert_eq!(status(&periods, 134, 5).phase, Phase::Between { days: 22 });
+    }
+
+    /// Two marks 28 days apart, of 5 days: next start 156.
+    fn two_cycles() -> [Period; 2] {
+        [
+            Period {
+                first: 100,
+                days: 5,
+            },
+            Period {
+                first: 128,
+                days: 5,
+            },
+        ]
+    }
+
+    fn predicted(from: i64, to: i64) -> Vec<(i64, Expected)> {
+        (from..=to)
+            .map(|day| {
+                (
+                    day,
+                    Expected::Period {
+                        day: Some(day - from + 1),
+                    },
+                )
+            })
+            .collect()
+    }
+
+    fn sensitive_days(from: i64, to: i64) -> Vec<(i64, Expected)> {
+        (from..=to).map(|day| (day, Expected::Sensitive)).collect()
+    }
+
+    #[test]
+    fn ahead_runs_to_the_end_of_the_next_period() {
+        let periods = two_cycles();
+        // Between: the window (151–155), then the period (156–160).
+        let mut between = sensitive_days(151, 155);
+        between.extend(predicted(156, 160));
+        assert_eq!(ahead(&periods, 140, 5), between);
+        // Inside the window: from today on.
+        let mut inside = sensitive_days(153, 155);
+        inside.extend(predicted(156, 160));
+        assert_eq!(ahead(&periods, 153, 5), inside);
+        // On the day expected, still the prediction.
+        assert_eq!(ahead(&periods, 156, 5), predicted(156, 160));
+    }
+
+    #[test]
+    fn ahead_keeps_the_rest_of_the_period_going_on() {
+        // Day 3 of the period that began on 128: 130–132 are its days 3–5.
+        let mut expected: Vec<(i64, Expected)> = (130..=132)
+            .map(|day| {
+                (
+                    day,
+                    Expected::Period {
+                        day: Some(day - 127),
+                    },
+                )
+            })
+            .collect();
+        expected.extend(sensitive_days(151, 155));
+        expected.extend(predicted(156, 160));
+        assert_eq!(ahead(&two_cycles(), 130, 5), expected);
+    }
+
+    #[test]
+    fn late_the_coming_days_may_be_the_period() {
+        let periods = two_cycles();
+        // Two days past 156 with no mark: today and the 4 after, day unknown.
+        let maybe: Vec<(i64, Expected)> = (158..=162)
+            .map(|day| (day, Expected::Period { day: None }))
+            .collect();
+        assert_eq!(ahead(&periods, 158, 5), maybe);
+        assert_eq!(late_by(&status(&periods, 158, 5)), Some(2));
+        assert_eq!(late_by(&status(&periods, 156, 5)), None);
+        assert_eq!(late_by(&status(&periods, 140, 5)), None);
+        assert_eq!(late_by(&status(&[], 140, 5)), None);
+    }
+
+    #[test]
+    fn ahead_without_marks_is_empty_and_never_repeats_a_day() {
+        assert!(ahead(&[], 140, 5).is_empty());
+        // Short cycle (15), long period (10) and window (10): the window
+        // would start inside the period going on, and starts after it.
+        let tight = [
+            Period {
+                first: 100,
+                days: 10,
+            },
+            Period {
+                first: 115,
+                days: 10,
+            },
+        ];
+        let days: Vec<i64> = ahead(&tight, 116, 10).iter().map(|(day, _)| *day).collect();
+        assert_eq!(days, (116..=139).collect::<Vec<i64>>());
+        assert_eq!(ahead(&tight, 116, 10)[9], (125, Expected::Sensitive));
+    }
+
+    #[test]
+    fn an_event_takes_the_first_expected_day_it_falls_on() {
+        let days = ahead(&two_cycles(), 140, 5);
+        let hour = 3600;
+        let at = |day: i64, hours: i64| day * DAY + hours * hour - BRT;
+        // A meeting on 153, 14h to 15h.
+        assert_eq!(
+            overlaps(at(153, 14), at(153, 15), BRT, &days),
+            Some((153, Expected::Sensitive))
+        );
+        // An all-day trip from 150 to 157: its first expected day is 151.
+        let trip = mark(150, 8);
+        assert_eq!(
+            overlaps(trip.start, trip.end, BRT, &days),
+            Some((151, Expected::Sensitive))
+        );
+        // Past midnight, from 160 22h to 161 2h: the 5th day.
+        assert_eq!(
+            overlaps(at(160, 22), at(161, 2), BRT, &days),
+            Some((160, Expected::Period { day: Some(5) }))
+        );
+        // The end is exclusive: 150 23h to 151 0h stays on 150.
+        assert_eq!(overlaps(at(150, 23), at(151, 0), BRT, &days), None);
+        // Nothing expected that day.
+        assert_eq!(overlaps(at(141, 9), at(141, 10), BRT, &days), None);
     }
 }

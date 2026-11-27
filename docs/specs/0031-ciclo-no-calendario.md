@@ -27,10 +27,11 @@ Esta spec vem do [estudo 0003](../estudos/0003-ciclo-no-calendario.md) e substit
 2. **Visibilidade:**
    - no **painel**, tudo;
    - no **cartão** (o mouse em cima), só um ponto colorido ao lado dos eventos que caem em dia previsto, sem palavra;
-   - no **tile**, nada além do selo de aviso.
+   - no **tile**, o selo de aviso e, durante a fase, um ponto fixo (item 6).
 3. **Horizonte do cruzamento:** de hoje até o fim da próxima menstruação prevista.
 4. **Avisos:** vão para o Calendário. São o selo e o balanço às 9h no início da TPM, na véspera e no dia, mais os lembretes livres e a opção "Também no Windows".
 5. **Ela não marca mais nada.** O 2º símbolo para a TPM foi descartado.
+6. **Ponto fixo durante a fase** (decisão do mesmo dia). No widget Ciclo, o aviso só existe em três dias, e o selo some ao abrir o painel e não volta. Nos outros dias da TPM e da menstruação, o dock não mostra nada. No Calendário, um ponto discreto fica no tile durante toda a fase.
 
 ## 3. Como fica
 
@@ -49,14 +50,14 @@ Esta spec vem do [estudo 0003](../estudos/0003-ciclo-no-calendario.md) e substit
 
 São regras puras, com testes antes do código.
 
-- **Dias previstos:** `ahead(status, averages, sensitive, today) -> Vec<(dia, Fase)>`. Cobre de hoje até o fim da próxima menstruação prevista.
-  - **Fase:** `Tpm` ou `Menstruacao { dia }`.
+- **Dias previstos:** `ahead(periods, today, sensitive) -> Vec<(dia, Expected)>`. Cobre de hoje até o fim da próxima menstruação prevista.
+  - **`Expected`:** `Sensitive` (TPM) ou `Period { day }`, com `day` vazio quando é só uma menstruação possível.
   - **Se ela está menstruada hoje,** os dias que faltam dessa menstruação entram antes.
 - **Atraso:**
-  - Passada a data prevista sem marca nova, `status` diz `Late { days }`.
+  - Passada a data prevista sem marca nova, `late_by(status)` diz quantos dias de atraso. O `status` não ganhou uma fase nova: ele já conta os dias negativos, e uma fase nova mudaria o widget Ciclo antes da hora.
   - Durante o atraso, `ahead` trata hoje e os próximos `período médio − 1` dias como menstruação possível, com `dia` desconhecido.
   - A spec 0017 não tinha aviso de atraso, e continua sem ter.
-- **Coincidência:** `overlaps(evento, dias) -> Option<Fase>` diz a fase do primeiro dia previsto em que o evento cai.
+- **Coincidência:** `overlaps(início, fim, offset, dias) -> Option<(dia, Expected)>` diz o primeiro dia previsto em que o evento cai, e o que ele é.
   - Vale para evento com hora e para evento de dia inteiro de vários dias.
   - O fim de um evento de dia inteiro é exclusivo, como no Google.
 
@@ -92,7 +93,10 @@ As médias de ciclo e de duração saem do painel. O rodapé "Lido dos eventos �
   - um ponto na cor do Ciclo (`Glaze::CYCLE`) à direita da hora de cada evento que cai em dia previsto, sem texto;
   - vale para o período que o cartão já mostra;
   - a árvore de UI Automation não ganha nome novo para o ponto.
-- **Tile:** o selo e o balanço às 9h nos dias de aviso, como o Ciclo fazia (F2b-3). O selo some ao abrir o painel.
+- **Tile:**
+  - o selo e o balanço às 9h nos dias de aviso, como o Ciclo fazia (F2b-3). O selo some ao abrir o painel;
+  - **durante toda a TPM e toda a menstruação** (inclusive a possível, no atraso), um ponto fixo na cor do Ciclo, sem palavra, num canto do tile. Abrir o painel não o apaga: ele some quando a fase acaba. O selo, quando houver, fica por cima dele;
+  - a regra de quando o ponto aparece vem de `ahead`: hoje é um dia previsto.
 - **O que sai:** o anel e o número de dias.
 
 ### 3.6 O que sai do app
@@ -126,11 +130,11 @@ Os testes cobrem os cinco casos acima.
 
 Cada recorte é um PR com o teste escrito antes do código. A descrição do PR diz qual teste falhava antes. Os recortes de interface medem a memória do dock antes e depois.
 
-1. **Domínio:** `ahead`, `Late` e `overlaps` em `domain/cycle.rs`, com os testes puros. Nada muda na tela.
+1. **Domínio:** `ahead`, `late_by` e `overlaps` em `domain/cycle.rs`, com os testes puros. Nada muda na tela.
 2. **Config e migração:** o `cycle` no `CalendarConfig`, a migração do §3.7, as fixtures e a seção Ciclo nos ajustes do Calendário. O widget Ciclo some do catálogo.
 3. **Leitura e painel:** o horizonte em `windows/calendar.rs`, `notify` pelos Calendários e a seção Ciclo no `CalendarPanel`.
 4. **Cartão, tile e limpeza:**
-   - o ponto no cartão e o selo no tile do Calendário;
+   - o ponto no cartão, o ponto fixo e o selo no tile do Calendário;
    - a remoção do código do widget Ciclo;
    - os docs: spec 0017 §6c (apontando para esta), o [guia do Atalho](../guia-atalho-ciclo.md), as [limitações](../limitacoes.md) e o [roadmap](../roadmap.md).
 
