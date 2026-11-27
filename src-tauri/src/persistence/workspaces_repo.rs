@@ -491,7 +491,7 @@ pub fn forget_item(conn: &mut Connection, key: &str) -> Result<(), WorkspaceErro
 }
 
 /// `forget_item` within the transaction `tx`.
-fn forget_in(tx: &Transaction<'_>, key: &str) -> Result<(), WorkspaceError> {
+pub(super) fn forget_in(tx: &Transaction<'_>, key: &str) -> Result<(), WorkspaceError> {
     let holders: Vec<String> = {
         let mut statement = tx
             .prepare("SELECT workspace_id FROM workspace_items WHERE item_key = ?1")

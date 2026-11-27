@@ -78,7 +78,6 @@ const GLYPHS: Readonly<Record<CreatableKind, readonly string[]>> = {
   activity: ["M7 19V11M12 19V5M17 19v-5"],
   network: ["M8.5 4.5v15M4.5 15.5l4 4 4-4M15.5 19.5v-15M11.5 8.5l4-4 4 4"],
   calendar: ["M5 6.5h14v13H5zM5 10.5h14M9 4v4M15 4v4"],
-  cycle: ["M3.5 12a8.5 8.5 0 1 0 17 0a8.5 8.5 0 1 0 -17 0"],
   pomodoro: ["M5 13.5a7 7 0 1 0 14 0a7 7 0 1 0 -14 0M12 13.5V10M10 3.5h4"],
   todo: ["M4.5 7l1.5 1.5 3-3M4.5 14l1.5 1.5 3-3M12 7.5h7.5M12 14.5h7.5"],
   water: ["M12 3.5c3 4 5.5 7 5.5 10a5.5 5.5 0 0 1 -11 0c0 -3 2.5 -6 5.5 -10z"],

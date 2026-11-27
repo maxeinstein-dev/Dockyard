@@ -120,11 +120,10 @@ Roda uma vez, com o backup que o banco já faz antes de migrar. Para cada instâ
 4. **Um Calendário que já recebeu um ciclo não recebe outro.** O segundo Ciclo segue o passo 3, e o caso fica registrado no log.
 5. **Um Ciclo que está em mais de um espaço** (a mesma instância, spec 0023) também segue o passo 3. Assim ele não aparece por um Calendário que só um dos espaços tinha.
 
-O caminho fica para o recorte 2 decidir:
-- uma migração SQL (a 7ª, com as funções JSON do SQLite);
-- ou um passo em Rust logo depois das migrações, marcado em `meta`.
-
-Os testes cobrem os cinco casos acima.
+**Como foi feito (recorte 2):** um passo em Rust logo depois das migrações, ao abrir o banco, numa transação só e marcado em `meta` (`cycle_into_calendar`).
+- O plano é puro (`domain/cycle_into_calendar.rs`), e quem o aplica é `persistence/cycle_into_calendar.rs`.
+- Se algo falhar, nada muda, e a próxima abertura tenta de novo.
+- Os testes cobrem os cinco casos acima. No banco, cobrem também a pilha desfeita e a migração que roda uma vez só.
 
 ## 4. Recortes
 
@@ -132,10 +131,12 @@ Cada recorte é um PR com o teste escrito antes do código. A descrição do PR 
 
 1. **Domínio:** `ahead`, `late_by` e `overlaps` em `domain/cycle.rs`, com os testes puros. Nada muda na tela.
 2. **Config e migração:** o `cycle` no `CalendarConfig`, a migração do §3.7, as fixtures e a seção Ciclo nos ajustes do Calendário. O widget Ciclo some do catálogo.
+   - Como os tipos do front só aceitam widgets criáveis, o painel, o tile e os ajustes próprios do Ciclo saíram já neste recorte. Os campos dos ajustes viraram o `CycleFields`, usado pelo Calendário.
+   - Os avisos (o selo e o balanço) já passam a valer para o Calendário com o ciclo ligado, para não pararem entre os recortes.
 3. **Leitura e painel:** o horizonte em `windows/calendar.rs`, `notify` pelos Calendários e a seção Ciclo no `CalendarPanel`.
 4. **Cartão, tile e limpeza:**
    - o ponto no cartão, o ponto fixo e o selo no tile do Calendário;
-   - a remoção do código do widget Ciclo;
+   - a remoção do que sobrar do widget Ciclo (`faces::cycle`, o esmalte `.t-cycle` e o `WidgetKind::Cycle` depois que a migração tiver rodado);
    - os docs: spec 0017 §6c (apontando para esta), o [guia do Atalho](../guia-atalho-ciclo.md), as [limitações](../limitacoes.md) e o [roadmap](../roadmap.md).
 
 ## 5. Verificação

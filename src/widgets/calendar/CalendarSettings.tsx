@@ -1,19 +1,25 @@
 import { useCalendar } from "../../core/calendar";
-import { CALENDAR_WIDTHS, CARD_PERIODS } from "../../core/widgets";
+import {
+  CALENDAR_WIDTHS,
+  CARD_PERIODS,
+  DEFAULT_CYCLE,
+} from "../../core/widgets";
 import { useT } from "../../i18n";
 import OptionGroup from "../../panel/OptionGroup";
 import PanelFooter from "../../panel/PanelFooter";
 import PanelHeader from "../../panel/parts/PanelHeader";
 import RemoveButton from "../../panel/parts/RemoveButton";
 import TextField from "../../panel/parts/TextField";
+import ToggleField from "../../panel/parts/ToggleField";
 import type { WidgetSettingsProps } from "../contract";
+import CycleFields from "../cycle/CycleFields";
 import { WidthGroup } from "../system/parts";
 import { useSystemSettings } from "../system/useSettings";
 import "./calendar.css";
 
 /** The "Ajustes" view of a Calendário panel: label, width, the calendars
- * it shows (every one of the accounts, unchecked to hide) and "Remover do
- * dock". Each change is saved at once. */
+ * it shows (every one of the accounts, unchecked to hide), the Ciclo
+ * (spec 0031) and "Remover do dock". Each change is saved at once. */
 function CalendarSettings({
   instance,
   onUpdate,
@@ -36,70 +42,94 @@ function CalendarSettings({
   return (
     <>
       <PanelHeader title={text.settingsTitle} onBack={onBack} focusAction />
-      <TextField
-        label={t.widgets.common.label}
-        placeholder={t.widgets.kinds.calendar}
-        value={settings.labelDraft}
-        invalid={settings.error === "invalidLabel"}
-        onChange={settings.setLabelDraft}
-        onCommit={settings.commitLabel}
-      />
-      <WidthGroup
-        width={config.width}
-        widths={CALENDAR_WIDTHS}
-        onSelect={(width) => settings.saveConfig({ width })}
-      />
-      <OptionGroup
-        label={text.showTasks}
-        options={[
-          { value: "show", label: text.showTasksOptions.show },
-          { value: "hide", label: text.showTasksOptions.hide },
-        ]}
-        selected={config.tasks ? "show" : "hide"}
-        onSelect={(value) => settings.saveConfig({ tasks: value === "show" })}
-      />
-      <OptionGroup
-        label={text.cardContent}
-        options={[
-          { value: "both", label: text.cardContents.both },
-          { value: "meetings", label: text.cardContents.meetings },
-        ]}
-        selected={config.cardTasks ? "both" : "meetings"}
-        onSelect={(value) =>
-          settings.saveConfig({ cardTasks: value === "both" })
-        }
-      />
-      <OptionGroup
-        label={text.cardPeriod}
-        options={CARD_PERIODS.map((value) => ({
-          value,
-          label: text.cardPeriods[value],
-        }))}
-        selected={config.cardPeriod}
-        onSelect={(cardPeriod) => settings.saveConfig({ cardPeriod })}
-      />
-      <p className="sys-hint">{text.cardHint}</p>
-      <fieldset className="cal-sources">
-        <legend>{text.calendars}</legend>
-        {sources.length === 0 ? (
-          <p className="sys-hint">{text.noCalendars}</p>
-        ) : (
-          <>
-            {sources.map((source) => (
-              <label key={source.id} className="cal-source">
-                <input
-                  type="checkbox"
-                  checked={!config.hidden.includes(source.id)}
-                  onChange={(event) => toggle(source.id, event.target.checked)}
-                />
-                <span className="cal-source-name">{source.name}</span>
-                <span className="cal-source-account">{source.account}</span>
-              </label>
-            ))}
-            <p className="sys-hint">{text.calendarsHint}</p>
-          </>
-        )}
-      </fieldset>
+      {/* The fields scroll: with the Ciclo's they outgrow the screen. */}
+      <div className="cal-scroll">
+        <TextField
+          label={t.widgets.common.label}
+          placeholder={t.widgets.kinds.calendar}
+          value={settings.labelDraft}
+          invalid={settings.error === "invalidLabel"}
+          onChange={settings.setLabelDraft}
+          onCommit={settings.commitLabel}
+        />
+        <WidthGroup
+          width={config.width}
+          widths={CALENDAR_WIDTHS}
+          onSelect={(width) => settings.saveConfig({ width })}
+        />
+        <OptionGroup
+          label={text.showTasks}
+          options={[
+            { value: "show", label: text.showTasksOptions.show },
+            { value: "hide", label: text.showTasksOptions.hide },
+          ]}
+          selected={config.tasks ? "show" : "hide"}
+          onSelect={(value) => settings.saveConfig({ tasks: value === "show" })}
+        />
+        <OptionGroup
+          label={text.cardContent}
+          options={[
+            { value: "both", label: text.cardContents.both },
+            { value: "meetings", label: text.cardContents.meetings },
+          ]}
+          selected={config.cardTasks ? "both" : "meetings"}
+          onSelect={(value) =>
+            settings.saveConfig({ cardTasks: value === "both" })
+          }
+        />
+        <OptionGroup
+          label={text.cardPeriod}
+          options={CARD_PERIODS.map((value) => ({
+            value,
+            label: text.cardPeriods[value],
+          }))}
+          selected={config.cardPeriod}
+          onSelect={(cardPeriod) => settings.saveConfig({ cardPeriod })}
+        />
+        <p className="sys-hint">{text.cardHint}</p>
+        <fieldset className="cal-sources">
+          <legend>{text.calendars}</legend>
+          {sources.length === 0 ? (
+            <p className="sys-hint">{text.noCalendars}</p>
+          ) : (
+            <>
+              {sources.map((source) => (
+                <label key={source.id} className="cal-source">
+                  <input
+                    type="checkbox"
+                    checked={!config.hidden.includes(source.id)}
+                    onChange={(event) =>
+                      toggle(source.id, event.target.checked)
+                    }
+                  />
+                  <span className="cal-source-name">{source.name}</span>
+                  <span className="cal-source-account">{source.account}</span>
+                </label>
+              ))}
+              <p className="sys-hint">{text.calendarsHint}</p>
+            </>
+          )}
+        </fieldset>
+        <fieldset className="cal-cycle">
+          <legend>{text.cycle.title}</legend>
+          <ToggleField
+            label={text.cycle.show}
+            hint={text.cycle.hint}
+            checked={config.cycle !== null}
+            onChange={(on) =>
+              settings.saveConfig({ cycle: on ? DEFAULT_CYCLE : null })
+            }
+          />
+          {config.cycle !== null ? (
+            <CycleFields
+              widget={instance.id}
+              config={config.cycle}
+              invalid={settings.error === "invalidCycle"}
+              onChange={(cycle) => settings.saveConfig({ cycle })}
+            />
+          ) : null}
+        </fieldset>
+      </div>
       <RemoveButton
         onClick={() => void settings.remove()}
         disabled={settings.removing}

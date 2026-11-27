@@ -120,7 +120,15 @@ impl Storage {
     /// `dir`, the app data folder, creating the folder if it is missing.
     /// Never fails; see the module docs.
     pub fn open(dir: &Path) -> Storage {
-        open_with(dir, MIGRATIONS)
+        let mut storage = open_with(dir, MIGRATIONS);
+        // The Ciclo became a part of the Calendário (spec 0031 §3.7). A
+        // failure leaves everything as it was, for the next start.
+        if let Some(conn) = storage.conn.as_mut()
+            && let Err(error) = super::cycle_into_calendar::run(conn)
+        {
+            log::warn!("cycle: the Ciclos were not moved: {error}");
+        }
+        storage
     }
 
     /// A storage that can't be used in this run, for when there is not even
@@ -1374,10 +1382,15 @@ CREATE TRIGGER refuse_seed BEFORE INSERT ON widget_instances          BEGIN SELE
             .unwrap();
         assert_eq!(note_id, seeded[2].id.as_str());
         assert_eq!(body, "");
-        let meta: i64 = conn
-            .query_row("SELECT count(*) FROM meta", [], |row| row.get(0))
-            .unwrap();
-        assert_eq!(meta, 0);
+        // Only the mark that there are no Ciclos to move (spec 0031).
+        let meta: Vec<String> = conn
+            .prepare("SELECT key FROM meta")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        assert_eq!(meta, ["cycle_into_calendar"]);
         drop(storage);
         assert_eq!(user_version(&db_path(&dir)), CURRENT);
     }

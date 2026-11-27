@@ -83,10 +83,11 @@ export const WIDGET_KINDS = [
 ] as const;
 
 /** The kinds `add_widget` accepts. */
-export type CreatableKind = Exclude<WidgetKind, "shortcut">;
+export type CreatableKind = Exclude<WidgetKind, "shortcut" | "cycle">;
 
 /** The kinds `add_widget` accepts, in the order of the add buttons;
- * Shortcut exists only in the domain. Must match `WidgetKind::creatable`. */
+ * Shortcut exists only in the domain, and the Ciclo is a part of the
+ * Calendário (spec 0031). Must match `WidgetKind::creatable`. */
 export const CREATABLE_KINDS: readonly CreatableKind[] = [
   "clock",
   "time-progress",
@@ -94,7 +95,6 @@ export const CREATABLE_KINDS: readonly CreatableKind[] = [
   "activity",
   "network",
   "calendar",
-  "cycle",
   "countdown",
   "pomodoro",
   "todo",
@@ -247,6 +247,8 @@ export interface CalendarConfig {
    * the day's tasks under the meetings. */
   cardPeriod: CardPeriod;
   cardTasks: boolean;
+  /** The Ciclo inside the Calendário (spec 0031); null while it is off. */
+  cycle: CycleConfig | null;
 }
 
 /** The Ciclo (spec 0017 F2b): the symbol of the marks in her calendar, the
@@ -261,6 +263,15 @@ export interface CycleConfig {
   /** The author's own reminders (F2b-2). */
   reminders: CycleReminder[];
 }
+
+/** A new cycle's settings: `CycleConfig::default()` in Rust. */
+export const DEFAULT_CYCLE: CycleConfig = {
+  symbol: "🌸",
+  calendar: null,
+  sensitive: 5,
+  notices: { sensitive: true, eve: true, day: true, windows: false },
+  reminders: [],
+};
 
 /** The sensitive windows the settings offer, in days. */
 export const CYCLE_WINDOWS = [3, 4, 5, 6, 7] as const;

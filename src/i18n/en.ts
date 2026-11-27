@@ -730,7 +730,6 @@ export const en: Messages = {
       activity: "Activity",
       network: "Network",
       calendar: "Calendar",
-      cycle: "Cycle",
       countdown: "Countdown",
       pomodoro: "Pomodoro",
       todo: "To-do list",
@@ -887,7 +886,6 @@ export const en: Messages = {
         time: "Time",
         productivity: "Productivity",
         media: "Media",
-        personal: "Personal",
       },
       descriptions: {
         clock: "The time on the icon, digital or analog, in any time zone.",
@@ -897,8 +895,6 @@ export const en: Messages = {
         activity: "Processor and memory as bars, rings or numbers.",
         network: "Download and upload right now, with the last minute's graph.",
         calendar: "Your next Google Calendar meetings, with one-click Join.",
-        cycle:
-          "Tracks a cycle marked in your calendar, discreetly in the dock.",
         todo: "Tasks you can check off; the dock shows how many are left.",
         water: "The day's glasses against a goal, with an optional reminder.",
         claude:
@@ -950,6 +946,11 @@ export const en: Messages = {
       calendars: "Calendars shown",
       calendarsHint: "A new calendar shows up on its own; uncheck to hide it.",
       noCalendars: "The calendars appear here after the first reading.",
+      cycle: {
+        title: "Cycle",
+        show: "Show the cycle in the Calendar",
+        hint: "Reads the all-day events with the marks' symbol. On the dock, only a dot and the notices' badge.",
+      },
       footer: "Updates every minute",
       tasks: "Tasks",
       late: "overdue",

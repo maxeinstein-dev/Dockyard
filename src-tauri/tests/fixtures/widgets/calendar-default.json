@@ -8,6 +8,7 @@
     "tasks": true,
     "taskOrder": [],
     "cardPeriod": "auto",
-    "cardTasks": true
+    "cardTasks": true,
+    "cycle": null
   }
 }

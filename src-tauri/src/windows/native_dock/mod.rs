@@ -1134,6 +1134,14 @@ impl Dock {
                             return super::calendar::pending(widget.id.as_str())
                                 .then_some(Badge::Dot);
                         }
+                        // The same notice on a Calendário with the cycle on
+                        // (spec 0031); without one, its badges as before.
+                        WidgetConfig::Calendar(ref config)
+                            if config.cycle.is_some()
+                                && super::calendar::pending(widget.id.as_str()) =>
+                        {
+                            return Some(Badge::Dot);
+                        }
                         // A stage of the Pomodoro ended (F2c-2).
                         WidgetConfig::Pomodoro(_) => {
                             return super::pomodoro::pending(widget.id.as_str())
@@ -1261,11 +1269,12 @@ impl Dock {
             .items
             .iter()
             .filter_map(Item::widget)
-            .filter_map(|widget| match &widget.config {
-                WidgetConfig::Cycle(config) => {
-                    Some((widget.id.as_str().to_owned(), config.clone()))
-                }
-                _ => None,
+            // A Ciclo, or a Calendário with the cycle on (spec 0031).
+            .filter_map(|widget| {
+                widget
+                    .config
+                    .cycle()
+                    .map(|config| (widget.id.as_str().to_owned(), config.clone()))
             })
             .collect();
         super::calendar::want(self.hwnd.0 as isize, calendar, cycles);

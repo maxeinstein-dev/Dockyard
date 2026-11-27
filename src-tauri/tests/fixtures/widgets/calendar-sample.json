@@ -13,6 +13,24 @@
       "Ferro"
     ],
     "cardPeriod": "week",
-    "cardTasks": false
+    "cardTasks": false,
+    "cycle": {
+      "symbol": "🌸",
+      "calendar": "noiva@example.com",
+      "sensitive": 4,
+      "notices": {
+        "sensitive": true,
+        "eve": true,
+        "day": false,
+        "windows": false
+      },
+      "reminders": [
+        {
+          "text": "Paciência",
+          "anchor": "period",
+          "days": 1
+        }
+      ]
+    }
   }
 }
