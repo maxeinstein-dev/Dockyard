@@ -36,12 +36,14 @@ pub const REOPEN_TIMEOUT: Duration = Duration::from_secs(1);
 /// is shown anyway, with the last known size.
 pub const READY_TIMEOUT: Duration = Duration::from_millis(400);
 
-/// How long a panel waits for a window that is being made, and for its page
-/// to mount, before it gives up on it (`Action::Fallback`). A cold start of
-/// WebView2 takes 400-700 ms (spec 0011 §2), but the first one after an
-/// update took over 4 s on the author's machine (2026-11-04); a window that
-/// fails to be made gives up at once (`window_failed`), so this only bounds
-/// a window that never answers.
+/// How long a panel waits for a window that is being made before it gives
+/// up on it (`Action::Fallback`). A cold start of WebView2 takes 400-700 ms
+/// (spec 0011 §2), but the first one after an update took over 4 s on the
+/// author's machine (2026-11-04); a window that fails to be made gives up at
+/// once (`window_failed`), so this only bounds a window that never comes.
+/// A window that is there but whose page mounts later than this keeps the
+/// panel waiting (`Page::Coming`): giving up on it showed "could not open"
+/// on the first click after the window was released (2026-11-27).
 pub const MOUNT_TIMEOUT: Duration = Duration::from_secs(20);
 
 /// Largest panel window side accepted from the page, in logical pixels.
@@ -700,14 +702,20 @@ impl PanelState {
 
     /// `READY_TIMEOUT` passed since `Prepare(_, wait)`, or `MOUNT_TIMEOUT`
     /// for a window that was not up yet. Reveals the panel with the last
-    /// geometry its page reported, if it is still waiting; when its page is
-    /// not up (`page_up`), closes it instead, for the `Fallback`.
-    pub fn time_out(&mut self, wait: u64, page_up: bool) -> Action {
+    /// geometry its page reported, if it is still waiting; when its window
+    /// is missing, closes it instead, for the `Fallback`.
+    pub fn time_out(&mut self, wait: u64, page: Page) -> Action {
         if self.waiting != Some(wait) {
             return Action::Nothing;
         }
+        if page == Page::Coming {
+            // The window is there, or on its way, and only its page is
+            // late: the panel keeps waiting, and the page takes the show
+            // when it mounts (`page_mounted`). A second click cancels it.
+            return Action::Nothing;
+        }
         self.waiting = None;
-        if !page_up {
+        if page == Page::Missing {
             return match self.open.take() {
                 Some(open) => Action::Fallback(open.panel.id()),
                 None => Action::Nothing,
@@ -735,6 +743,17 @@ impl PanelState {
     pub fn open(&self) -> Option<PanelId> {
         self.open.as_ref().map(|open| open.panel.id())
     }
+}
+
+/// Where the panel's page stands when a wait for it times out.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Page {
+    /// Mounted: it listens for `panel-show`.
+    Up,
+    /// The window is made, or being made, but its page has not mounted yet.
+    Coming,
+    /// No window, and none being made.
+    Missing,
 }
 
 /// `{ "panelId": <id>, "wait": <n> }`: the payload of `panel-show`. The
@@ -829,6 +848,7 @@ pub fn close_for_move(app: &AppHandle) {
 pub fn apply(app: &AppHandle, action: Action) -> Result<(), Box<dyn Error>> {
     if let Action::Fallback(id) = action {
         notify_dock(app, None);
+        super::panel_window::cancel();
         fallback(id);
         return Ok(());
     }
@@ -847,6 +867,9 @@ pub fn apply(app: &AppHandle, action: Action) -> Result<(), Box<dyn Error>> {
             }
             Action::Hide => {
                 notify_dock(app, None);
+                // Closed before its page mounted: the page has nothing to
+                // show, and the window may be released.
+                super::panel_window::cancel();
                 super::panel_window::touch(app);
             }
             Action::Reveal { .. } => return Err("panel window is not ready".into()),
@@ -942,7 +965,7 @@ fn schedule_time_out(app: &AppHandle, wait: u64) -> Result<(), Box<dyn Error>> {
             // On the main thread, in order with the commands and the window
             // events.
             let scheduled = app.run_on_main_thread(move || {
-                let action = lock(&handle).time_out(wait, true);
+                let action = lock(&handle).time_out(wait, Page::Up);
                 if action != Action::Nothing {
                     log::debug!("panel: no ready signal in time, showing the last known size");
                 }
@@ -967,8 +990,8 @@ fn schedule_mount_time_out(app: &AppHandle, wait: u64) -> Result<(), Box<dyn Err
             thread::sleep(MOUNT_TIMEOUT);
             let handle = app.clone();
             let scheduled = app.run_on_main_thread(move || {
-                let page_up = super::panel_window::ready(&handle).is_some();
-                let action = lock(&handle).time_out(wait, page_up);
+                let page = super::panel_window::page(&handle);
+                let action = lock(&handle).time_out(wait, page);
                 if let Err(error) = reveal_or_close(&handle, action) {
                     log::warn!("panel: failed to show: {error}");
                 }
@@ -986,7 +1009,7 @@ pub fn window_failed(app: &AppHandle) {
     let action = {
         let mut state = lock(app);
         match state.waiting() {
-            Some(wait) => state.time_out(wait, false),
+            Some(wait) => state.time_out(wait, Page::Missing),
             None => Action::Nothing,
         }
     };
@@ -2309,7 +2332,7 @@ mod tests {
         );
         // About still waits, and still falls back on its own size.
         assert_eq!(
-            state.time_out(wait, true),
+            state.time_out(wait, Page::Up),
             Action::Reveal {
                 anchor: ANCHOR,
                 geometry: PanelGeometry::fallback(&Panel::About)
@@ -2364,7 +2387,7 @@ mod tests {
         let (_, wait) = prepared(state.toggle(Panel::Settings, ANCHOR, Instant::now()));
 
         assert_eq!(
-            state.time_out(wait, true),
+            state.time_out(wait, Page::Up),
             Action::Reveal {
                 anchor: ANCHOR,
                 geometry: PanelGeometry::fallback(&Panel::Settings)
@@ -2389,7 +2412,7 @@ mod tests {
         let (_, wait) = prepared(state.toggle(Panel::Settings, ANCHOR, at(t, 1000)));
 
         assert_eq!(
-            state.time_out(wait, true),
+            state.time_out(wait, Page::Up),
             Action::Reveal {
                 anchor: ANCHOR,
                 geometry: RENDERED
@@ -2403,15 +2426,15 @@ mod tests {
         let t = Instant::now();
         let (_, first) = prepared(state.toggle(Panel::Settings, ANCHOR, t));
         state.ready(PanelId::Settings, first, RENDERED);
-        assert_eq!(state.time_out(first, true), Action::Nothing);
+        assert_eq!(state.time_out(first, Page::Up), Action::Nothing);
 
         state.hide();
         let (_, second) = prepared(state.toggle(Panel::Settings, ANCHOR, at(t, 1000)));
         assert_ne!(first, second);
         // The first wait's timer fires late: the second wait is untouched.
-        assert_eq!(state.time_out(first, true), Action::Nothing);
+        assert_eq!(state.time_out(first, Page::Up), Action::Nothing);
         assert!(matches!(
-            state.time_out(second, true),
+            state.time_out(second, Page::Up),
             Action::Reveal { .. }
         ));
     }
@@ -2424,7 +2447,7 @@ mod tests {
             prepared(state.toggle(Panel::App { id: id.clone() }, ANCHOR, Instant::now()));
 
         assert_eq!(
-            state.time_out(wait, false),
+            state.time_out(wait, Page::Missing),
             Action::Fallback(PanelId::App(id.clone()))
         );
         // Closed: a late page shows nothing, and a click opens it again.
@@ -2439,18 +2462,44 @@ mod tests {
         ));
     }
 
+    /// The first click after the window was released: the window is made,
+    /// but its page mounts after `MOUNT_TIMEOUT` (seen on the author's
+    /// machine, 2026-11-27). The panel keeps waiting for it, without the
+    /// "could not open" message, and opens when the page answers.
+    #[test]
+    fn a_panel_whose_window_is_made_but_whose_page_is_late_keeps_waiting() {
+        let mut state = PanelState::default();
+        let id = WidgetId::new();
+        let panel = Panel::Widget {
+            id: id.clone(),
+            kind: WidgetKind::Clock,
+        };
+        let (_, wait) = prepared(state.toggle(panel, ANCHOR, Instant::now()));
+
+        assert_eq!(state.time_out(wait, Page::Coming), Action::Nothing);
+        assert_eq!(state.open(), Some(PanelId::Widget(id.clone())));
+        assert_eq!(state.waiting(), Some(wait));
+        assert_eq!(
+            state.ready(PanelId::Widget(id), wait, RENDERED),
+            Action::Reveal {
+                anchor: ANCHOR,
+                geometry: RENDERED
+            }
+        );
+    }
+
     #[test]
     fn a_panel_already_shown_or_closed_does_not_fall_back() {
         let mut state = PanelState::default();
         let t = Instant::now();
         let (_, wait) = prepared(state.toggle(Panel::About, ANCHOR, t));
         state.ready(PanelId::About, wait, RENDERED);
-        assert_eq!(state.time_out(wait, false), Action::Nothing);
+        assert_eq!(state.time_out(wait, Page::Missing), Action::Nothing);
         assert_eq!(state.open(), Some(PanelId::About));
 
         let (_, wait) = prepared(state.toggle(Panel::Settings, ANCHOR, at(t, 50)));
         state.hide();
-        assert_eq!(state.time_out(wait, false), Action::Nothing);
+        assert_eq!(state.time_out(wait, Page::Missing), Action::Nothing);
     }
 
     #[test]
@@ -2463,7 +2512,7 @@ mod tests {
             state.toggle(Panel::Settings, ANCHOR, at(t, 100)),
             Action::Hide
         );
-        assert_eq!(state.time_out(wait, true), Action::Nothing);
+        assert_eq!(state.time_out(wait, Page::Up), Action::Nothing);
         assert_eq!(
             state.ready(PanelId::Settings, wait, RENDERED),
             Action::Nothing
@@ -2480,9 +2529,9 @@ mod tests {
         let (id, second) = prepared(state.toggle(Panel::About, ANCHOR, at(t, 100)));
 
         assert_eq!(id, PanelId::About);
-        assert_eq!(state.time_out(first, true), Action::Nothing);
+        assert_eq!(state.time_out(first, Page::Up), Action::Nothing);
         assert!(matches!(
-            state.time_out(second, true),
+            state.time_out(second, Page::Up),
             Action::Reveal { .. }
         ));
     }
@@ -2510,7 +2559,7 @@ mod tests {
         let (_, wait) = prepared(state.toggle(Panel::About, ANCHOR, Instant::now()));
 
         assert_eq!(state.hide(), Action::Hide);
-        assert_eq!(state.time_out(wait, true), Action::Nothing);
+        assert_eq!(state.time_out(wait, Page::Up), Action::Nothing);
         assert_eq!(state.ready(PanelId::About, wait, RENDERED), Action::Nothing);
     }
 
@@ -2700,7 +2749,7 @@ mod tests {
         let (_, wait) = prepared(state.toggle(Panel::About, ANCHOR, t));
 
         assert_eq!(state.close_for_move(t), Action::Hide);
-        assert_eq!(state.time_out(wait, true), Action::Nothing);
+        assert_eq!(state.time_out(wait, Page::Up), Action::Nothing);
         assert_eq!(state.dock_settled(false, at(t, 50)), Some(PanelId::About));
     }
 
@@ -2927,7 +2976,7 @@ mod tests {
         let (_, wait) = prepared(state.toggle(note.clone(), ANCHOR, Instant::now()));
 
         assert_eq!(
-            state.time_out(wait, true),
+            state.time_out(wait, Page::Up),
             Action::Reveal {
                 anchor: ANCHOR,
                 geometry: PanelGeometry::fallback(&note)
@@ -2947,7 +2996,7 @@ mod tests {
         let other = widget(OTHER_WIDGET, WidgetKind::Clock);
         let (_, wait) = prepared(state.toggle(other.clone(), ANCHOR, at(t, 100)));
         assert_eq!(
-            state.time_out(wait, true),
+            state.time_out(wait, Page::Up),
             Action::Reveal {
                 anchor: ANCHOR,
                 geometry: PanelGeometry::fallback(&other)
@@ -2958,7 +3007,7 @@ mod tests {
         let (_, wait) =
             prepared(state.toggle(widget(WIDGET, WidgetKind::Clock), ANCHOR, at(t, 200)));
         assert_eq!(
-            state.time_out(wait, true),
+            state.time_out(wait, Page::Up),
             Action::Reveal {
                 anchor: ANCHOR,
                 geometry: RENDERED
