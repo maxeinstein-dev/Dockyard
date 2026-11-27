@@ -21,7 +21,6 @@ const WIDTHS: Readonly<Record<CreatableKind, number>> = {
   activity: 1,
   network: 2,
   calendar: 2,
-  cycle: 1,
   countdown: 1,
   pomodoro: 1,
   todo: 1,

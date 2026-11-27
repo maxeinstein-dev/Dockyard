@@ -157,7 +157,6 @@ impl WidgetKind {
             | WidgetKind::Activity
             | WidgetKind::Network
             | WidgetKind::Calendar
-            | WidgetKind::Cycle
             | WidgetKind::Countdown
             | WidgetKind::Pomodoro
             | WidgetKind::Todo
@@ -170,7 +169,9 @@ impl WidgetKind {
             | WidgetKind::WorldClock
             | WidgetKind::Screenshots
             | WidgetKind::Files => true,
-            WidgetKind::Shortcut => false,
+            // The Ciclo is a part of the Calendário now (spec 0031): the
+            // ones there were moved into it.
+            WidgetKind::Shortcut | WidgetKind::Cycle => false,
         }
     }
 
@@ -441,6 +442,16 @@ impl WidgetConfig {
             | WidgetConfig::Screenshots(_) => {}
         }
         Some(config)
+    }
+
+    /// The cycle a widget follows: a Ciclo's, or a Calendário's with the
+    /// cycle on (spec 0031).
+    pub fn cycle(&self) -> Option<&CycleConfig> {
+        match self {
+            WidgetConfig::Cycle(config) => Some(config),
+            WidgetConfig::Calendar(config) => config.cycle.as_ref(),
+            _ => None,
+        }
     }
 
     /// The config a new instance of `kind` gets, and the one an instance
@@ -919,7 +930,7 @@ mod tests {
     }
 
     #[test]
-    fn only_shortcut_is_not_creatable() {
+    fn shortcut_and_cycle_are_not_creatable() {
         let creatable: Vec<_> = WidgetKind::ALL
             .into_iter()
             .filter(|kind| kind.creatable())
@@ -935,7 +946,6 @@ mod tests {
                 WidgetKind::Activity,
                 WidgetKind::Network,
                 WidgetKind::Calendar,
-                WidgetKind::Cycle,
                 WidgetKind::Countdown,
                 WidgetKind::Pomodoro,
                 WidgetKind::Todo,
@@ -949,6 +959,23 @@ mod tests {
                 WidgetKind::Screenshots
             ]
         );
+    }
+
+    #[test]
+    fn the_cycle_of_a_widget_is_a_ciclos_or_a_calendars_with_one() {
+        let cycle = CycleConfig {
+            sensitive: 4,
+            ..CycleConfig::default()
+        };
+        assert_eq!(WidgetConfig::Cycle(cycle.clone()).cycle(), Some(&cycle));
+        let with = WidgetConfig::Calendar(calendar::CalendarConfig {
+            cycle: Some(cycle.clone()),
+            ..calendar::CalendarConfig::default()
+        });
+        assert_eq!(with.cycle(), Some(&cycle));
+        let without = WidgetConfig::Calendar(calendar::CalendarConfig::default());
+        assert_eq!(without.cycle(), None);
+        assert_eq!(WidgetConfig::default_for(WidgetKind::Note).cycle(), None);
     }
 
     #[test]
@@ -1138,7 +1165,8 @@ mod tests {
                     "tasks": true,
                     "taskOrder": [],
                     "cardPeriod": "auto",
-                    "cardTasks": true
+                    "cardTasks": true,
+                    "cycle": null
                 }),
             ),
             (

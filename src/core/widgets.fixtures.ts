@@ -178,6 +178,7 @@ export const WIDGET_FIXTURES = {
       taskOrder: [],
       cardPeriod: "auto",
       cardTasks: true,
+      cycle: null,
     },
   } satisfies WidgetInstance<"calendar">,
 
@@ -192,6 +193,13 @@ export const WIDGET_FIXTURES = {
       taskOrder: ["Própolis", "Ferro"],
       cardPeriod: "week",
       cardTasks: false,
+      cycle: {
+        symbol: "🌸",
+        calendar: "noiva@example.com",
+        sensitive: 4,
+        notices: { sensitive: true, eve: true, day: false, windows: false },
+        reminders: [{ text: "Paciência", anchor: "period", days: 1 }],
+      },
     },
   } satisfies WidgetInstance<"calendar">,
 

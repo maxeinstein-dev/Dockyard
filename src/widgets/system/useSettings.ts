@@ -11,7 +11,6 @@ type SystemKind =
   | "activity"
   | "network"
   | "calendar"
-  | "cycle"
   | "countdown"
   | "pomodoro"
   | "todo"

@@ -18,12 +18,9 @@ import ClockPanel from "./clock/ClockPanel";
 import CountdownPanel from "./countdown/CountdownPanel";
 import CountdownSettings from "./countdown/CountdownSettings";
 import CountdownTile from "./countdown/CountdownTile";
-import CyclePanel from "./cycle/CyclePanel";
 import PomodoroPanel from "./pomodoro/PomodoroPanel";
 import PomodoroSettings from "./pomodoro/PomodoroSettings";
 import PomodoroTile from "./pomodoro/PomodoroTile";
-import CycleSettings from "./cycle/CycleSettings";
-import CycleTile from "./cycle/CycleTile";
 import MediaPanel from "./media/MediaPanel";
 import MediaSettings from "./media/MediaSettings";
 import MediaTile from "./media/MediaTile";
@@ -172,15 +169,6 @@ export const WIDGET_REGISTRY: {
     Panel: CalendarPanel,
     panelTick: MINUTE_MS,
     Settings: CalendarSettings,
-  },
-  cycle: {
-    kind: "cycle",
-    nameKey: "cycle",
-    glaze: "t-cycle",
-    Tile: CycleTile,
-    Panel: CyclePanel,
-    panelTick: null,
-    Settings: CycleSettings,
   },
   countdown: {
     kind: "countdown",

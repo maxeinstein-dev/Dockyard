@@ -885,7 +885,6 @@ const messages = {
       activity: "Atividade",
       network: "Rede",
       calendar: "Calendário",
-      cycle: "Ciclo",
       countdown: "Contagem regressiva",
       pomodoro: "Pomodoro",
       todo: "Lista de tarefas",
@@ -1091,7 +1090,6 @@ const messages = {
         time: "Tempo",
         productivity: "Produtividade",
         media: "Mídia",
-        personal: "Pessoal",
       },
       descriptions: {
         clock: "A hora no ícone, digital ou de ponteiros, em qualquer fuso.",
@@ -1101,7 +1099,6 @@ const messages = {
         network: "Download e upload agora, com o gráfico do último minuto.",
         calendar:
           "As próximas reuniões das suas agendas Google, com Entrar a um clique.",
-        cycle: "Acompanha um ciclo marcado na agenda, com discrição no dock.",
         todo: "Tarefas com marca de feita; o dock mostra quantas faltam.",
         water: "Os copos do dia contra uma meta, com lembrete opcional.",
         claude:
@@ -1165,6 +1162,11 @@ const messages = {
       calendarsHint:
         "Uma agenda nova aparece sozinha; desmarque para esconder.",
       noCalendars: "As agendas aparecem aqui depois da primeira leitura.",
+      cycle: {
+        title: "Ciclo",
+        show: "Mostrar o ciclo no Calendário",
+        hint: "Lê os eventos de dia inteiro com o símbolo das marcas. No dock, só um ponto e o selo dos avisos.",
+      },
       footer: "Atualiza a cada minuto",
       /** Google Tasks (F2a-3). */
       tasks: "Tarefas",

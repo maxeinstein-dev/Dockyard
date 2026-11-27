@@ -170,7 +170,8 @@ describe("widget commands and event", () => {
 });
 
 describe("widget contract constants", () => {
-  it("every kind but shortcut can be created", () => {
+  it("every kind but shortcut and cycle can be created", () => {
+    // The Ciclo is a part of the Calendário (spec 0031).
     expect(CREATABLE_KINDS).toEqual([
       "clock",
       "time-progress",
@@ -178,7 +179,6 @@ describe("widget contract constants", () => {
       "activity",
       "network",
       "calendar",
-      "cycle",
       "countdown",
       "pomodoro",
       "todo",

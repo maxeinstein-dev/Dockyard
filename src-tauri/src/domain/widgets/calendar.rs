@@ -56,6 +56,9 @@ pub struct CalendarConfig {
     /// whether it lists the day's tasks under the meetings.
     pub card_period: CardPeriod,
     pub card_tasks: bool,
+    /// The Ciclo inside the Calendário (spec 0031): `None` while it is off,
+    /// as in a config stored before it came in.
+    pub cycle: Option<super::CycleConfig>,
 }
 
 impl Default for CalendarConfig {
@@ -67,6 +70,7 @@ impl Default for CalendarConfig {
             task_order: Vec::new(),
             card_period: CardPeriod::Auto,
             card_tasks: true,
+            cycle: None,
         }
     }
 }
@@ -84,11 +88,12 @@ impl CalendarConfig {
                         && !text.chars().any(char::is_control)
                 })
         };
-        if fits(&self.hidden) && fits(&self.task_order) {
-            Ok(())
-        } else {
-            Err(WidgetError::InvalidCalendars)
+        if !(fits(&self.hidden) && fits(&self.task_order)) {
+            return Err(WidgetError::InvalidCalendars);
         }
+        self.cycle
+            .as_ref()
+            .map_or(Ok(()), super::CycleConfig::validate)
     }
 
     /// Whether the calendar `id` shows.
@@ -110,6 +115,7 @@ mod tests {
             task_order: vec!["🪴 Regar Mini Samambaia".into(), "😷 Própolis".into()],
             card_period: CardPeriod::Week,
             card_tasks: false,
+            cycle: None,
         };
         assert_eq!(config.validate(), Ok(()));
         assert!(!config.shows("pt-br.brazilian#holiday@group.v.calendar.google.com"));
@@ -137,5 +143,27 @@ mod tests {
             ..CalendarConfig::default()
         };
         assert_eq!(broken_order.validate(), Err(WidgetError::InvalidCalendars));
+    }
+
+    #[test]
+    fn the_cycle_is_off_by_default_and_checked_when_on() {
+        use crate::domain::widgets::CycleConfig;
+        assert_eq!(CalendarConfig::default().cycle, None);
+        // A config stored before the cycle came in reads with it off.
+        let stored: CalendarConfig = serde_json::from_str(r#"{"width":2}"#).unwrap();
+        assert_eq!(stored.cycle, None);
+        let on = CalendarConfig {
+            cycle: Some(CycleConfig::default()),
+            ..CalendarConfig::default()
+        };
+        assert_eq!(on.validate(), Ok(()));
+        let broken = CalendarConfig {
+            cycle: Some(CycleConfig {
+                symbol: " ".into(),
+                ..CycleConfig::default()
+            }),
+            ..CalendarConfig::default()
+        };
+        assert_eq!(broken.validate(), Err(WidgetError::InvalidCycle));
     }
 }

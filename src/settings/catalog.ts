@@ -1,7 +1,6 @@
 import type { CreatableKind } from "../core/widgets";
 
-export type Category =
-  "system" | "time" | "media" | "productivity" | "personal";
+export type Category = "system" | "time" | "media" | "productivity";
 
 /** The catalog's shelves, in order, with their kinds. */
 export const SHELVES: readonly {
@@ -28,7 +27,6 @@ export const SHELVES: readonly {
     kinds: ["todo", "note", "files", "water", "claude", "weather"],
   },
   { category: "media", kinds: ["media", "screenshots"] },
-  { category: "personal", kinds: ["cycle"] },
 ];
 
 /** Every kind of the catalog, in the order of its shelves: the search of

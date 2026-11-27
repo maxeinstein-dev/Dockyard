@@ -15,7 +15,6 @@ const INSTANCES = {
   activity: WIDGET_FIXTURES["activity-default"],
   network: WIDGET_FIXTURES["network-default"],
   calendar: WIDGET_FIXTURES["calendar-default"],
-  cycle: WIDGET_FIXTURES["cycle-default"],
   countdown: WIDGET_FIXTURES["countdown-default"],
   pomodoro: WIDGET_FIXTURES["pomodoro-default"],
   todo: WIDGET_FIXTURES["todo-default"],

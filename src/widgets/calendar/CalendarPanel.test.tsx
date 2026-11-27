@@ -52,6 +52,7 @@ function instance(hidden: string[] = []): WidgetInstance<"calendar"> {
       taskOrder: [],
       cardPeriod: "auto",
       cardTasks: true,
+      cycle: null,
     },
   };
 }
@@ -256,6 +257,7 @@ describe("CalendarPanel", () => {
             taskOrder: [],
             cardPeriod: "auto",
             cardTasks: true,
+            cycle: null,
           },
         }}
         now={new Date(NOW * 1000)}

@@ -4,6 +4,7 @@
 pub mod app_icons;
 pub mod apps_repo;
 pub mod bundled_packs;
+pub mod cycle_into_calendar;
 pub mod database;
 pub mod icon_packs;
 pub mod launcher_repo;

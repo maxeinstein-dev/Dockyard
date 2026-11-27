@@ -160,7 +160,8 @@
   border: 0;
 }
 
-.cal-sources legend {
+.cal-sources legend,
+.cal-cycle legend {
   margin-bottom: 4px;
   padding: 0;
   font-size: var(--fs-label);
@@ -230,4 +231,27 @@
   .cal-event {
     border: 1px solid ButtonText;
   }
+}
+
+/* The settings scroll: with the Ciclo's (spec 0031) they outgrow the
+   screen. */
+.cal-scroll {
+  display: grid;
+  gap: 14px;
+  max-height: 400px;
+  /* Room for the focus ring (2 px plus 1 px offset) and the scrollbar,
+     taken back from the card's padding so the fields keep their width. */
+  margin: -3px -11px -3px -3px;
+  padding: 3px 11px 3px 3px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--ink-2) 50%, transparent) transparent;
+}
+
+.cal-cycle {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }

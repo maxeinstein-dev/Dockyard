@@ -10,6 +10,7 @@ pub mod calendar;
 pub mod claude_usage;
 pub mod clipboard_write;
 pub mod cycle;
+pub mod cycle_into_calendar;
 pub mod dock_items;
 pub mod dock_layout;
 pub mod everything_ipc;
