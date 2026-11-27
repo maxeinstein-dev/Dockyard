@@ -59,6 +59,9 @@ pub enum Row {
         color: Option<String>,
         when: String,
         title: String,
+        /// It falls on a day the cycle expects (spec 0031 §3.5): a dot,
+        /// no word.
+        cycle: bool,
     },
     /// Nothing in the span.
     Free(String),
@@ -99,7 +102,8 @@ fn day_name(day: i64, today: i64, words: &Words) -> String {
 
 /// The card's rows: the events of `range` by day (the all-day ones first
 /// in each day), then, with `with_tasks`, the day's tasks in `tasks`'s
-/// order.
+/// order. An event on a day of `expected` carries the cycle's dot.
+#[allow(clippy::too_many_arguments)]
 pub fn rows(
     events: &[&Event],
     tasks: &[&Task],
@@ -108,6 +112,7 @@ pub fn rows(
     now: i64,
     offset: i64,
     words: &Words,
+    expected: &[(i64, super::cycle::Expected)],
 ) -> Vec<Row> {
     let (from, to) = range;
     let local_day = |at: i64| (at + offset).div_euclid(DAY);
@@ -152,6 +157,7 @@ pub fn rows(
             color: event.color.clone(),
             when,
             title,
+            cycle: super::cycle::overlaps(event.start, event.end, offset, expected).is_some(),
         });
     }
     if rows.is_empty() {
@@ -320,6 +326,7 @@ mod tests {
             MORNING,
             BRT,
             &words(),
+            &[],
         );
         let text: Vec<String> = rows
             .iter()
@@ -358,6 +365,7 @@ mod tests {
             MORNING,
             BRT,
             &words(),
+            &[],
         )
     }
 
@@ -394,5 +402,38 @@ mod tests {
         assert_eq!(hit(&rows, PAD + 1.0, 0.0), Some(0));
         assert_eq!(hit(&rows, PAD + 1.0, LINE), Some(1));
         assert_eq!(hit(&rows, 1.0, 0.0), None);
+    }
+
+    #[test]
+    fn an_event_on_an_expected_day_carries_the_dot() {
+        use crate::domain::cycle::Expected;
+        let events = [
+            event("Daily", MORNING + 3600, false),
+            event("Workout", MORNING + 21 * 3600, false),
+        ];
+        let refs: Vec<&Event> = events.iter().collect();
+        // Tomorrow is expected: the sensitive window.
+        let tomorrow = (MORNING + BRT).div_euclid(DAY) + 1;
+        let rows = rows(
+            &refs,
+            &[],
+            false,
+            range(CardPeriod::TwoDays, MORNING, BRT),
+            MORNING,
+            BRT,
+            &words(),
+            &[(tomorrow, Expected::Sensitive)],
+        );
+        let dots: Vec<(String, bool)> = rows
+            .iter()
+            .filter_map(|row| match row {
+                Row::Event { title, cycle, .. } => Some((title.clone(), *cycle)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            dots,
+            [("Daily".to_owned(), false), ("Workout".to_owned(), true)]
+        );
     }
 }

@@ -254,7 +254,8 @@ impl Glaze {
         s: 8.0,
         l: 21.0,
     };
-    /// Ardósia rosada: the Ciclo, discreet.
+    /// Ardósia rosada: the Ciclo, discreet; its hue is the Calendário's
+    /// dot while the cycle expects today (spec 0031).
     pub const CYCLE: Glaze = Glaze {
         h: 335.0,
         s: 18.0,

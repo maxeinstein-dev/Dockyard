@@ -5,7 +5,7 @@ Esta spec vem do [estudo 0003](../estudos/0003-ciclo-no-calendario.md) e substit
 - **C:** cruzar a previsão com a agenda;
 - **G:** levar o Ciclo para dentro do Calendário.
 
-**Status:** decidida em 2026-11-27. Nenhum código entrou ainda.
+**Status:** concluída. Foi decidida em 2026-11-27 e entrou em quatro recortes (PRs #204, #205, #207 e o do recorte 4), que saem juntos numa versão só.
 
 ## 1. Por que
 
@@ -71,6 +71,10 @@ São regras puras, com testes antes do código.
   - as agendas de feriados do Google (id com `#holiday@group.v.calendar.google.com`);
   - os próprios 🌸.
 - **O que fica em memória:** o horizonte, como as outras leituras, e nada vai para o disco. Sem internet, vale a última leitura.
+- **Todas as páginas** (recorte 4): o Google entrega no máximo 250 eventos por pedido e diz onde está a página seguinte (`nextPageToken`).
+  - Numa agenda cheia, os eventos mais distantes, que são os da próxima menstruação, ficariam de fora sem aviso.
+  - Por isso as três leituras (hoje e amanhã, o horizonte e as marcas) seguem as páginas até a última, com um teto de 20 páginas (5.000 eventos) por agenda (`calendar::all_pages`).
+  - Uma página que falha faz a leitura inteira falhar e vale a anterior, em vez de mostrar meia lista.
 - **Avisos:** `notify` passa a percorrer os Calendários com o ciclo ligado, em vez dos widgets Ciclo. As chaves de aviso já dados seguem as mesmas, para não repetir um aviso no dia da troca.
 
 ### 3.4 Painel do Calendário
@@ -90,12 +94,12 @@ As médias de ciclo e de duração saem do painel. O rodapé "Lido dos eventos �
 ### 3.5 Cartão e tile
 
 - **Cartão** (`windows/agenda.rs`):
-  - um ponto na cor do Ciclo (`Glaze::CYCLE`) à direita da hora de cada evento que cai em dia previsto, sem texto;
+  - um ponto no fim do bloco de cada evento que cai em dia previsto, sem texto. Ele fica na cor do texto do bloco, porque a cor do Ciclo sumiria em alguns blocos coloridos;
   - vale para o período que o cartão já mostra;
   - a árvore de UI Automation não ganha nome novo para o ponto.
 - **Tile:**
   - o selo e o balanço às 9h nos dias de aviso, como o Ciclo fazia (F2b-3). O selo some ao abrir o painel;
-  - **durante toda a TPM e toda a menstruação** (inclusive a possível, no atraso), um ponto fixo na cor do Ciclo, sem palavra, num canto do tile. Abrir o painel não o apaga: ele some quando a fase acaba. O selo, quando houver, fica por cima dele;
+  - **durante toda a TPM e toda a menstruação** (inclusive a possível, no atraso), um ponto fixo no tom do Ciclo, sem palavra, no canto de cima à esquerda do tile. O selo fica no canto da direita. Abrir o painel não apaga o ponto: ele some quando a fase acaba;
   - a regra de quando o ponto aparece vem de `ahead`: hoje é um dia previsto.
 - **O que sai:** o anel e o número de dias.
 
@@ -136,7 +140,9 @@ Cada recorte é um PR com o teste escrito antes do código. A descrição do PR 
 3. **Leitura e painel:** o horizonte em `windows/calendar.rs`, `notify` pelos Calendários e a seção Ciclo no `CalendarPanel`.
 4. **Cartão, tile e limpeza:**
    - o ponto no cartão, o ponto fixo e o selo no tile do Calendário;
-   - a remoção do que sobrar do widget Ciclo (`faces::cycle`, o esmalte `.t-cycle` e o `WidgetKind::Cycle` depois que a migração tiver rodado);
+   - a remoção do que sobrar do widget Ciclo: saíram `faces::cycle` e a fração do anel;
+   - ficam o `WidgetKind::Cycle`, porque a migração precisa ler os Ciclos guardados, e o esmalte `.t-cycle`/`Glaze::CYCLE`, cujo tom é o do ponto. Eles saem numa versão depois desta;
+   - a leitura de todas as páginas dos eventos (§3.3);
    - os docs: spec 0017 §6c (apontando para esta), o [guia do Atalho](../guia-atalho-ciclo.md), as [limitações](../limitacoes.md) e o [roadmap](../roadmap.md).
 
 ## 5. Verificação

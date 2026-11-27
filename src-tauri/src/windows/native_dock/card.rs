@@ -73,6 +73,11 @@ impl Dock {
                 tasks: words.calendar_tasks,
                 free: words.calendar_nothing,
             },
+            &config
+                .cycle
+                .as_ref()
+                .map(super::super::calendar::expected_days)
+                .unwrap_or_default(),
         );
         let rect = self.monitor.rect;
         super::super::agenda::show(super::super::agenda::Request {

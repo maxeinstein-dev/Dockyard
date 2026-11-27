@@ -361,10 +361,9 @@ fn read_cycle(symbols: &[String]) -> bool {
     let mut marks = Vec::new();
     for source in &sources {
         for symbol in symbols {
-            let url = events_url(source, now - CYCLE_BACK, now + 60 * 24 * 3600, Some(symbol));
-            match google::get_json::<EventsPage>(&source.account, &url) {
-                Ok(page) => marks.extend(
-                    calendar::read_marks(&page.items, symbol, offset)
+            match events(source, now - CYCLE_BACK, now + 60 * 24 * 3600, Some(symbol)) {
+                Ok(items) => marks.extend(
+                    calendar::read_marks(&items, symbol, offset)
                         .into_iter()
                         .map(|mark| (symbol.clone(), source.id.clone(), mark)),
                 ),
@@ -383,6 +382,38 @@ fn read_cycle(symbols: &[String]) -> bool {
         marks,
     });
     changed
+}
+
+/// The days the cycle of `config` expects from today (spec 0031 §3.2), from
+/// the marks read; none before the first reading.
+pub fn expected_days(config: &CycleConfig) -> Vec<(i64, crate::domain::cycle::Expected)> {
+    use crate::domain::cycle;
+    let offset = offset();
+    let today = cycle::day_of(now(), offset);
+    cycle_marks(config.symbol.trim(), |id| config.reads(id))
+        .map(|marks| {
+            cycle::ahead(
+                &cycle::periods(&marks, offset),
+                today,
+                i64::from(config.sensitive),
+            )
+        })
+        .unwrap_or_default()
+}
+
+/// Whether today is a day the cycle of `config` expects: the Calendário's
+/// dot (spec 0031 §3.5).
+pub fn in_phase(config: &CycleConfig) -> bool {
+    use crate::domain::cycle;
+    let offset = offset();
+    let today = cycle::day_of(now(), offset);
+    cycle_marks(config.symbol.trim(), |id| config.reads(id)).is_some_and(|marks| {
+        cycle::in_phase(
+            &cycle::periods(&marks, offset),
+            today,
+            i64::from(config.sensitive),
+        )
+    })
 }
 
 /// The events of the last reading of the horizon: none before the first.
@@ -436,8 +467,8 @@ fn read_horizon(cycles: &[Ciclo]) -> bool {
     };
     let mut events = Vec::new();
     for source in &sources {
-        match google::get_json::<EventsPage>(&source.account, &events_url(source, from, to, None)) {
-            Ok(page) => events.extend(calendar::read_events(page.items, source, offset)),
+        match self::events(source, from, to, None) {
+            Ok(items) => events.extend(calendar::read_events(items, source, offset)),
             Err(GoogleError::Unexpected) => {}
             Err(_) => return false,
         }
@@ -531,9 +562,28 @@ fn sources(accounts: &[String]) -> Result<Vec<Source>, GoogleError> {
     Ok(sources)
 }
 
-/// The events of `source` between `from` and `to`; with `query`, only those
-/// that have it (Google's `q`).
-fn events_url(source: &Source, from: i64, to: i64, query: Option<&str>) -> String {
+/// The events of `source` between `from` and `to`, every page of them
+/// (Google gives 250 a page); with `query`, only those that have it
+/// (Google's `q`).
+fn events(
+    source: &Source,
+    from: i64,
+    to: i64,
+    query: Option<&str>,
+) -> Result<Vec<calendar::GoogleEvent>, GoogleError> {
+    calendar::all_pages(|token| {
+        google::get_json::<EventsPage>(&source.account, &events_url(source, from, to, query, token))
+    })
+}
+
+/// The address of a page of [`events`]: the first without `page`.
+fn events_url(
+    source: &Source,
+    from: i64,
+    to: i64,
+    query: Option<&str>,
+    page: Option<&str>,
+) -> String {
     let stamp = |at: i64| {
         jiff::Timestamp::from_second(at)
             .map(|at| at.to_string())
@@ -554,6 +604,9 @@ fn events_url(source: &Source, from: i64, to: i64, query: Option<&str>) -> Strin
         .append_pair("maxResults", "250");
     if let Some(query) = query {
         url.query_pairs_mut().append_pair("q", query);
+    }
+    if let Some(page) = page {
+        url.query_pairs_mut().append_pair("pageToken", page);
     }
     url.into()
 }
@@ -600,8 +653,8 @@ fn read() -> Snapshot {
     let mut events = Vec::new();
     let mut status = Status::Ok;
     for source in &sources {
-        match google::get_json::<EventsPage>(&source.account, &events_url(source, from, to, None)) {
-            Ok(page) => events.extend(calendar::read_events(page.items, source, offset)),
+        match self::events(source, from, to, None) {
+            Ok(items) => events.extend(calendar::read_events(items, source, offset)),
             Err(GoogleError::SignInAgain) => status = Status::SignInAgain,
             // A calendar that can't be read (no longer shared): the others
             // still show.
@@ -729,6 +782,7 @@ mod tests {
             1_793_156_400,
             1_793_329_200,
             Some("🌸"),
+            None,
         ))
         .unwrap();
         assert_eq!(
@@ -741,6 +795,11 @@ mod tests {
         assert_eq!(pairs["singleEvents"], "true");
         // The Ciclo asks only for the events with its symbol.
         assert_eq!(pairs["q"], "🌸");
+        // The first page has no token; the next ones, Google's.
+        assert!(!pairs.contains_key("pageToken"));
+        let next = url::Url::parse(&events_url(&source, 0, 1, None, Some("p2"))).unwrap();
+        let next: std::collections::HashMap<_, _> = next.query_pairs().into_owned().collect();
+        assert_eq!(next["pageToken"], "p2");
     }
 
     #[test]

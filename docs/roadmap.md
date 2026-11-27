@@ -272,7 +272,7 @@ Não verificado: máquina limpa ou virtual, Windows 10, atualização por cima d
 18. GitHub
 19. Clima
 
-**Nota:** a lista consolidada contém 19 itens. Em 2026-10-30 existem Relógio, Progresso do tempo, Calendário, Nota, Música (Tocando agora), Atividade, Rede (Atividade de rede), Beber água, Uso do Claude e Clima, além de widgets fora da lista (Ciclo, Contagem regressiva, Pomodoro, Lista de tarefas e Lançador); Atalho e Arquivos existem só no domínio. A Bateria ficou de fora por decisão do autor (estudo 0002). O widget “Atividade” deverá ter seu escopo definido antes da implementação (por exemplo, CPU/RAM ou atividade de aplicativos).
+**Nota:** a lista consolidada contém 19 itens. Em 2026-10-30 existem Relógio, Progresso do tempo, Calendário, Nota, Música (Tocando agora), Atividade, Rede (Atividade de rede), Beber água, Uso do Claude e Clima, além de widgets fora da lista (o Ciclo, que desde a [spec 0031](specs/0031-ciclo-no-calendario.md) é uma seção do Calendário, Contagem regressiva, Pomodoro, Lista de tarefas e Lançador); Atalho e Arquivos existem só no domínio. A Bateria ficou de fora por decisão do autor (estudo 0002). O widget “Atividade” deverá ter seu escopo definido antes da implementação (por exemplo, CPU/RAM ou atividade de aplicativos).
 
 ## Riscos e mitigação
 

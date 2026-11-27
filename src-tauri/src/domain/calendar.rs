@@ -138,6 +138,32 @@ pub struct GoogleEvent {
 pub struct EventsPage {
     #[serde(default)]
     pub items: Vec<GoogleEvent>,
+    /// Where the next page is, when there are more events than a page
+    /// holds (250).
+    pub next_page_token: Option<String>,
+}
+
+/// The most pages one reading asks for: 5,000 events, past any calendar's
+/// weeks ahead; a token that never ends doesn't hold the reading forever.
+pub const MAX_PAGES: usize = 20;
+
+/// The items of every page `fetch` gives, from the first (no token) to the
+/// last (no `nextPageToken`), up to [`MAX_PAGES`]. A page that fails fails
+/// the reading: half a list would leave out the events farthest ahead.
+pub fn all_pages<E>(
+    mut fetch: impl FnMut(Option<&str>) -> Result<EventsPage, E>,
+) -> Result<Vec<GoogleEvent>, E> {
+    let mut items = Vec::new();
+    let mut token: Option<String> = None;
+    for _ in 0..MAX_PAGES {
+        let page = fetch(token.as_deref())?;
+        items.extend(page.items);
+        match page.next_page_token {
+            Some(next) => token = Some(next),
+            None => break,
+        }
+    }
+    Ok(items)
 }
 
 /// Unix seconds of a `dateTime` (RFC 3339, with its offset).
@@ -678,5 +704,66 @@ mod tests {
         assert_eq!(rgb("#fff"), None);
         assert_eq!(rgb("#gggggg"), None);
         assert_eq!(rgb("#ééé"), None);
+    }
+
+    fn page(ids: &[&str], next: Option<&str>) -> EventsPage {
+        let items: Vec<String> = ids
+            .iter()
+            .map(|id| format!(r#"{{"id":"{id}","start":{{}},"end":{{}}}}"#))
+            .collect();
+        let next = next.map_or(String::new(), |token| {
+            format!(r#","nextPageToken":"{token}""#)
+        });
+        serde_json::from_str(&format!(r#"{{"items":[{}]{next}}}"#, items.join(","))).unwrap()
+    }
+
+    #[test]
+    fn a_page_says_where_the_next_one_is() {
+        assert_eq!(
+            page(&["a"], Some("p2")).next_page_token.as_deref(),
+            Some("p2")
+        );
+        assert_eq!(page(&["a"], None).next_page_token, None);
+    }
+
+    #[test]
+    fn every_page_is_read_until_the_last() {
+        // A full calendar: Google gives 250 a page and the token of the
+        // next; the events far ahead are on the last pages.
+        let mut asked = Vec::new();
+        let items = all_pages(|token| {
+            asked.push(token.map(str::to_owned));
+            Ok::<_, ()>(match token {
+                None => page(&["a", "b"], Some("p2")),
+                Some("p2") => page(&["c"], Some("p3")),
+                _ => page(&["d"], None),
+            })
+        })
+        .unwrap();
+        let ids: Vec<_> = items.iter().map(|event| event.id.as_str()).collect();
+        assert_eq!(ids, ["a", "b", "c", "d"]);
+        assert_eq!(asked, [None, Some("p2".to_owned()), Some("p3".to_owned())]);
+    }
+
+    #[test]
+    fn a_page_that_fails_fails_the_reading() {
+        let result = all_pages(|token| match token {
+            None => Ok(page(&["a"], Some("p2"))),
+            Some(_) => Err("offline"),
+        });
+        assert_eq!(result.map(|items| items.len()), Err("offline"));
+    }
+
+    #[test]
+    fn the_pages_stop_at_a_bound() {
+        // A token that never ends doesn't hold the thread forever.
+        let mut count = 0;
+        let items = all_pages(|_| {
+            count += 1;
+            Ok::<_, ()>(page(&["x"], Some("again")))
+        })
+        .unwrap();
+        assert_eq!(count, MAX_PAGES);
+        assert_eq!(items.len(), MAX_PAGES);
     }
 }

@@ -686,7 +686,11 @@ impl Painter {
                     );
                 }
                 Row::Event {
-                    color, when, title, ..
+                    color,
+                    when,
+                    title,
+                    cycle,
+                    ..
                 } => {
                     // A block in the calendar's color (Google's agenda), the
                     // text white or dark as it reads best.
@@ -716,12 +720,29 @@ impl Painter {
                         DWRITE_TEXT_ALIGNMENT_LEADING,
                         ink,
                     );
+                    // On a day the cycle expects (spec 0031 §3.5): a dot at
+                    // the block's end, in its text's color, with no word.
+                    let dot = if *cycle { 14.0 * s } else { 0.0 };
+                    if *cycle {
+                        let side = 6.0 * s;
+                        self.fill(
+                            &target,
+                            Area {
+                                x: back.x + back.width - 8.0 * s - side,
+                                y: y + (tall - side) / 2.0,
+                                width: side,
+                                height: side,
+                            },
+                            side / 2.0,
+                            ink,
+                        );
+                    }
                     self.text(
                         &target,
                         title,
                         Area {
                             x: inset + time,
-                            width: (line.width - time).max(0.0),
+                            width: (line.width - time - dot).max(0.0),
                             ..line
                         },
                         12.5 * s,
