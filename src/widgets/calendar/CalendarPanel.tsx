@@ -12,12 +12,14 @@ import {
   type CalendarTask,
   type CalendarView,
 } from "../../core/calendar";
+import { dayText, useCycle } from "../../core/cycle";
 import { format, useT } from "../../i18n";
 import PanelFooter from "../../panel/PanelFooter";
 import IconButton from "../../panel/parts/IconButton";
 import PanelHeader from "../../panel/parts/PanelHeader";
 import type { WidgetPanelProps } from "../contract";
 import { widgetName } from "../names";
+import CycleSection from "./CycleSection";
 import "./calendar.css";
 
 /** A calendar's color dot. The color goes through the CSSOM, never a
@@ -185,7 +187,7 @@ function Details({
 }: {
   event: CalendarEvent;
   offset: number;
-  /** Hoje or Amanhã. */
+  /** Hoje, Amanhã or the date of a day ahead. */
   day: string;
   onBack: () => void;
 }) {
@@ -260,7 +262,14 @@ function CalendarPanel({
   const t = useT();
   const text = t.widgets.calendar;
   const view = useCalendar();
+  const cycle = useCycle(instance.config);
   const [open, setOpen] = useState<string | null>(null);
+  // An event of the section Ciclo (spec 0031), maybe weeks ahead: its
+  // details, with its day.
+  const [openAhead, setOpenAhead] = useState<{
+    event: CalendarEvent;
+    day: number;
+  } | null>(null);
   // An event clicked on the card over the dock: its details, once.
   const [taken, setTaken] = useState<CalendarView | null>(null);
   if (view && view !== taken) {
@@ -277,6 +286,16 @@ function CalendarPanel({
   );
 
   const today = dayOf(now, offset);
+  if (openAhead) {
+    return (
+      <Details
+        event={openAhead.event}
+        offset={offset}
+        day={dayText(openAhead.day)}
+        onBack={() => setOpenAhead(null)}
+      />
+    );
+  }
   const selected = shown.find((event) => event.id === open);
   if (selected) {
     return (
@@ -304,6 +323,13 @@ function CalendarPanel({
         focusAction={returnedFromSettings}
       />
       {notice ? <p className="cal-notice">{notice}</p> : null}
+      {instance.config.cycle !== null ? (
+        <CycleSection
+          view={cycle}
+          symbol={instance.config.cycle.symbol}
+          onOpen={(event, day) => setOpenAhead({ event, day })}
+        />
+      ) : null}
       {snapshot === null ? (
         <p className="cal-empty">{text.loading}</p>
       ) : (

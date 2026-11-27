@@ -4,7 +4,7 @@
 
 use rusqlite::{Connection, OptionalExtension, params};
 
-use super::database::{begin, read_failed, write_failed};
+use super::database::{backup_as, begin, read_failed, write_failed};
 use super::{widgets_repo, workspaces_repo};
 use crate::domain::cycle_into_calendar::{Move, plan};
 use crate::domain::widgets::calendar::CalendarConfig;
@@ -43,9 +43,15 @@ fn stored_cycles(conn: &Connection) -> Result<Vec<WidgetInstance>, WidgetError> 
         .collect())
 }
 
-/// Moves the Ciclos into the Calendário, the first time only. Whether a
-/// Ciclo moved. On an error nothing changes, and the next start tries again.
-pub fn run(conn: &mut Connection) -> Result<bool, WidgetError> {
+/// What the copy made before the Ciclos move is called, next to the
+/// database: `dockmax.db.bak-ciclo`.
+const COPY_SUFFIX: &str = ".bak-ciclo";
+
+/// Moves the Ciclos into the Calendário, the first time only, after a copy
+/// of the database at `path` (`dockmax.db.bak-ciclo`). Whether a Ciclo
+/// moved. On an error, the copy's too, nothing changes, and the next start
+/// tries again.
+pub fn run(conn: &mut Connection, path: &std::path::Path) -> Result<bool, WidgetError> {
     let done: Option<String> = conn
         .query_row(
             "SELECT value FROM meta WHERE key = ?1",
@@ -72,6 +78,9 @@ pub fn run(conn: &mut Connection) -> Result<bool, WidgetError> {
             .find(|widget| widget.id.as_str() == id)
             .and_then(|widget| widget.config.cycle().cloned())
     };
+    if !moves.is_empty() {
+        backup_as(conn, path, COPY_SUFFIX)?;
+    }
     let tx = begin(conn)?;
     for each in &moves {
         match each {
@@ -149,6 +158,14 @@ mod tests {
     const CALENDAR: &str = "019a1b2c-3d4e-7f60-8a1b-2c3d4e5f6002";
     const CLOCK: &str = "019a1b2c-3d4e-7f60-8a1b-2c3d4e5f6003";
 
+    /// Where the database file would be (the copy goes next to it), in a
+    /// folder removed when the first value is dropped.
+    fn spot() -> (tempfile::TempDir, std::path::PathBuf) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("dockmax.db");
+        (dir, path)
+    }
+
     fn mine() -> CycleConfig {
         CycleConfig {
             sensitive: 7,
@@ -207,14 +224,16 @@ mod tests {
             ],
             &[&key(CYCLE), &key(CALENDAR), &key(CLOCK)],
         );
-        assert!(run(&mut conn).unwrap());
+        let (_dir, path) = spot();
+        assert!(run(&mut conn, &path).unwrap());
         assert_eq!(calendar_of(&conn, CALENDAR).cycle, Some(mine()));
         let widgets = widgets_repo::list(&conn).unwrap();
         assert_eq!(widgets.len(), 2);
         let workspace = &workspaces_repo::list(&conn).unwrap()[0];
         assert_eq!(workspace.items, [key(CALENDAR), key(CLOCK)]);
         // Once: a later run moves nothing.
-        assert!(!run(&mut conn).unwrap());
+        let (_dir, path) = spot();
+        assert!(!run(&mut conn, &path).unwrap());
     }
 
     #[test]
@@ -229,7 +248,8 @@ mod tests {
         );
         let workspace = workspaces_repo::list(&conn).unwrap()[0].id.clone();
         workspaces_repo::stack_with(&mut conn, &workspace, &key(CYCLE), &key(CALENDAR)).unwrap();
-        assert!(run(&mut conn).unwrap());
+        let (_dir, path) = spot();
+        assert!(run(&mut conn, &path).unwrap());
         let workspace = &workspaces_repo::list(&conn).unwrap()[0];
         assert!(workspace.stacks.is_empty());
         assert_eq!(workspace.items, [key(CALENDAR), key(CLOCK)]);
@@ -245,7 +265,8 @@ mod tests {
             ],
             &[&key(CLOCK), &key(CYCLE)],
         );
-        assert!(run(&mut conn).unwrap());
+        let (_dir, path) = spot();
+        assert!(run(&mut conn, &path).unwrap());
         let calendar = calendar_of(&conn, CYCLE);
         assert_eq!(
             calendar,
@@ -264,12 +285,74 @@ mod tests {
             &[(CLOCK, WidgetConfig::default_for(WidgetKind::Clock))],
             &[&key(CLOCK)],
         );
-        assert!(!run(&mut conn).unwrap());
+        let (_dir, path) = spot();
+        assert!(!run(&mut conn, &path).unwrap());
         let done: String = conn
             .query_row("SELECT value FROM meta WHERE key = ?1", [DONE_KEY], |row| {
                 row.get(0)
             })
             .unwrap();
         assert_eq!(done, "1");
+    }
+
+    fn count(conn: &Connection, sql: &str) -> i64 {
+        conn.query_row(sql, [], |row| row.get(0)).unwrap()
+    }
+
+    #[test]
+    fn a_copy_is_made_before_the_ciclos_move() {
+        let mut conn = database(
+            &[
+                (CYCLE, WidgetConfig::Cycle(mine())),
+                (CALENDAR, WidgetConfig::default_for(WidgetKind::Calendar)),
+            ],
+            &[&key(CYCLE), &key(CALENDAR)],
+        );
+        let (_dir, path) = spot();
+        assert!(run(&mut conn, &path).unwrap());
+        // The copy has the Ciclo as it was, not yet moved.
+        let copy = Connection::open(path.with_file_name("dockmax.db.bak-ciclo")).unwrap();
+        assert_eq!(
+            count(
+                &copy,
+                "SELECT count(*) FROM widget_instances WHERE kind = 'cycle'"
+            ),
+            1
+        );
+        assert_eq!(count(&copy, "SELECT count(*) FROM meta"), 0);
+    }
+
+    #[test]
+    fn without_ciclos_no_copy_is_made() {
+        let mut conn = database(
+            &[(CLOCK, WidgetConfig::default_for(WidgetKind::Clock))],
+            &[&key(CLOCK)],
+        );
+        let (_dir, path) = spot();
+        run(&mut conn, &path).unwrap();
+        assert!(!path.with_file_name("dockmax.db.bak-ciclo").exists());
+    }
+
+    #[test]
+    fn without_a_copy_nothing_moves() {
+        let mut conn = database(
+            &[
+                (CYCLE, WidgetConfig::Cycle(mine())),
+                (CALENDAR, WidgetConfig::default_for(WidgetKind::Calendar)),
+            ],
+            &[&key(CYCLE), &key(CALENDAR)],
+        );
+        // A folder that isn't there: the copy can't be made.
+        let (_dir, path) = spot();
+        let nowhere = path.with_file_name("missing").join("dockmax.db");
+        assert!(run(&mut conn, &nowhere).is_err());
+        assert_eq!(
+            count(
+                &conn,
+                "SELECT count(*) FROM widget_instances WHERE kind = 'cycle'"
+            ),
+            1
+        );
+        assert_eq!(count(&conn, "SELECT count(*) FROM meta"), 0);
     }
 }

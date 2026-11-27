@@ -67,8 +67,9 @@ pub async fn complete_calendar_task(
         })
 }
 
-/// What the Ciclo's panel shows (spec 0017 F2b): where the cycle is, from
-/// the marks the dock read; never the marks themselves.
+/// What the Calendário's section Ciclo shows (spec 0031 §3.4): where the
+/// cycle is, from the marks the dock read (never the marks themselves),
+/// and the events that fall on the days expected.
 #[cfg(windows)]
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -81,38 +82,56 @@ pub struct CycleView {
     /// Today's notices and reminders (F2b-2): the panel says the
     /// reminders' text, which the Windows notice never shows.
     pub notices: Vec<crate::domain::cycle::Notice>,
+    /// Days past the expected start with no new mark.
+    pub late: Option<i64>,
+    /// The events of the shown calendars on the days expected, in order.
+    pub coinciding: Vec<crate::domain::cycle::Coincidence>,
 }
 
-/// The Ciclo of the widget `config` the panel shows.
+/// The cycle of the Calendário `config` the panel shows; an error when its
+/// cycle is off.
 #[cfg(windows)]
 #[tauri::command]
 pub fn cycle_status(
     window: WebviewWindow,
-    config: crate::domain::widgets::CycleConfig,
+    config: crate::domain::widgets::calendar::CalendarConfig,
 ) -> Result<CycleView, String> {
     use crate::domain::cycle;
     only_panel(&window)?;
-    if config.validate().is_err() {
+    let Some(cycle_config) = config.cycle.as_ref().filter(|_| config.validate().is_ok()) else {
         return Err("invalid cycle settings".into());
-    }
+    };
     let offset = calendar::offset();
     let today = cycle::day_of(calendar::now(), offset);
-    let status = calendar::cycle_marks(config.symbol.trim(), |id| config.reads(id)).map(|marks| {
-        cycle::status(
-            &cycle::periods(&marks, offset),
-            today,
-            i64::from(config.sensitive),
-        )
-    });
+    let sensitive = i64::from(cycle_config.sensitive);
+    let periods = calendar::cycle_marks(cycle_config.symbol.trim(), |id| cycle_config.reads(id))
+        .map(|marks| cycle::periods(&marks, offset));
+    let status = periods
+        .as_ref()
+        .map(|periods| cycle::status(periods, today, sensitive));
     let notices = status
         .as_ref()
-        .map(|status| cycle::notices(status, &config, today))
+        .map(|status| cycle::notices(status, cycle_config, today))
+        .unwrap_or_default();
+    let coinciding = periods
+        .as_ref()
+        .map(|periods| {
+            cycle::coinciding(
+                &calendar::horizon(),
+                &cycle::ahead(periods, today, sensitive),
+                offset,
+                cycle_config.symbol.trim(),
+                |id| config.shows(id),
+            )
+        })
         .unwrap_or_default();
     Ok(CycleView {
+        late: status.as_ref().and_then(cycle::late_by),
         status,
         today,
         accounts: !google::accounts().is_empty(),
         notices,
+        coinciding,
     })
 }
 

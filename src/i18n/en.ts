@@ -950,6 +950,17 @@ export const en: Messages = {
         title: "Cycle",
         show: "Show the cycle in the Calendar",
         hint: "Reads the all-day events with the marks' symbol. On the dock, only a dot and the notices' badge.",
+        coincide: "Coinciding",
+        nothing: "Nothing planned on those days.",
+        expected: {
+          sensitive: "PMS",
+          period: "period · day {day}",
+          maybe: "may be the period",
+        },
+        late: {
+          one: "{n} day late",
+          other: "{n} days late",
+        },
       },
       footer: "Updates every minute",
       tasks: "Tasks",

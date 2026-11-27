@@ -112,6 +112,19 @@ struct CycleMarks {
 
 static CYCLE: Mutex<Option<CycleMarks>> = Mutex::new(None);
 
+/// The events from today to the end of the cycles' next period (spec 0031
+/// §3.3), for the Calendário's "Coincidem": read again every half hour, or
+/// when the day or the end changes, only while a Calendário has the cycle
+/// on; in memory only.
+struct Horizon {
+    at: Instant,
+    from: i64,
+    to: i64,
+    events: Vec<Event>,
+}
+
+static HORIZON: Mutex<Option<Horizon>> = Mutex::new(None);
+
 /// How far back the Ciclo looks: a year and a month.
 const CYCLE_BACK: i64 = 400 * 24 * 3600;
 const CYCLE_EVERY: Duration = Duration::from_secs(30 * 60);
@@ -372,6 +385,79 @@ fn read_cycle(symbols: &[String]) -> bool {
     changed
 }
 
+/// The events of the last reading of the horizon: none before the first.
+pub fn horizon() -> Vec<Event> {
+    HORIZON
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .as_ref()
+        .map(|horizon| horizon.events.clone())
+        .unwrap_or_default()
+}
+
+/// Reads the events up to the end of the next period of `cycles`, when the
+/// last reading is old or short. Whether they changed.
+fn read_horizon(cycles: &[Ciclo]) -> bool {
+    use crate::domain::cycle;
+    let offset = offset();
+    let now = now();
+    let today = cycle::day_of(now, offset);
+    let end = cycles
+        .iter()
+        .filter_map(|(_, config)| {
+            let marks = cycle_marks(config.symbol.trim(), |id| config.reads(id))?;
+            cycle::horizon_end(&cycle::ahead(
+                &cycle::periods(&marks, offset),
+                today,
+                i64::from(config.sensitive),
+            ))
+        })
+        .max();
+    let Some(end) = end else {
+        return false;
+    };
+    let (from, _) = calendar::window(now, offset);
+    let to = (end + 1) * 24 * 3600 - offset;
+    {
+        let horizon = HORIZON
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if let Some(horizon) = horizon.as_ref()
+            && horizon.from == from
+            && horizon.to >= to
+            && horizon.at.elapsed() < CYCLE_EVERY
+        {
+            return false;
+        }
+    }
+    let Ok(sources) = sources(&google::accounts()) else {
+        // No connection: the events read before stay.
+        return false;
+    };
+    let mut events = Vec::new();
+    for source in &sources {
+        match google::get_json::<EventsPage>(&source.account, &events_url(source, from, to, None)) {
+            Ok(page) => events.extend(calendar::read_events(page.items, source, offset)),
+            Err(GoogleError::Unexpected) => {}
+            Err(_) => return false,
+        }
+    }
+    let events = calendar::merge(events);
+    let mut horizon = HORIZON
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let changed = horizon
+        .as_ref()
+        .is_none_or(|before| before.events != events);
+    *horizon = Some(Horizon {
+        at: Instant::now(),
+        from,
+        to,
+        events,
+    });
+    changed
+}
+
 fn run() {
     loop {
         let (calendar, cycles) = wanted();
@@ -393,6 +479,9 @@ fn run() {
                 changed
             };
             if changed {
+                super::native_dock::calendar_changed();
+            }
+            if !cycles.is_empty() && read_horizon(&cycles) {
                 super::native_dock::calendar_changed();
             }
         }
