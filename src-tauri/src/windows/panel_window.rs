@@ -14,7 +14,7 @@ use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
-use super::panel::{LABEL, PanelId};
+use super::panel::{LABEL, Page, PanelId};
 
 /// How long the window stays made after the last use (a panel closed, or a
 /// warm-up nobody clicked), before it is destroyed. Opening a panel again
@@ -36,6 +36,29 @@ struct Life {
     pending: Option<Pending>,
     /// The last time the window was wanted.
     last_use: Instant,
+    /// When the window being made was asked for, until its page mounts:
+    /// logged, to tell a slow window from a slow page.
+    asked: Option<Instant>,
+}
+
+impl Life {
+    /// A show waits for the page, or the window is being made: it is not
+    /// to be released.
+    fn busy(&self) -> bool {
+        self.pending.is_some() || self.making
+    }
+
+    /// The panel that waited for the page closed before it mounted.
+    fn cancel(&mut self) {
+        self.pending = None;
+    }
+}
+
+/// The panel that waited for the page closed before it mounted (a second
+/// click, Esc, another panel's window gave up): nothing is left for the
+/// page to take, and the window may be released.
+pub fn cancel() {
+    with_life(Life::cancel);
 }
 
 static LIFE: Mutex<Option<Life>> = Mutex::new(None);
@@ -50,6 +73,7 @@ fn with_life<T>(change: impl FnOnce(&mut Life) -> T) -> T {
         mounted: false,
         pending: None,
         last_use: Instant::now(),
+        asked: None,
     });
     change(life)
 }
@@ -58,6 +82,18 @@ fn with_life<T>(change: impl FnOnce(&mut Life) -> T) -> T {
 pub fn ready(app: &AppHandle) -> Option<WebviewWindow> {
     let window = app.get_webview_window(LABEL)?;
     with_life(|life| life.mounted).then_some(window)
+}
+
+/// Where the page stands: mounted, coming (the window is made or being
+/// made) or missing.
+pub fn page(app: &AppHandle) -> Page {
+    if ready(app).is_some() {
+        Page::Up
+    } else if app.get_webview_window(LABEL).is_some() || with_life(|life| life.making) {
+        Page::Coming
+    } else {
+        Page::Missing
+    }
 }
 
 /// Keeps a show for the page to take when it has mounted, and makes the
@@ -73,6 +109,17 @@ pub fn mounted() -> Option<Pending> {
     with_life(|life| {
         life.mounted = true;
         life.last_use = Instant::now();
+        if let Some(asked) = life.asked.take() {
+            log::info!(
+                "panel: page mounted {} ms after the window was asked for{}",
+                asked.elapsed().as_millis(),
+                if life.pending.is_some() {
+                    ", a panel waiting"
+                } else {
+                    ""
+                }
+            );
+        }
         life.pending.take()
     })
 }
@@ -96,7 +143,13 @@ fn ensure(app: &AppHandle) {
     if app.get_webview_window(LABEL).is_some() {
         return;
     }
-    let start = with_life(|life| !std::mem::replace(&mut life.making, true));
+    let start = with_life(|life| {
+        let start = !std::mem::replace(&mut life.making, true);
+        if start {
+            life.asked = Some(Instant::now());
+        }
+        start
+    });
     if !start {
         return;
     }
@@ -126,6 +179,9 @@ fn ensure(app: &AppHandle) {
             };
             match built {
                 Ok(window) => {
+                    if let Some(asked) = with_life(|life| life.asked) {
+                        log::info!("panel: window made in {} ms", asked.elapsed().as_millis());
+                    }
                     let handle = app.clone();
                     // The window's own setup (subclass, events) on its
                     // thread.
@@ -175,8 +231,8 @@ fn check_later(app: &AppHandle) {
                     thread::sleep(KEEP_WARM - idle);
                     continue;
                 }
-                let busy = super::panel::lock(&app).open().is_some()
-                    || with_life(|life| life.pending.is_some() || life.making);
+                let busy =
+                    super::panel::lock(&app).open().is_some() || with_life(|life| life.busy());
                 if busy {
                     with_life(|life| life.last_use = Instant::now());
                     continue;
@@ -206,5 +262,46 @@ fn release(app: &AppHandle) {
         if let Err(error) = window.destroy() {
             log::warn!("panel: the window could not be released: {error}");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn life() -> Life {
+        Life {
+            making: false,
+            mounted: false,
+            pending: None,
+            last_use: Instant::now(),
+            asked: None,
+        }
+    }
+
+    /// A click whose page never mounted, cancelled by a second click: the
+    /// window it waited for no longer counts as in use, so it is released
+    /// after `KEEP_WARM` and the next click makes a new one, instead of
+    /// waiting on the same page forever.
+    #[test]
+    fn a_wait_cancelled_before_the_page_mounts_leaves_nothing_pending() {
+        let mut life = life();
+        life.pending = Some(Pending {
+            panel_id: PanelId::About,
+            wait: 1,
+        });
+        assert!(life.busy());
+
+        life.cancel();
+
+        assert!(!life.busy());
+        assert_eq!(life.pending, None);
+    }
+
+    #[test]
+    fn a_window_being_made_is_busy() {
+        let mut life = life();
+        life.making = true;
+        assert!(life.busy());
     }
 }
