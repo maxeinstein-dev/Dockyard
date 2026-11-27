@@ -416,6 +416,15 @@ pub fn in_phase(config: &CycleConfig) -> bool {
     })
 }
 
+/// Whether the horizon was read once: before, `horizon` is empty for want
+/// of a reading, not of events.
+pub fn horizon_read() -> bool {
+    HORIZON
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .is_some()
+}
+
 /// The events of the last reading of the horizon: none before the first.
 pub fn horizon() -> Vec<Event> {
     HORIZON

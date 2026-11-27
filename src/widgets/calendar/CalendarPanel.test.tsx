@@ -413,6 +413,7 @@ describe("CalendarPanel › Ciclo (spec 0031)", () => {
       notices: [],
       late: null,
       coinciding: [],
+      aheadRead: true,
       ...partial,
     };
   }
@@ -525,6 +526,15 @@ describe("CalendarPanel › Ciclo (spec 0031)", () => {
     answerBoth(view([]), cycleView());
     show(withCycle());
     expect(await screen.findByText(text.cycle.nothing)).toBeInTheDocument();
+  });
+
+  it("in the app's first minute, says it is still reading, not that nothing coincides", async () => {
+    // The days ahead are read after the dock's first reading: until then,
+    // "Nada marcado" would be wrong (live test of 2026-11-27).
+    answerBoth(view([]), cycleView({ aheadRead: false }));
+    show(withCycle());
+    expect(await screen.findByText(text.cycle.reading)).toBeInTheDocument();
+    expect(screen.queryByText(text.cycle.nothing)).toBeNull();
   });
 
   it("shows nothing of the cycle while it is off", async () => {

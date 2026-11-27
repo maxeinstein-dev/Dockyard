@@ -55,6 +55,9 @@ export interface CycleView {
   late: number | null;
   /** The events of the shown calendars on the days expected, in order. */
   coinciding: Coincidence[];
+  /** Whether the days ahead were read: in the app's first minute they are
+   * not yet, and an empty list means nothing. */
+  aheadRead: boolean;
 }
 
 /** What became of a test notice: `off` when Windows has the notices off,

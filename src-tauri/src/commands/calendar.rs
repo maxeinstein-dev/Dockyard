@@ -86,6 +86,9 @@ pub struct CycleView {
     pub late: Option<i64>,
     /// The events of the shown calendars on the days expected, in order.
     pub coinciding: Vec<crate::domain::cycle::Coincidence>,
+    /// Whether the days ahead were read: in the app's first minute they
+    /// are not yet, and an empty `coinciding` means nothing.
+    pub ahead_read: bool,
 }
 
 /// The cycle of the Calendário `config` the panel shows; an error when its
@@ -132,6 +135,7 @@ pub fn cycle_status(
         accounts: !google::accounts().is_empty(),
         notices,
         coinciding,
+        ahead_read: calendar::horizon_read(),
     })
 }
 
