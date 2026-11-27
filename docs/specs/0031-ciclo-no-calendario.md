@@ -87,6 +87,7 @@ Com o ciclo ligado, uma seção **Ciclo** abre o painel, antes de hoje e amanhã
    - **A linha mostra:** a data curta, o ponto da cor da agenda, o título e a fase ("TPM", "menstruação · 2º dia" ou "pode ser menstruação" no atraso).
    - **Clique:** abre os detalhes, como os outros eventos.
    - **Sem nenhum evento,** a seção diz "Nada marcado nesses dias."
+   - **No primeiro minuto do app,** a leitura dos próximos dias ainda não aconteceu, e a lista vazia não quer dizer nada. Nesse caso a seção diz "Lendo os próximos dias…" (`ahead_read`). O teste ao vivo de 2026-11-27 mostrou um "Nada marcado" falso nesse primeiro minuto.
 4. **Próxima prevista:** a data. Embaixo, numa nota: "Com base nos últimos N ciclos" ou o texto dos padrões.
 
 As médias de ciclo e de duração saem do painel. O rodapé "Lido dos eventos 🌸, sem guardar" vai para o fim da seção.

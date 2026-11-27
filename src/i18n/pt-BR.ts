@@ -1168,6 +1168,7 @@ const messages = {
         hint: "Lê os eventos de dia inteiro com o símbolo das marcas. No dock, só um ponto e o selo dos avisos.",
         coincide: "Coincidem",
         nothing: "Nada marcado nesses dias.",
+        reading: "Lendo os próximos dias…",
         expected: {
           sensitive: "TPM",
           period: "menstruação · {day}º dia",

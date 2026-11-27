@@ -107,7 +107,9 @@ function CycleSection({
               ))}
             </ul>
           ) : (
-            <p className="cal-empty">{text.nothing}</p>
+            <p className="cal-empty">
+              {view?.aheadRead ? text.nothing : text.reading}
+            </p>
           )}
           {status.next !== null ? (
             <p className="cal-cycle-next">

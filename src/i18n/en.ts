@@ -952,6 +952,7 @@ export const en: Messages = {
         hint: "Reads the all-day events with the marks' symbol. On the dock, only a dot and the notices' badge.",
         coincide: "Coinciding",
         nothing: "Nothing planned on those days.",
+        reading: "Reading the days ahead…",
         expected: {
           sensitive: "PMS",
           period: "period · day {day}",
