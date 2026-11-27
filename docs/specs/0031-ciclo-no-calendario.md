@@ -111,7 +111,7 @@ As médias de ciclo e de duração saem do painel. O rodapé "Lido dos eventos �
 
 ### 3.7 Migração
 
-Roda uma vez, com o backup que o banco já faz antes de migrar. Para cada instância de Ciclo:
+Roda uma vez. Antes de mexer, faz uma cópia do banco, `dockmax.db.bak-ciclo`, ao lado dele (recorte 3, a pedido do autor). O backup que o banco já fazia só vale para mudanças de estrutura, e esta não é uma. Sem a cópia, nada muda, e a próxima abertura tenta de novo. Para cada instância de Ciclo:
 
 1. **Na mesma pilha de um Calendário** (spec 0023): o `CycleConfig` vai para esse Calendário, e o Ciclo sai da pilha. Uma pilha que fica com um só widget vira o widget solto, como ao desempilhar.
 2. **Senão, com um Calendário no mesmo espaço de trabalho e no mesmo dock:** vai para esse Calendário (o primeiro, na ordem do dock).

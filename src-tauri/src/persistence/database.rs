@@ -121,10 +121,11 @@ impl Storage {
     /// Never fails; see the module docs.
     pub fn open(dir: &Path) -> Storage {
         let mut storage = open_with(dir, MIGRATIONS);
-        // The Ciclo became a part of the Calendário (spec 0031 §3.7). A
-        // failure leaves everything as it was, for the next start.
+        // The Ciclo became a part of the Calendário (spec 0031 §3.7), with a
+        // copy first. A failure leaves everything as it was, for the next
+        // start.
         if let Some(conn) = storage.conn.as_mut()
-            && let Err(error) = super::cycle_into_calendar::run(conn)
+            && let Err(error) = super::cycle_into_calendar::run(conn, &dir.join(FILE_NAME))
         {
             log::warn!("cycle: the Ciclos were not moved: {error}");
         }
@@ -767,9 +768,23 @@ fn quick_check(conn: &Connection) -> rusqlite::Result<bool> {
 /// left by a migration that failed on an earlier start, is the backup: a
 /// migration failing on every start doesn't add a copy each time.
 fn backup(conn: &Connection, path: &Path, version: usize) -> Result<(), Cause> {
-    let base = with_suffix(path, &format!(".bak-v{version}"));
+    copy_into(conn, &with_suffix(path, &format!(".bak-v{version}")))
+}
+
+/// A copy of the database next to `path`, `dockmax.db<suffix>` (numbered
+/// like [`backup`]), before a change of the data that the migrations don't
+/// make: the Ciclo moving into the Calendário (spec 0031 §3.7).
+pub(super) fn backup_as(conn: &Connection, path: &Path, suffix: &str) -> Result<(), WidgetError> {
+    copy_into(conn, &with_suffix(path, suffix)).map_err(|cause| {
+        log::warn!("widgets: the copy before a change failed: {cause}");
+        WidgetError::WriteFailed
+    })
+}
+
+/// [`backup`] to `base`, or `base` numbered.
+fn copy_into(conn: &Connection, base: &Path) -> Result<(), Cause> {
     for n in 1..=MAX_NUMBER {
-        let candidate = numbered(&base, n);
+        let candidate = numbered(base, n);
         if !candidate.try_exists().map_err(|e| Cause::Io(e.kind()))? {
             let target = candidate
                 .to_str()

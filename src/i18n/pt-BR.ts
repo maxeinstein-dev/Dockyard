@@ -1166,6 +1166,17 @@ const messages = {
         title: "Ciclo",
         show: "Mostrar o ciclo no Calendário",
         hint: "Lê os eventos de dia inteiro com o símbolo das marcas. No dock, só um ponto e o selo dos avisos.",
+        coincide: "Coincidem",
+        nothing: "Nada marcado nesses dias.",
+        expected: {
+          sensitive: "TPM",
+          period: "menstruação · {day}º dia",
+          maybe: "pode ser menstruação",
+        },
+        late: {
+          one: "Atrasou {n} dia",
+          other: "Atrasou {n} dias",
+        },
       },
       footer: "Atualiza a cada minuto",
       /** Google Tasks (F2a-3). */

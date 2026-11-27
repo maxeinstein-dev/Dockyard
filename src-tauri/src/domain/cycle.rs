@@ -275,10 +275,6 @@ pub enum Expected {
 /// order and each once: the rest of the period going on, the sensitive
 /// window and the next period. Late, today and the days after it of the
 /// average period, as maybe the period. Empty without marks.
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "used by the Calendário in spec 0031 PR 3")
-)]
 pub fn ahead(periods: &[Period], today: i64, sensitive: i64) -> Vec<(i64, Expected)> {
     let status = status(periods, today, sensitive);
     let (Some(last), Some(next)) = (status.last, status.next) else {
@@ -322,10 +318,6 @@ pub fn ahead(periods: &[Period], today: i64, sensitive: i64) -> Vec<(i64, Expect
 }
 
 /// How many days past the expected start, with no new mark.
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "used by the Calendário in spec 0031 PR 3")
-)]
 pub fn late_by(status: &Status) -> Option<i64> {
     match status.phase {
         Phase::Between { days } if days < 0 => Some(-days),
@@ -336,10 +328,6 @@ pub fn late_by(status: &Status) -> Option<i64> {
 /// The first expected day an event from `start` to `end` (exclusive, in
 /// seconds) falls on, and what it is. An all-day event runs from local
 /// midnight to local midnight, as Google gives it.
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "used by the Calendário in spec 0031 PR 3")
-)]
 pub fn overlaps(
     start: i64,
     end: i64,
@@ -354,9 +342,54 @@ pub fn overlaps(
         .copied()
 }
 
+/// An event that falls on an expected day (spec 0031 §3.4): the event, the
+/// first such day, and what that day is expected to be.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Coincidence {
+    pub event: crate::domain::calendar::Event,
+    pub day: i64,
+    pub expected: Expected,
+}
+
+/// Google's calendars of holidays: their days are not plans.
+fn holidays(calendar: &str) -> bool {
+    calendar.contains("#holiday@group.v.calendar.google.com")
+}
+
+/// The `events` (in order) that fall on the days `ahead`, in the calendars
+/// `shows` takes: not the holidays, nor the marks of `symbol`.
+pub fn coinciding(
+    events: &[crate::domain::calendar::Event],
+    ahead: &[(i64, Expected)],
+    offset: i64,
+    symbol: &str,
+    shows: impl Fn(&str) -> bool,
+) -> Vec<Coincidence> {
+    events
+        .iter()
+        .filter(|event| {
+            shows(&event.calendar) && !holidays(&event.calendar) && !event.title.contains(symbol)
+        })
+        .filter_map(|event| {
+            overlaps(event.start, event.end, offset, ahead).map(|(day, expected)| Coincidence {
+                event: event.clone(),
+                day,
+                expected,
+            })
+        })
+        .collect()
+}
+
+/// The last day `ahead` reaches: how far the events must be read.
+pub fn horizon_end(ahead: &[(i64, Expected)]) -> Option<i64> {
+    ahead.last().map(|(day, _)| *day)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::calendar::Event;
 
     const BRT: i64 = -3 * 3600;
 
@@ -666,5 +699,75 @@ mod tests {
         assert_eq!(overlaps(at(150, 23), at(151, 0), BRT, &days), None);
         // Nothing expected that day.
         assert_eq!(overlaps(at(141, 9), at(141, 10), BRT, &days), None);
+    }
+
+    fn event(id: &str, calendar: &str, title: &str, start: i64, end: i64) -> Event {
+        Event {
+            id: id.into(),
+            calendar: calendar.into(),
+            calendar_name: calendar.into(),
+            color: None,
+            title: title.into(),
+            start,
+            end,
+            all_day: false,
+            location: None,
+            description: None,
+            join: None,
+            link: None,
+            busy: false,
+            key: id.into(),
+        }
+    }
+
+    #[test]
+    fn the_events_on_expected_days_coincide_in_order() {
+        let days = ahead(&two_cycles(), 140, 5);
+        let at = |day: i64, hours: i64| day * DAY + hours * 3600 - BRT;
+        let trip = mark(150, 8);
+        let events = [
+            event("past", "max", "Dentista", at(139, 9), at(139, 10)),
+            event("free", "max", "Reunião", at(141, 9), at(141, 10)),
+            event("trip", "noiva", "Viagem", trip.start, trip.end),
+            event("hidden", "work", "Daily", at(152, 9), at(152, 10)),
+            event(
+                "holiday",
+                "pt-br.brazilian#holiday@group.v.calendar.google.com",
+                "Feriado",
+                at(153, 0),
+                at(154, 0),
+            ),
+            event("mark", "noiva", "🌸", at(156, 0), at(157, 0)),
+            event("dinner", "max", "Jantar", at(157, 20), at(157, 22)),
+        ];
+        let shows = |calendar: &str| calendar != "work";
+        let found: Vec<(&str, i64, Expected)> = coinciding(&events, &days, BRT, "🌸", shows)
+            .into_iter()
+            .map(|each| {
+                (
+                    events
+                        .iter()
+                        .find(|e| e.id == each.event.id)
+                        .unwrap()
+                        .id
+                        .as_str(),
+                    each.day,
+                    each.expected,
+                )
+            })
+            .collect();
+        assert_eq!(
+            found,
+            [
+                ("trip", 151, Expected::Sensitive),
+                ("dinner", 157, Expected::Period { day: Some(2) }),
+            ]
+        );
+    }
+
+    #[test]
+    fn the_horizon_ends_with_the_last_expected_day() {
+        assert_eq!(horizon_end(&ahead(&two_cycles(), 140, 5)), Some(160));
+        assert_eq!(horizon_end(&[]), None);
     }
 }

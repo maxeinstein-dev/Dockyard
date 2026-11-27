@@ -1,53 +1,5 @@
-/* The Ciclo (spec 0017 F2b), now inside the Calendário (spec 0031). Tokens
-   of tokens.css only. */
-
-.cycle-phase {
-  margin: 0 0 12px;
-  font: 600 15px / 1.35 var(--font-display);
-}
-
-.cycle-facts {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 6px 12px;
-  margin: 0 0 10px;
-  font-size: var(--fs-label);
-}
-
-.cycle-facts dt {
-  color: var(--ink-2);
-}
-
-.cycle-facts dd {
-  margin: 0;
-  font-variant-numeric: tabular-nums;
-}
-
-.cycle-note {
-  margin: 0;
-  color: var(--ink-2);
-  font-size: var(--fs-caption);
-}
-
-.cycle-today {
-  margin: 0 0 12px;
-  padding: 8px 10px;
-  border-radius: var(--r-panel);
-  background: var(--track);
-}
-
-.cycle-today h3 {
-  margin: 0 0 4px;
-  font-size: var(--fs-caption);
-  font-weight: 600;
-  color: var(--ink-2);
-}
-
-.cycle-today ul {
-  margin: 0;
-  padding: 0 0 0 16px;
-  font-size: var(--fs-label);
-}
+/* The Ciclo's settings (spec 0017 F2b), inside the Calendário's (spec
+   0031). Tokens of tokens.css only. */
 
 .cycle-group {
   min-width: 0;

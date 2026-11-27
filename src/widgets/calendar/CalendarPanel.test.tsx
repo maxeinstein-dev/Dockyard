@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   CalendarEvent,
@@ -6,7 +6,8 @@ import type {
   CalendarView,
 } from "../../core/calendar";
 import { clockText, plainText, sortTasks } from "../../core/calendar";
-import type { WidgetInstance } from "../../core/widgets";
+import type { CycleView } from "../../core/cycle";
+import { DEFAULT_CYCLE, type WidgetInstance } from "../../core/widgets";
 import { ptBR } from "../../i18n/pt-BR";
 import CalendarPanel from "./CalendarPanel";
 import css from "./calendar.css?raw";
@@ -388,5 +389,149 @@ describe("calendar texts", () => {
     expect(clockText(NOW, BRT)).toBe("09:00");
     expect(clockText(NOW + 15 * 3600, BRT)).toBe("00:00");
     expect(plainText("<p>Pauta</p><br>a &amp; b")).toBe("Pauta\n\na & b");
+  });
+});
+
+describe("CalendarPanel › Ciclo (spec 0031)", () => {
+  const cycleText = ptBR.widgets.cycle;
+  // 2026-10-28, the day of NOW in Brasília.
+  const TODAY = 20754;
+  const DAY = 24 * 3600;
+
+  function cycleView(partial: Partial<CycleView> = {}): CycleView {
+    return {
+      status: {
+        phase: { phase: "sensitive", in: 3 },
+        averages: { cycle: 28, period: 5, cycles: 2 },
+        day: 24,
+        last: TODAY - 23,
+        next: TODAY + 3,
+        marks: 3,
+      },
+      today: TODAY,
+      accounts: true,
+      notices: [],
+      late: null,
+      coinciding: [],
+      ...partial,
+    };
+  }
+
+  function withCycle(): WidgetInstance<"calendar"> {
+    const base = instance();
+    return { ...base, config: { ...base.config, cycle: DEFAULT_CYCLE } };
+  }
+
+  function answerBoth(calendar: CalendarView, cycle: CycleView) {
+    invoke.mockImplementation((command: string) =>
+      command === "calendar_events"
+        ? Promise.resolve(calendar)
+        : command === "cycle_status"
+          ? Promise.resolve(cycle)
+          : Promise.resolve(undefined),
+    );
+  }
+
+  it("opens with the phase, today's notices and what coincides", async () => {
+    const trip = event({
+      id: "trip",
+      title: "Viagem",
+      allDay: true,
+      start: NOW + 2 * DAY,
+      end: NOW + 6 * DAY,
+      join: null,
+    });
+    const dinner = event({
+      id: "dinner",
+      title: "Jantar",
+      start: NOW + 4 * DAY + 11 * 3600,
+      end: NOW + 4 * DAY + 13 * 3600,
+      join: null,
+    });
+    answerBoth(
+      view([]),
+      cycleView({
+        notices: [{ kind: "sensitive" }],
+        coinciding: [
+          { event: trip, day: TODAY + 2, expected: { phase: "sensitive" } },
+          {
+            event: dinner,
+            day: TODAY + 4,
+            expected: { phase: "period", day: 2 },
+          },
+        ],
+      }),
+    );
+    const config = withCycle();
+    show(config);
+
+    const section = await screen.findByRole("region", {
+      name: text.cycle.title,
+    });
+    expect(section).toHaveTextContent("TPM · a menstruação deve vir em 3 dias");
+    expect(section).toHaveTextContent(cycleText.notices.sensitive);
+    const coincide = within(section).getByRole("list", {
+      name: text.cycle.coincide,
+    });
+    const rows = within(coincide).getAllByRole("listitem");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent("30/10");
+    expect(rows[0]).toHaveTextContent("Viagem");
+    expect(rows[0]).toHaveTextContent(text.cycle.expected.sensitive);
+    expect(rows[1]).toHaveTextContent("01/11");
+    expect(rows[1]).toHaveTextContent("Jantar");
+    expect(rows[1]).toHaveTextContent("menstruação · 2º dia");
+    expect(section).toHaveTextContent("31/10");
+    expect(section).toHaveTextContent("Com base nos últimos 2 ciclos.");
+    expect(invoke).toHaveBeenCalledWith("cycle_status", {
+      config: config.config,
+    });
+
+    // A click opens its details, as any event's.
+    fireEvent.click(within(coincide).getByRole("button", { name: /Jantar/ }));
+    expect(
+      await screen.findByRole("heading", { name: "Jantar" }),
+    ).toBeInTheDocument();
+  });
+
+  it("says when it is late and what may be the period", async () => {
+    answerBoth(
+      view([]),
+      cycleView({
+        status: {
+          ...cycleView().status!,
+          phase: { phase: "between", in: -2 },
+          next: TODAY - 2,
+        },
+        late: 2,
+        coinciding: [
+          {
+            event: event({ id: "x", title: "Cinema", join: null }),
+            day: TODAY,
+            expected: { phase: "period", day: null },
+          },
+        ],
+      }),
+    );
+    show(withCycle());
+    const section = await screen.findByRole("region", {
+      name: text.cycle.title,
+    });
+    expect(section).toHaveTextContent("Atrasou 2 dias");
+    expect(section).toHaveTextContent(text.cycle.expected.maybe);
+  });
+
+  it("says when nothing coincides", async () => {
+    answerBoth(view([]), cycleView());
+    show(withCycle());
+    expect(await screen.findByText(text.cycle.nothing)).toBeInTheDocument();
+  });
+
+  it("shows nothing of the cycle while it is off", async () => {
+    answer(view([]));
+    show();
+    await screen.findByRole("region", { name: text.today });
+    expect(screen.queryByRole("region", { name: text.cycle.title })).toBeNull();
+    expect(invoke).not.toHaveBeenCalledWith("cycle_status", expect.anything());
   });
 });
